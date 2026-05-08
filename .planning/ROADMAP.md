@@ -33,7 +33,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   4. Operator can configure storage, database, queue, AI providers, CORS, and runtime mode without code changes.
 **Plans**: 9 plans
 Plans:
-- [ ] 01-01-PLAN.md — Repo tooling, runtime pins, root commands, and developer command index.
+- [x] 01-01-PLAN.md — Repo tooling, runtime pins, root commands, and developer command index.
 - [ ] 01-02-PLAN.md — FastAPI API foundation, typed settings, health endpoint, and OpenAPI export.
 - [ ] 01-03-PLAN.md — Celery worker foundation, typed settings, health task, and boundary tests.
 - [ ] 01-04-PLAN.md — Docker Compose local services, env examples, and conditional local smoke checks.
@@ -139,7 +139,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation And Contracts | 0/9 | Planned | - |
+| 1. Foundation And Contracts | 1/9 | In Progress | - |
 | 2. Durable Data, Jobs, And Assets | 0/TBD | Not started | - |
 | 3. First Text-To-2D Generation Slice | 0/TBD | Not started | - |
 | 4. Workbench UI Integration | 0/TBD | Not started | - |
