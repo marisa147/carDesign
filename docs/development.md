@@ -209,6 +209,43 @@ pnpm infra:down
 | FOUND-03 | FastAPI OpenAPI export, `packages/contracts` generated TypeScript client, `pnpm contracts:generate`, `pnpm contracts:check`, and web generated-client import. | Run `pnpm contracts:generate`, `pnpm contracts:check`, and web tests that exercise the generated health wrapper. |
 | FOUND-04 | Root/web/API/worker `.env.example` files plus API and worker settings tests. | Run `node scripts/check-env-examples.mjs`, API config tests, and worker settings tests through `pnpm validate`. |
 
+## Source Coverage
+
+| Source | Coverage In Phase 1 |
+| ------ | ------------------- |
+| Phase 1 goal | `pnpm validate`, `pnpm smoke:local`, `pnpm dev:web`, `pnpm dev:api`, `pnpm dev:worker`, and `pnpm contracts:check` prove the foundation can be configured, run, validated, and understood from root commands. |
+| FOUND-01 | `infra/compose.yml`, `infra/README.md`, `scripts/smoke-local.mjs`, and the documented dev commands cover local web, API, worker, PostgreSQL, Redis, and MinIO run paths. |
+| FOUND-02 | `scripts/validate-all.mjs` sequences frontend, contract, API, and worker lint/type/test checks from `pnpm validate`. |
+| FOUND-03 | `services/api/src/caragent_api/scripts/export_openapi.py`, `packages/contracts/openapi/openapi.json`, `packages/contracts/src/generated/client.ts`, `scripts/check-contracts.mjs`, and `apps/web/src/lib/api/health.ts` cover generated API contracts. |
+| FOUND-04 | `.env.example`, service env examples, API/worker typed settings, env guard, and config tests cover database, queue, storage, provider placeholders, CORS, and runtime mode without code changes. |
+| Research constraints | The monorepo keeps `apps/web`, `services/api`, `services/worker`, `packages/contracts`, and `infra` ownership separate; Python stays `uv`-managed; frontend contracts come from OpenAPI; local infrastructure is Docker Compose; validation is root-runnable. |
+
+| Locked Decision | Shipped Command Or File |
+| --------------- | ----------------------- |
+| D-01 | Monorepo boundaries are represented by `apps/web`, `services/api`, `services/worker`, `packages/contracts`, and `infra`. |
+| D-02 | Worker source stays under `services/worker` and web imports generated contracts through `@caragent/contracts`, not backend internals. |
+| D-03 | No Turborepo, Nx, Kubernetes, LangGraph, ComfyUI, self-hosted model service, or provider SDK workflow was added. |
+| D-04 | `package.json`, `.node-version`, `.python-version`, and service `pyproject.toml` files document pnpm and uv workflows. |
+| D-05 | `.node-version`, `.python-version`, and `packageManager` pin the intended runtime baselines. |
+| D-06 | Root scripts delegate to package/service owners while local service commands remain independently runnable. |
+| D-07 | `infra/compose.yml` owns PostgreSQL, Redis, and MinIO; app processes run locally by default. |
+| D-08 | `.env.example` exposes configurable ports for web, API, PostgreSQL, Redis, and MinIO. |
+| D-09 | API `/health`, Compose healthchecks, and smoke checks prove foundation health without product tables. |
+| D-10 | FastAPI/Pydantic OpenAPI is exported into `packages/contracts/openapi/openapi.json`. |
+| D-11 | `packages/contracts/orval.config.ts` and the generated client define the TypeScript contract path. |
+| D-12 | `/health` is the minimal contract surface used by the web shell. |
+| D-13 | `pnpm contracts:check` and `scripts/check-contracts.mjs` fail on generated artifact drift. |
+| D-14 | Only example env files are committed; real env files remain ignored. |
+| D-15 | API settings use typed `pydantic-settings` validation and reject unsafe config. |
+| D-16 | AI provider keys are placeholders only and are not exercised in Phase 1. |
+| D-17 | `pnpm validate` covers lint, type-check, tests, env guard, contract drift, and service checks. |
+| D-18 | Web, API, worker, and contract tests stay small and focused on foundation behavior. |
+| D-19 | Local commands and docs are the hard requirement; no CI dependency blocks Phase 1. |
+| D-20 | `apps/web` contains the minimal Next.js foundation shell and design-system baseline. |
+| D-21 | Full GPT-style workbench behavior remains outside Phase 1. |
+
+Deferred items from `01-CONTEXT.md` remain out of scope for this phase: durable product tables, real AI generation, uploads, chat behavior, preview controls, export, feedback, auth, true 3D, provider routing, quotas, marketplace flows, and production handoff.
+
 ## Security Notes
 
 - Commit `.env.example` files only; keep real env files, keys, certificates, and local overrides ignored.
