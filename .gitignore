@@ -1,0 +1,58 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Frontend build output
+.next/
+out/
+dist/
+build/
+
+# Python caches and virtual environments
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+.venv/
+venv/
+
+# Test and coverage output
+coverage/
+test-results/
+playwright-report/
+
+# Local environment and secrets
+.env
+.env.local
+.env.*.local
+apps/web/.env.local
+apps/web/.env.*.local
+services/api/.env
+services/api/.env.local
+services/api/.env.*.local
+services/worker/.env
+services/worker/.env.local
+services/worker/.env.*.local
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Logs
+*.log
+logs/
+
+# Temporary generated check files
+tmp/
+temp/
+.tmp/
+.contract-check/
+.generated-check/
+*.tmp
+
+# Keep committed examples visible.
+!.env.example
+!**/.env.example
