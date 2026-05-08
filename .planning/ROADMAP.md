@@ -37,9 +37,9 @@ Plans:
 - [x] 01-02-PLAN.md — FastAPI API foundation, typed settings, health endpoint, and OpenAPI export.
 - [x] 01-03-PLAN.md — Celery worker foundation, typed settings, health task, and boundary tests.
 - [x] 01-04-PLAN.md — Docker Compose local services, env examples, and conditional local smoke checks.
-- [ ] 01-05-PLAN.md — Contract package scaffold and OpenAPI-first generator configuration.
+- [x] 01-05-PLAN.md — Contract package scaffold and OpenAPI-first generator configuration.
 - [ ] 01-06-PLAN.md — Generated OpenAPI/client artifacts and contract drift checking.
-- [ ] 01-07-PLAN.md — Next.js scaffold and design-system baseline.
+- [x] 01-07-PLAN.md — Next.js scaffold and design-system baseline.
 - [ ] 01-08-PLAN.md — Web foundation shell, generated health-client integration, and tests.
 - [ ] 01-09-PLAN.md — Aggregate validation runner and final developer/operator docs.
 **UI hint**: yes
@@ -139,7 +139,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation And Contracts | 4/9 | In Progress | - |
+| 1. Foundation And Contracts | 6/9 | In Progress | - |
 | 2. Durable Data, Jobs, And Assets | 0/TBD | Not started | - |
 | 3. First Text-To-2D Generation Slice | 0/TBD | Not started | - |
 | 4. Workbench UI Integration | 0/TBD | Not started | - |
