@@ -15,7 +15,7 @@ export type FoundationStatusId =
 
 export type FoundationStatusState =
   | "connected"
-  | "generated"
+  | "current"
   | "unavailable"
   | "not-configured";
 
@@ -120,7 +120,7 @@ function dependencyCard(
       detail: dependency.detail ?? `${label} ready.`,
       id,
       label,
-      state: label === "Contracts" ? "generated" : "connected",
+      state: label === "Contracts" ? "current" : "connected",
       statusLabel: label === "Contracts" ? "已生成" : "已连接",
     };
   }
