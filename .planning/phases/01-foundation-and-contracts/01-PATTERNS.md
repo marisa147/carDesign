@@ -118,8 +118,6 @@ services/
     src/caragent_api/
       main.py
       config.py
-      schemas/
-      routers/
       scripts/export_openapi.py
     tests/
   worker/
@@ -171,7 +169,7 @@ Component inventory is limited to official shadcn/ui `button`, `badge`, `card`, 
 
 ### API Foundation
 
-**Planned files:** `services/api/pyproject.toml`, `services/api/src/caragent_api/main.py`, `config.py`, `schemas/**`, `routers/**`, `scripts/export_openapi.py`, `tests/**`, `services/api/.env.example`  
+**Planned files:** `services/api/pyproject.toml`, `services/api/src/caragent_api/main.py`, `config.py`, `scripts/export_openapi.py`, `tests/**`, `services/api/.env.example`  
 **Role / data flow:** controller / model / config / utility / test, request-response + transform  
 **Source analog:** none  
 **Planning analog:** `01-RESEARCH.md` lines 174-178 and 459-480
@@ -255,7 +253,6 @@ export default defineConfig({
     input: "./openapi/openapi.json",
     output: {
       target: "./src/generated/client.ts",
-      schemas: "./src/generated/model",
       client: "react-query",
     },
   },
@@ -342,7 +339,7 @@ FOUND-04: API config parsing tests and `.env.example` coverage check
 
 - Treat this file as a greenfield pattern map: there are no local code imports, auth guards, repository classes, UI components, or error wrappers to copy.
 - Keep source ownership aligned with `01-RESEARCH.md` lines 430-433: `apps/web` owns shell/client consumption, `services/api` owns settings/health/OpenAPI, `services/worker` owns Celery boot/import, and `packages/contracts` owns OpenAPI/generated TypeScript code.
-- Build in the dependency order from `01-RESEARCH.md` lines 414-419: root tooling, API/worker, contracts, infra/smoke, web shell, aggregate validation/docs.
+- Build in the dependency order from the revised `01-RESEARCH.md` plan split: root tooling; API, worker, and local services in parallel; contract scaffold; contract generation/drift check; web scaffold; web shell health integration; aggregate validation/docs.
 - Any generated files should be reproducible from committed config and scripts. Generated contract artifacts may be committed if the planner/executor chooses that as the drift-check baseline.
 - If Docker daemon, `uv`, `pnpm`, or Node/Python pins are unavailable in the sandbox, document the manual prerequisite and keep validation commands deterministic for the host environment.
 - Do not expand Phase 1 into durable product schema, real AI generation, upload, chat, preview controls, export, auth, 3D, or provider validation.

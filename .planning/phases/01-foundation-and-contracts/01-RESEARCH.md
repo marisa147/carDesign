@@ -133,8 +133,6 @@ services/
     src/caragent_api/
       main.py
       config.py
-      schemas/
-      routers/
       scripts/export_openapi.py
     tests/
   worker/
@@ -290,7 +288,6 @@ export default defineConfig({
     input: "./openapi/openapi.json",
     output: {
       target: "./src/generated/client.ts",
-      schemas: "./src/generated/model",
       client: "react-query",
     },
   },
@@ -411,19 +408,24 @@ Phase 1 security planning should focus on ASVS L1 configuration, API/web-service
 
 | Plan | Owns | Dependencies | Key Files |
 |------|------|--------------|-----------|
-| Plan 01A - Repo Tooling And Root Commands | Root workspace files, runtime pins, package manager setup, documentation skeleton. [VERIFIED: 01-CONTEXT.md D-01/D-06] | none | `package.json`, `pnpm-workspace.yaml`, `.node-version`, `.python-version`, `.gitignore`, `docs/development.md` |
-| Plan 01B - API And Worker Foundations | FastAPI app, typed settings, health endpoint, worker app, Python tests/lint/type setup. [VERIFIED: 01-CONTEXT.md D-02/D-12/D-15/D-18] | 01A | `services/api/**`, `services/worker/**` |
-| Plan 01C - Contract Package And Generated Client | OpenAPI export, Orval config, generated client, drift check. [VERIFIED: 01-CONTEXT.md D-10/D-13] | 01B | `packages/contracts/**`, root scripts |
-| Plan 01D - Local Services And Smoke Validation | Docker Compose, env examples, service healthchecks, smoke scripts. [VERIFIED: 01-CONTEXT.md D-07/D-09/D-14/D-17] | 01B | `infra/compose.yml`, `.env.example`, smoke scripts |
-| Plan 01E - Minimal Web Shell | Next.js/shadcn/Tailwind shell consuming generated health contract. [VERIFIED: 01-CONTEXT.md D-20/D-21; VERIFIED: 01-UI-SPEC.md] | 01A, 01C | `apps/web/**` |
-| Plan 01F - Aggregate Validation And Docs | Root `validate`, troubleshooting docs, final local run instructions. [VERIFIED: 01-CONTEXT.md D-06/D-17/D-19] | 01B, 01C, 01D, 01E | `docs/development.md`, root scripts, README if created |
+| Plan 01-01 - Repo Tooling And Root Commands | Root workspace files, runtime pins, package manager setup, documentation skeleton. [VERIFIED: 01-CONTEXT.md D-01/D-06] | none | `package.json`, `pnpm-workspace.yaml`, `.node-version`, `.python-version`, `.gitignore`, `docs/development.md` |
+| Plan 01-02 - API Foundation | FastAPI app, typed settings, health endpoint, OpenAPI export, and API tests. [VERIFIED: 01-CONTEXT.md D-10/D-12/D-15/D-18] | 01-01 | `services/api/**` |
+| Plan 01-03 - Worker Foundation | Celery app, typed worker settings, health task, worker tests, and API import boundary checks. [VERIFIED: 01-CONTEXT.md D-02/D-17/D-18] | 01-01 | `services/worker/**` |
+| Plan 01-04 - Local Services And Environment Examples | Docker Compose, env examples, service healthchecks, env guard, and conditional smoke scripts. [VERIFIED: 01-CONTEXT.md D-07/D-09/D-14/D-17] | 01-01 | `infra/compose.yml`, `.env.example`, service env examples, smoke scripts |
+| Plan 01-05 - Contract Package Scaffold | Contracts package metadata, Orval config, package exports, and artifact directories. [VERIFIED: 01-CONTEXT.md D-10/D-11] | 01-02 | `packages/contracts/package.json`, `packages/contracts/orval.config.ts` |
+| Plan 01-06 - Contract Generation And Drift Check | Generated OpenAPI, generated TypeScript client, and drift check script. [VERIFIED: 01-CONTEXT.md D-10/D-13] | 01-05 | `packages/contracts/openapi/openapi.json`, `packages/contracts/src/generated/client.ts`, `scripts/check-contracts.mjs` |
+| Plan 01-07 - Web Scaffold And Design System Baseline | Next.js package, strict frontend tooling, Tailwind/shadcn baseline, and core UI components. [VERIFIED: 01-CONTEXT.md D-20; VERIFIED: 01-UI-SPEC.md] | 01-01 | `apps/web/package.json`, `apps/web/src/app/globals.css`, approved core UI components |
+| Plan 01-08 - Web Shell Health Integration And Tests | Phase 1 shell, public env wrapper, generated health client consumption, and UI tests. [VERIFIED: 01-CONTEXT.md D-10/D-13/D-20/D-21; VERIFIED: 01-UI-SPEC.md] | 01-06, 01-07 | `apps/web/src/app/page.tsx`, `apps/web/src/lib/api/health.ts`, `apps/web/src/app/page.test.tsx` |
+| Plan 01-09 - Aggregate Validation And Docs | Root `validate`, troubleshooting docs, source coverage, and final local run instructions. [VERIFIED: 01-CONTEXT.md D-06/D-17/D-19] | 01-02, 01-03, 01-04, 01-06, 01-08 | `scripts/validate-all.mjs`, `docs/development.md`, `README.md` |
 
 ### Suggested Waves
 
-- **Wave 1:** 01A, then 01B. [VERIFIED: dependency reasoning from 01-CONTEXT.md D-01/D-02/D-04]
-- **Wave 2:** 01C and 01D after API settings/health exist. [VERIFIED: dependency reasoning from 01-CONTEXT.md D-10/D-17]
-- **Wave 3:** 01E after generated contracts exist. [VERIFIED: 01-CONTEXT.md D-11/D-20]
-- **Wave 4:** 01F after all command surfaces exist. [VERIFIED: 01-CONTEXT.md D-17/D-19]
+- **Wave 1:** 01-01. [VERIFIED: dependency reasoning from 01-CONTEXT.md D-01/D-04/D-06]
+- **Wave 2:** 01-02, 01-03, and 01-04 in parallel after root commands exist. [VERIFIED: dependency reasoning from 01-CONTEXT.md D-02/D-07/D-10/D-17]
+- **Wave 3:** 01-05 and 01-07 in parallel after API/root foundations exist. [VERIFIED: 01-CONTEXT.md D-10/D-20]
+- **Wave 4:** 01-06 after the contract package scaffold exists. [VERIFIED: 01-CONTEXT.md D-11/D-13]
+- **Wave 5:** 01-08 after generated contracts and the web scaffold exist. [VERIFIED: 01-CONTEXT.md D-11/D-20]
+- **Wave 6:** 01-09 after API, worker, local services, contracts, and web shell validation surfaces exist. [VERIFIED: 01-CONTEXT.md D-17/D-19]
 
 ### Ownership Boundaries
 
@@ -489,7 +491,6 @@ export default defineConfig({
     input: "./openapi/openapi.json",
     output: {
       target: "./src/generated/client.ts",
-      schemas: "./src/generated/model",
       client: "react-query",
     },
   },
@@ -518,32 +519,32 @@ Orval documents `client: "react-query"` for generating TanStack Query hooks from
 
 **Missing dependencies with fallback:** host `psql`, `redis-cli`, and `mc` can be replaced by Compose healthchecks and app-level smoke checks. [VERIFIED: local commands; CITED: Docker Compose docs]
 
-## Open Questions And Executor Checks
+## Open Questions (RESOLVED As Executor Checks)
 
 1. **Exact package patches**
    - What we know: Recommended version families are verified from official docs/registries. [CITED: npm registry; CITED: PyPI; CITED: official docs]
    - What's unclear: Exact latest patches may change before implementation. [VERIFIED: user additional_context]
-   - Recommendation: Executor must run `pnpm view <pkg> version`, PyPI checks, or official registry checks immediately before pinning lockfiles. [VERIFIED: 01-CONTEXT.md D-04]
+   - Resolution for planning: Converted into executor checks in plans `01-01`, `01-02`, `01-03`, `01-05`, and `01-07`; executors must re-check package versions through official registries or uv/pnpm resolution before lockfiles are created and record chosen pins in plan summaries. [VERIFIED: 01-CONTEXT.md D-04]
 
 2. **MinIO image selection**
    - What we know: Phase 1 decision locks MinIO/S3-compatible local storage, and Docker Hub `minio/minio` appears archived with old tags. [VERIFIED: 01-CONTEXT.md D-07; CITED: https://hub.docker.com/r/minio/minio/tags/]
    - What's unclear: Which image/tag should be used if the executor wants current security fixes in local dev. [CITED: https://github.com/minio/minio/releases]
-   - Recommendation: Pin a known working local-dev image and document that production object storage is deferred. [VERIFIED: 01-CONTEXT.md deferred ideas]
+   - Resolution for planning: Converted into plan `01-04` Task 2; executor pins a known working local-development MinIO image/tag, validates Compose config, and documents production object storage as outside Phase 1. [VERIFIED: 01-CONTEXT.md deferred ideas]
 
 3. **Docker availability on the host**
    - What we know: Docker CLI exists, but the sandbox cannot connect to the daemon. [VERIFIED: local command `docker --version`; VERIFIED: local command `docker info --format '{{.ServerVersion}}'`]
    - What's unclear: Whether the executor's interactive host can run Docker Desktop/daemon successfully. [VERIFIED: local command failure]
-   - Recommendation: Put Docker readiness in Wave 0 or first task verification before relying on service smoke tests. [VERIFIED: 01-CONTEXT.md D-17]
+   - Resolution for planning: Converted into plan `01-04` `user_setup` plus Task 3 conditional verification; automated smoke checks run `docker info` first and only run `pnpm infra:up`, `pnpm smoke:local`, and `pnpm infra:down` when the host daemon is available. [VERIFIED: 01-CONTEXT.md D-17]
 
 4. **Frontend unit test runner**
    - What we know: Phase 1 needs small frontend tests, but no test infra exists. [VERIFIED: 01-CONTEXT.md D-18; VERIFIED: local command `rg --files -uu`]
    - What's unclear: Whether the executor prefers Vitest or another Next-compatible runner. [ASSUMED]
-   - Recommendation: Use Vitest unless the planner selects a different standard before implementation. [ASSUMED]
+   - Resolution for planning: Converted into plans `01-07` and `01-08`; Vitest plus Testing Library is selected for the Phase 1 shell tests. [ASSUMED]
 
 5. **CI inclusion**
    - What we know: CI is allowed if low-friction but local commands are the hard requirement. [VERIFIED: 01-CONTEXT.md D-19]
    - What's unclear: Whether GitHub Actions or another CI target is available. [VERIFIED: 01-CONTEXT.md D-19]
-   - Recommendation: Treat CI as optional after local `pnpm validate` exists. [VERIFIED: 01-CONTEXT.md D-19]
+   - Resolution for planning: Converted into plan `01-09`; local `pnpm validate` and documented smoke commands are the hard requirement, and CI is not part of Phase 1 execution unless added outside the critical path. [VERIFIED: 01-CONTEXT.md D-19]
 
 ## Assumptions Log
 
@@ -551,7 +552,7 @@ Orval documents `client: "react-query"` for generating TanStack Query hooks from
 |---|-------|---------|---------------|
 | A1 | Vitest plus Testing Library is appropriate for the minimal shell. | Validation Architecture | Planner may need to swap frontend test tooling, but Phase 1 validation intent remains unchanged. |
 | A2 | Local HTTP is acceptable for development, while non-local modes need TLS/proxy decisions later. | Security And Threat Model Inputs | If non-local deployment is unexpectedly included, security planning must expand before execution. |
-| A3 | Vitest is the recommended default unless a different Next-compatible runner is selected. | Open Questions And Executor Checks | Low risk because no frontend test infrastructure exists yet. |
+| A3 | Vitest is the selected frontend unit test runner for Phase 1. | Open Questions (RESOLVED As Executor Checks) | Low risk because no frontend test infrastructure exists yet. |
 | A4 | Research validity windows are 7 days for version/tooling and 30 days for architecture/boundaries. | Metadata | If version churn is faster than expected, executor checks still catch exact pins before implementation. |
 
 ## Sources
