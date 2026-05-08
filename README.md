@@ -1,22 +1,48 @@
 # 痛车设计 Agent
 
-痛车设计 Agent is an AI web workbench for turning natural-language itasha design requests into previewable, iterable, and exportable concept designs. Phase 1 focuses only on the foundation: repository boundaries, local runtime expectations, root command names, and validation vocabulary for later implementation plans.
+痛车设计 Agent is an AI web workbench for turning natural-language itasha design requests into previewable, iterable, and exportable concept designs.
 
-## Phase 1 Foundation
+Phase 1 focuses only on the foundation: monorepo boundaries, local infrastructure, API/worker boot paths, generated API contracts, environment examples, validation commands, and a minimal web shell. It does not implement chat, uploads, design generation, preview controls, export, authentication, provider calls, or production deployment.
 
-This repository starts as a small monorepo with these intended boundaries:
+`init.MD` and `UI.png` are seed references for the product direction and are not modified by Phase 1.
 
-- `apps/web` for the Next.js workbench shell.
-- `services/api` for the FastAPI control-plane service.
-- `services/worker` for the Celery work-plane process.
-- `packages/contracts` for OpenAPI and generated TypeScript contract artifacts.
-- `infra` for local PostgreSQL, Redis, and MinIO service orchestration.
+## Repository Layout
 
-## Commands
+| Path | Purpose |
+| ---- | ------- |
+| `apps/web` | Next.js foundation shell. |
+| `services/api` | FastAPI control-plane service. |
+| `services/worker` | Celery work-plane process. |
+| `packages/contracts` | OpenAPI and generated TypeScript contracts. |
+| `infra` | Local PostgreSQL, Redis, and MinIO Compose services. |
+| `docs/development.md` | Full Phase 1 developer runbook. |
 
-Root commands are defined in `package.json` and documented in [docs/development.md](docs/development.md).
+## Quickstart
+
+Install prerequisites from `.node-version`, `.python-version`, and `package.json`, then run:
+
+```powershell
+pnpm install
+cd services/api
+uv sync --dev
+cd ../worker
+uv sync --dev
+cd ../..
+pnpm contracts:generate
+pnpm validate
+pnpm infra:up
+pnpm smoke:local
+pnpm dev:api
+pnpm dev:worker
+pnpm dev:web
+```
+
+Use separate terminals for `pnpm dev:api`, `pnpm dev:worker`, and `pnpm dev:web`.
+
+## Core Commands
 
 - `pnpm infra:up`
+- `pnpm infra:down`
 - `pnpm dev:api`
 - `pnpm dev:worker`
 - `pnpm dev:web`
@@ -28,4 +54,4 @@ Root commands are defined in `package.json` and documented in [docs/development.
 - `pnpm smoke:local`
 - `pnpm validate`
 
-Phase 1 foundation work does not implement chat, uploads, design generation, preview controls, export, authentication, provider calls, or production deployment handoff.
+See [docs/development.md](docs/development.md) for environment setup, command details, requirement coverage, and troubleshooting for blocked host prerequisites such as missing `uv`, pnpm profile `EPERM`, and Docker daemon availability.
