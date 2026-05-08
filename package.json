@@ -1,0 +1,19 @@
+{
+  "name": "caragent",
+  "private": true,
+  "packageManager": "pnpm@11.0.8",
+  "scripts": {
+    "dev:web": "pnpm --filter @caragent/web dev",
+    "dev:api": "cd services/api && uv run uvicorn caragent_api.main:app --reload --host 0.0.0.0 --port 8000",
+    "dev:worker": "cd services/worker && uv run celery -A caragent_worker.app worker --loglevel=INFO",
+    "infra:up": "docker compose --env-file .env.example -f infra/compose.yml up -d",
+    "infra:down": "docker compose --env-file .env.example -f infra/compose.yml down",
+    "contracts:generate": "pnpm --filter @caragent/contracts generate",
+    "contracts:check": "pnpm --filter @caragent/contracts check",
+    "lint": "pnpm --filter @caragent/web lint && pnpm --filter @caragent/contracts lint && cd services/api && uv run ruff check . && cd ../worker && uv run ruff check .",
+    "typecheck": "pnpm --filter @caragent/web typecheck && pnpm --filter @caragent/contracts typecheck && cd services/api && uv run mypy src && cd ../worker && uv run mypy src",
+    "test": "pnpm --filter @caragent/web test && pnpm --filter @caragent/contracts test && cd services/api && uv run pytest -q && cd ../worker && uv run pytest -q",
+    "smoke:local": "pnpm --filter @caragent/web smoke && pnpm --filter @caragent/contracts smoke && cd services/api && uv run python -m caragent_api.scripts.smoke_local && cd ../worker && uv run python -m caragent_worker.scripts.smoke_local",
+    "validate": "pnpm lint && pnpm typecheck && pnpm test && pnpm contracts:check && pnpm smoke:local"
+  }
+}
