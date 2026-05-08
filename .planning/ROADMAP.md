@@ -34,9 +34,9 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans**: 9 plans
 Plans:
 - [x] 01-01-PLAN.md — Repo tooling, runtime pins, root commands, and developer command index.
-- [ ] 01-02-PLAN.md — FastAPI API foundation, typed settings, health endpoint, and OpenAPI export.
-- [ ] 01-03-PLAN.md — Celery worker foundation, typed settings, health task, and boundary tests.
-- [ ] 01-04-PLAN.md — Docker Compose local services, env examples, and conditional local smoke checks.
+- [x] 01-02-PLAN.md — FastAPI API foundation, typed settings, health endpoint, and OpenAPI export.
+- [x] 01-03-PLAN.md — Celery worker foundation, typed settings, health task, and boundary tests.
+- [x] 01-04-PLAN.md — Docker Compose local services, env examples, and conditional local smoke checks.
 - [ ] 01-05-PLAN.md — Contract package scaffold and OpenAPI-first generator configuration.
 - [ ] 01-06-PLAN.md — Generated OpenAPI/client artifacts and contract drift checking.
 - [ ] 01-07-PLAN.md — Next.js scaffold and design-system baseline.
@@ -139,7 +139,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation And Contracts | 1/9 | In Progress | - |
+| 1. Foundation And Contracts | 4/9 | In Progress | - |
 | 2. Durable Data, Jobs, And Assets | 0/TBD | Not started | - |
 | 3. First Text-To-2D Generation Slice | 0/TBD | Not started | - |
 | 4. Workbench UI Integration | 0/TBD | Not started | - |
