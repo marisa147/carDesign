@@ -1,0 +1,30 @@
+{
+  "name": "@caragent/contracts",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Generated OpenAPI TypeScript contracts shared by the carAgent API and web app.",
+  "sideEffects": false,
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "files": [
+    "openapi",
+    "src",
+    "orval.config.ts"
+  ],
+  "scripts": {
+    "generate": "orval --config ./orval.config.ts",
+    "check": "node ../../scripts/check-contracts.mjs",
+    "typecheck": "tsc --project tsconfig.json --noEmit",
+    "lint": "tsc --project tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "orval": "8.8.0",
+    "typescript": "6.0.3"
+  }
+}
