@@ -14,6 +14,6 @@
     "typecheck": "pnpm --filter @caragent/web typecheck && pnpm --filter @caragent/contracts typecheck && cd services/api && uv run mypy src && cd ../worker && uv run mypy src",
     "test": "pnpm --filter @caragent/web test && pnpm --filter @caragent/contracts test && cd services/api && uv run pytest -q && cd ../worker && uv run pytest -q",
     "smoke:local": "node scripts/smoke-local.mjs",
-    "validate": "pnpm lint && pnpm typecheck && pnpm test && pnpm contracts:check && pnpm smoke:local"
+    "validate": "node scripts/validate-all.mjs"
   }
 }
