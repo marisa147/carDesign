@@ -1,0 +1,5 @@
+"""FastAPI control-plane package for carAgent."""
+
+__all__ = ["__version__"]
+
+__version__ = "0.1.0"
