@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-05-07)
 Phase: 1 of 7 (Foundation And Contracts)
 Plan: 0 of TBD in current phase
 Status: Ready to plan
-Last activity: 2026-05-08 - Phase 1 context gathered for foundation and contracts.
+Last activity: 2026-05-08 - Phase 1 UI-SPEC approved for foundation and contracts.
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -70,4 +70,4 @@ Items acknowledged and carried forward from milestone planning:
 
 Last session: 2026-05-08
 Stopped at: Phase 1 context gathered
-Resume file: .planning/phases/01-foundation-and-contracts/01-CONTEXT.md
+Resume file: .planning/phases/01-foundation-and-contracts/01-UI-SPEC.md
