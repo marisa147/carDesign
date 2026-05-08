@@ -31,7 +31,14 @@ Decimal phases appear between their surrounding integers in numeric order.
   2. Developer can run baseline lint, type-check, and test commands for both frontend and backend.
   3. Frontend code consumes generated TypeScript API contracts from FastAPI/Pydantic OpenAPI schemas.
   4. Operator can configure storage, database, queue, AI providers, CORS, and runtime mode without code changes.
-**Plans**: TBD
+**Plans**: 6 plans
+Plans:
+- [ ] 01-01-PLAN.md — Repo tooling, runtime pins, root commands, and developer command index.
+- [ ] 01-02-PLAN.md — FastAPI API foundation, typed settings, health endpoint, OpenAPI export, and Celery worker boot path.
+- [ ] 01-03-PLAN.md — Shared contract package, generated TypeScript client, and OpenAPI drift check.
+- [ ] 01-04-PLAN.md — Docker Compose local services, env examples, and local smoke checks.
+- [ ] 01-05-PLAN.md — Minimal Next.js foundation shell consuming generated contracts.
+- [ ] 01-06-PLAN.md — Aggregate validation runner and final developer/operator docs.
 **UI hint**: yes
 
 ### Phase 2: Durable Data, Jobs, And Assets
@@ -129,7 +136,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation And Contracts | 0/TBD | Not started | - |
+| 1. Foundation And Contracts | 0/6 | Planned | - |
 | 2. Durable Data, Jobs, And Assets | 0/TBD | Not started | - |
 | 3. First Text-To-2D Generation Slice | 0/TBD | Not started | - |
 | 4. Workbench UI Integration | 0/TBD | Not started | - |
