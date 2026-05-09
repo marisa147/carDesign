@@ -11,8 +11,8 @@ See: .planning/PROJECT.md (updated 2026-05-07)
 
 Phase: 1 of 7 (Foundation And Contracts)
 Plan: 12 of 12 in current phase
-Status: In review
-Last activity: 2026-05-09 - Completed all Phase 1 gap-closure plans; review and verification gates running.
+Status: Human verification required
+Last activity: 2026-05-09 - Phase 1 source-level verification passed; 3 host/browser UAT items pending.
 
 Progress: [██████████] 100%
 
@@ -52,7 +52,7 @@ None yet.
 
 ### Blockers/Concerns
 
-- Phase 1 gap closure ready: 01-10 fixes contracts/root test wiring; 01-11 fixes service `.env` and provider env contract alignment; 01-12 fixes health/smoke truthfulness and contract refresh.
+- Phase 1 human verification pending: run full `pnpm validate`, Docker-backed `pnpm smoke:local`, and live browser health shell checks on an unblocked host.
 - Provider/model quality, pricing, moderation, commercial terms, and account access need current validation before Phase 3 implementation choices.
 - Minimum viable vehicle-template format, rights UX, and concept export wording need to be locked before deeper template/export work.
 
@@ -70,5 +70,5 @@ Items acknowledged and carried forward from milestone planning:
 ## Session Continuity
 
 Last session: 2026-05-08
-Stopped at: Completed all Phase 1 gap plans
-Resume file: .planning/phases/01-foundation-and-contracts/01-12-SUMMARY.md
+Stopped at: Awaiting Phase 1 human verification
+Resume file: .planning/phases/01-foundation-and-contracts/01-HUMAN-UAT.md

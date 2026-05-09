@@ -1,81 +1,60 @@
 ---
 phase: 01-foundation-and-contracts
-verified: 2026-05-09T00:54:52Z
-status: gaps_found
-score: 1/4 must-haves verified
+verified: 2026-05-09T02:36:21Z
+status: human_needed
+score: 4/4 must-haves verified
 overrides_applied: 0
 requirements_coverage:
-  FOUND-01: partial
-  FOUND-02: failed
+  FOUND-01: human_needed
+  FOUND-02: human_needed
   FOUND-03: satisfied
-  FOUND-04: failed
-host_prerequisites:
+  FOUND-04: satisfied
+warnings:
+  - id: WR-01
+    source: ".planning/phases/01-foundation-and-contracts/01-REVIEW.md"
+    file: "apps/web/src/app/page.tsx"
+    reason: "A failed health re-check sets the alert but leaves prior health cards visible. Warning-level residual; the failure alert is still shown."
+  - id: WR-02
+    source: ".planning/phases/01-foundation-and-contracts/01-REVIEW.md"
+    file: "scripts/smoke-local.mjs"
+    reason: "PostgreSQL smoke uses a TCP listener check rather than pg_isready. Warning-level residual; Compose itself defines a pg_isready healthcheck."
+  - id: WR-03
+    source: "verifier static scan"
+    file: "scripts/check-contracts.mjs"
+    reason: "The sandbox fallback TypeScript template still omits the configured enum value. The committed client and OpenAPI are current; the normal Orval path remains host-blocked here."
+residual_risks:
   - "Node runtime is v20.12.0 here; .node-version pins 24.15.0."
   - "pnpm fails before package execution with EPERM on C:\\Users\\25858."
   - "uv is not installed or not on PATH."
-  - "Docker CLI exists, but daemon/config access is denied."
-gaps:
-  - truth: "Developer can run baseline lint, type-check, and test commands for both frontend and backend."
-    status: failed
-    reason: "The documented/root test command is structurally broken: package.json calls `pnpm --filter @caragent/contracts test`, but @caragent/contracts has no `test` script."
-    requirements: ["FOUND-02"]
-    artifacts:
-      - path: "package.json"
-        issue: "Root `test` script invokes a missing contracts test script."
-      - path: "packages/contracts/package.json"
-        issue: "Defines generate/check/typecheck/lint only; no test script."
-    missing:
-      - "Add a contracts `test` script or remove that leg from the root `test` command, then verify `pnpm test` on a host with pnpm access."
-  - truth: "Operator can configure storage, database, queue, AI providers, CORS, and runtime mode without code changes."
-    status: failed
-    reason: "The documented env-file workflow is not wired into API/worker settings, and provider env names in examples/guards do not match the settings contract."
-    requirements: ["FOUND-04"]
-    artifacts:
-      - path: "services/api/src/caragent_api/config.py"
-        issue: "SettingsConfigDict has `env_file: None`; provider aliases are `AI_PROVIDER_*`, while examples use `OPENAI_API_KEY`, `STABILITY_API_KEY`, `FAL_API_KEY`, and `REPLICATE_API_TOKEN`."
-      - path: "services/worker/src/caragent_worker/config.py"
-        issue: "SettingsConfigDict has `env_file: None`; provider aliases are `AI_PROVIDER_*` only."
-      - path: "services/api/.env.example"
-        issue: "Provider keys do not configure the fields parsed by ApiSettings."
-      - path: "services/worker/.env.example"
-        issue: "Provider keys do not configure the fields parsed by WorkerSettings."
-      - path: "docs/development.md"
-        issue: "Docs instruct copying service `.env` files, but the services do not load those files."
-    missing:
-      - "Either load service `.env` files from the documented cwd or change docs/scripts to export env values explicitly."
-      - "Choose one provider env contract and align examples, settings, tests, and env guards."
-  - truth: "Developer/operator can validate the local stack health from Phase 1 commands and UI without false positives."
-    status: failed
-    reason: "API/UI health reports dependency success from non-empty config strings rather than real dependency checks, and `smoke-local` exits 0 when Docker is unavailable."
-    requirements: ["FOUND-01", "FOUND-02"]
-    artifacts:
-      - path: "services/api/src/caragent_api/main.py"
-        issue: "`database`, `redis`, and `object_storage` become `ok` based on configured strings only."
-      - path: "apps/web/src/lib/api/health.ts"
-        issue: "Maps those API dependency `ok` values to `PostgreSQL、Redis 和 MinIO 健康检查通过`."
-      - path: "scripts/smoke-local.mjs"
-        issue: "Returns exit 0 when `docker info` fails, so smoke can pass without checking PostgreSQL, Redis, or MinIO."
-    missing:
-      - "Make health copy/status reflect configured vs actually reachable, or perform real lightweight checks."
-      - "Make Docker unavailability a non-zero smoke failure unless an explicit skip/documentation flag is used."
+  - "Docker CLI/Compose config can render, but Docker daemon/config access is denied."
+  - "Live web/browser validation was not run in this verifier session."
 human_verification:
-  - test: "After code gaps are fixed and host prerequisites are installed, run `pnpm install`, API/worker `uv sync --dev`, then `pnpm validate`."
-    expected: "Env guard, web lint/type/test, API ruff/mypy/pytest, worker ruff/mypy/pytest, contract drift check, and contracts typecheck all complete successfully."
-    why_human: "Current sandbox blocks pnpm, uv, and correct Node runtime execution."
-  - test: "With Docker Desktop/Engine running, run `pnpm infra:up`, `pnpm smoke:local`, and `pnpm infra:down`."
-    expected: "PostgreSQL, Redis, and MinIO are actually probed and smoke fails if any service is down."
+  - test: "Full aggregate validation on an unblocked host"
+    expected: "With Node 24.15.0, pnpm 11.0.8, Python 3.13.13, and uv available, `pnpm validate` runs web lint/type/test, API ruff/mypy/pytest, worker ruff/mypy/pytest, contract drift check, and contracts typecheck successfully."
+    why_human: "Current host blocks pnpm with EPERM and lacks uv."
+  - test: "Docker-backed local infrastructure smoke"
+    expected: "With Docker Desktop/Engine running, `pnpm infra:up`, `pnpm smoke:local`, and `pnpm infra:down` complete; smoke fails if Docker is unavailable or services are unreachable."
     why_human: "Current sandbox cannot access the Docker daemon."
-  - test: "Run the web shell and click `检查堆栈健康` with services both stopped and started."
-    expected: "Stopped services are not presented as health-check passed; started services show accurate status."
-    why_human: "Requires live web/API/service processes and browser/UI observation."
+  - test: "Live browser health shell"
+    expected: "The `/` shell loads, the health CTA calls the API, configured local services render as configured/not connected, and API failure shows the inline unavailable alert."
+    why_human: "Requires live web/API processes and browser observation."
+re_verification:
+  previous_status: gaps_found
+  previous_score: 1/4
+  gaps_closed:
+    - "Root `pnpm test` no longer points to a missing contracts test script; `packages/contracts/package.json` now defines `test`."
+    - "API and worker settings load service `.env` files and use aligned `AI_PROVIDER_*` provider names across examples, tests, guard, and docs."
+    - "API/web health no longer reports PostgreSQL, Redis, or MinIO as live-success solely from config strings; `smoke-local` fails without Docker by default."
+  gaps_remaining: []
+  regressions: []
 ---
 
 # Phase 1: Foundation And Contracts Verification Report
 
-**Phase Goal:** Developer and operator can run, configure, and validate the frontend/backend/worker stack with shared typed API contracts.
-**Verified:** 2026-05-09T00:54:52Z
-**Status:** gaps_found
-**Re-verification:** No - initial verification
+**Phase Goal:** Developer and operator can run, configure, and validate the frontend/backend/worker stack with shared typed API contracts.  
+**Verified:** 2026-05-09T02:36:21Z  
+**Status:** human_needed  
+**Re-verification:** Yes - after gap closure plans 01-10, 01-11, and 01-12
 
 ## Goal Achievement
 
@@ -83,117 +62,131 @@ human_verification:
 
 | # | Truth | Status | Evidence |
 |---|---|---|---|
-| 1 | Developer can start the frontend, API, worker, PostgreSQL, Redis, and MinIO locally from documented commands. | PARTIAL | Root scripts and docs exist; Compose config renders with Postgres/Redis/MinIO healthchecks. Full run is host-blocked, and smoke currently exits 0 when Docker is unavailable. |
-| 2 | Developer can run baseline lint, type-check, and test commands for frontend and backend. | FAILED | `package.json:15` calls `@caragent/contracts test`; `packages/contracts/package.json` has no `test` script. `node scripts/validate-all.mjs` also stops at pnpm EPERM in this sandbox. |
-| 3 | Frontend code consumes generated TypeScript API contracts from FastAPI/Pydantic OpenAPI schemas. | VERIFIED | OpenAPI has only `/health`; `packages/contracts/src/generated/client.ts` exports `healthHealthGet`; `apps/web/src/lib/api/health.ts` imports from `@caragent/contracts` and the shell calls `checkStackHealth`. |
-| 4 | Operator can configure storage, database, queue, AI providers, CORS, and runtime mode without code changes. | FAILED | API/worker settings parse env vars but do not load documented `.env` files; provider names in examples and guard do not match settings/tests. |
+| 1 | Developer can start the frontend, API, worker, PostgreSQL, Redis, and MinIO locally from documented commands. | VERIFIED - live host run pending | Root scripts exist for `dev:web`, `dev:api`, `dev:worker`, `infra:up`, `infra:down`, and `smoke:local`; `docker compose --env-file .env.example -f infra/compose.yml config` exited 0 and rendered Postgres/Redis/MinIO with loopback-bound ports and healthchecks. Live Docker run is host-blocked. |
+| 2 | Developer can run baseline lint, type-check, and test commands for both frontend and backend. | VERIFIED - host toolchain pending | Root `lint`, `typecheck`, `test`, and `validate` delegate to web, contracts, API, and worker. The previous missing contracts `test` script is fixed. `node scripts/validate-all.mjs` reached the first pnpm command then failed with the documented EPERM host blocker. |
+| 3 | Frontend code consumes generated TypeScript API contracts from FastAPI/Pydantic OpenAPI schemas. | VERIFIED | FastAPI `/health` OpenAPI and committed `packages/contracts/openapi/openapi.json` are aligned for the `configured` status; `packages/contracts/src/generated/client.ts` exports `healthHealthGet`; `apps/web/src/lib/api/health.ts` imports from `@caragent/contracts`. |
+| 4 | Operator can configure storage, database, queue, AI providers, CORS, and runtime mode without code changes. | VERIFIED | API and worker settings use `env_file=".env"` and typed aliases for database, Redis, S3/MinIO, CORS/runtime, and `AI_PROVIDER_*` keys. Env examples and guard use the same names. API config/health/OpenAPI tests passed 11 tests; worker config tests passed 5 tests. |
 
-**Score:** 1/4 truths verified
+**Score:** 4/4 truths verified at source level. Overall status is `human_needed` because live host/Docker/browser validation remains outstanding.
 
 ### Required Artifacts
 
 | Artifact | Expected | Status | Details |
 |---|---|---|---|
-| `package.json` | Root scripts and package manager pin | PARTIAL | Scripts exist and `pnpm@11.0.8` is pinned; root `test` is broken by missing contracts test. |
-| `.node-version`, `.python-version` | Runtime pins | VERIFIED | `24.15.0` and `3.13.13` exist. Current host does not match Node pin. |
-| `infra/compose.yml` | Local PostgreSQL, Redis, MinIO | VERIFIED | `docker compose ... config` exited 0 and showed loopback-bound services with healthchecks. |
-| `services/api/src/caragent_api/main.py` | FastAPI app and `/health` | PARTIAL | App and typed endpoint exist; dependency health is config-presence, not real health. |
-| `services/api/src/caragent_api/config.py` | Typed API settings | PARTIAL | Env var parsing exists; documented `.env` loading and provider aliases are not aligned. |
-| `services/worker/src/caragent_worker/app.py` | Celery app | VERIFIED | Artifact exists; full worker test is host-dependency blocked by missing Celery outside uv sync. |
-| `packages/contracts/openapi/openapi.json` | FastAPI OpenAPI artifact | VERIFIED | Contains `/health` as the only API path. |
-| `packages/contracts/src/generated/client.ts` | TypeScript health client | VERIFIED | Exports `healthHealthGet`, health response types, and URL/query helpers. |
-| `apps/web/src/app/page.tsx` | Phase 1 shell | VERIFIED | Required shell copy and disabled future regions are present. |
-| `scripts/validate-all.mjs` | Aggregate validation runner | PARTIAL | Ordered validation exists; cannot complete here due host blockers. |
-| `scripts/smoke-local.mjs` | Local smoke runner | FAILED | Exits 0 when Docker daemon is unavailable. |
+| `package.json` | Root command surface and package-manager pin | VERIFIED | Contains required scripts and `pnpm@11.0.8`; `test` delegates to web, contracts, API, and worker. |
+| `packages/contracts/package.json` | Contract generation/check/type/test scripts | VERIFIED | Defines `generate`, `check`, `test`, `typecheck`, and `lint`; `test` is typecheck-backed. |
+| `.node-version`, `.python-version` | Runtime pins | VERIFIED | Pins Node `24.15.0` and Python `3.13.13`; current host differs. |
+| `infra/compose.yml` | Local PostgreSQL, Redis, MinIO | VERIFIED | Compose config rendered with Postgres `pg_isready`, Redis `redis-cli ping`, and MinIO live healthcheck. |
+| `services/api/src/caragent_api/config.py` | Typed API settings and dotenv loading | VERIFIED | Uses pydantic-settings, service `.env` loading, `AI_PROVIDER_*`, non-local validation, and secret types. |
+| `services/api/src/caragent_api/main.py` | FastAPI app and truthful `/health` | VERIFIED | Returns `configured` for config-present local services and `not_configured` for missing config; does not expose secrets in tested responses. |
+| `services/worker/src/caragent_worker/config.py` | Typed worker settings and dotenv loading | VERIFIED | Uses service `.env` loading, Redis runtime config, `AI_PROVIDER_*`, redaction, and non-local Redis validation. |
+| `services/worker/src/caragent_worker/app.py` | Celery app boot path | VERIFIED | Exports `celery_app` configured from `WorkerSettings.redis_url`; full import test is uv/dependency host-gated. |
+| `packages/contracts/openapi/openapi.json` | FastAPI OpenAPI artifact | VERIFIED | Contains `/health` and `DependencyHealth.status` enum with `configured`. |
+| `packages/contracts/src/generated/client.ts` | Generated TypeScript health client | VERIFIED | Exports health response types, `DependencyHealthStatus` with `configured`, and `healthHealthGet`. |
+| `apps/web/src/lib/api/health.ts` | Web generated-client wrapper | VERIFIED | Calls `healthHealthGet` and maps configured local services to non-connected configured state. |
+| `apps/web/src/app/page.tsx` | Minimal Phase 1 shell | VERIFIED WITH WARNING | Health CTA is wired to `checkStackHealth`; failed re-check warning WR-01 remains. |
+| `scripts/smoke-local.mjs` | Local services smoke check | VERIFIED WITH WARNING | Docker unavailable exits 1 by default and allow flag exits 0 while saying checks were skipped; PostgreSQL uses TCP-only readiness warning WR-02. |
+| `scripts/check-env-examples.mjs` | Env example guard | VERIFIED | Passed and checks required keys, local-only provider placeholders, and tracked real env files. |
+| `scripts/validate-all.mjs` | Aggregate validation runner | VERIFIED - host blocked | Sequences env, web, API, worker, contracts checks and prints host prerequisite hints; stopped at pnpm EPERM here. |
 
 ### Key Link Verification
 
 | From | To | Via | Status | Details |
 |---|---|---|---|---|
-| `package.json` | `apps/web/package.json` | `pnpm --filter @caragent/web` | WIRED | Root web scripts delegate correctly. |
-| `package.json` | `services/api` / `services/worker` | `uv run ...` | WIRED | Root service scripts delegate to service cwd. Host lacks uv. |
-| `package.json` | `packages/contracts/package.json` | `pnpm --filter @caragent/contracts` | PARTIAL | Generate/check/typecheck are wired; root `test` points to missing script. |
-| `services/api/main.py` | `services/api/config.py` | `get_settings` / `ApiSettings` | WIRED | API app builds from typed settings. |
-| `services/api/export_openapi.py` | `packages/contracts/openapi/openapi.json` | `app.openapi()` export | WIRED | OpenAPI artifact contains `/health`. |
-| `apps/web/src/lib/api/health.ts` | `packages/contracts/src/generated/client.ts` | `@caragent/contracts` import | WIRED | Web health wrapper calls `healthHealthGet`. |
-| `apps/web/src/app/page.tsx` | `apps/web/src/lib/api/health.ts` | `checkStackHealth` CTA | WIRED | CTA calls wrapper and updates cards. |
+| `package.json` | `apps/web/package.json` | `pnpm --filter @caragent/web` | WIRED | Root web dev/lint/type/test delegates to web package. |
+| `package.json` | `services/api` | `cd services/api && uv run ...` | WIRED | API dev/lint/type/test commands are present; uv is host-blocked. |
+| `package.json` | `services/worker` | `cd services/worker && uv run ...` | WIRED | Worker dev/lint/type/test commands are present; uv is host-blocked. |
+| `package.json` | `infra/compose.yml` | `docker compose --env-file .env.example -f infra/compose.yml` | WIRED | Root infra scripts target the Compose file and env example. |
+| `package.json` | `packages/contracts/package.json` | `pnpm --filter @caragent/contracts` | WIRED | Generate/check/typecheck/test are all present after 01-10. |
+| `services/api/src/caragent_api/main.py` | `services/api/src/caragent_api/config.py` | `ApiSettings` / `get_settings` | WIRED | API app uses typed settings for CORS and health response data. |
+| `services/api/src/caragent_api/scripts/export_openapi.py` | `packages/contracts/openapi/openapi.json` | FastAPI `app.openapi()` export | WIRED | In-memory OpenAPI comparison verified `/health` and status enum alignment. |
+| `packages/contracts/src/generated/client.ts` | `apps/web/src/lib/api/health.ts` | `@caragent/contracts` import | WIRED | Web wrapper calls generated `healthHealthGet`. |
+| `apps/web/src/app/page.tsx` | `apps/web/src/lib/api/health.ts` | `checkStackHealth` CTA handler | WIRED | CTA updates shell state on success and shows alert on failure. |
+| `scripts/smoke-local.mjs` | `docs/development.md` / `infra/README.md` | `allow-docker-unavailable` documentation | WIRED | Docs identify allow flag as non-verification only. |
 
 ### Data-Flow Trace (Level 4)
 
 | Artifact | Data Variable | Source | Produces Real Data | Status |
 |---|---|---|---|---|
-| `apps/web/src/app/page.tsx` | `health.cards` | `checkStackHealth()` -> `healthHealthGet()` -> API `/health` | PARTIAL | UI receives API data, but API dependency statuses are derived from config strings, not live DB/Redis/MinIO checks. |
-| `packages/contracts/src/generated/client.ts` | `HealthResponse` | `packages/contracts/openapi/openapi.json` generated from FastAPI | YES | `/health` schema and client types align. |
-| `scripts/validate-all.mjs` | validation result | sequential command exit codes | PARTIAL | Runner fails on first command error, but host blockers prevent full command execution here. |
+| `apps/web/src/app/page.tsx` | `health.cards` | `checkStackHealth()` -> generated `healthHealthGet()` -> API `/health` | YES | API/web data path is wired. Config-present local dependencies render as `configured`, not live success. |
+| `services/api/src/caragent_api/main.py` | `dependencies` | `ApiSettings` values | YES | Settings-derived status is intentionally `configured` until live smoke runs; no secrets returned in tested response. |
+| `services/api/src/caragent_api/config.py` | `ApiSettings` fields | env vars and service `.env` | YES | Tests prove env vars and temporary service `.env` populate DB/Redis/S3/CORS/provider/runtime fields. |
+| `services/worker/src/caragent_worker/config.py` | `WorkerSettings` fields | env vars and service `.env` | YES | Tests prove Redis/provider/runtime fields load and legacy provider names do not configure settings. |
+| `packages/contracts/src/generated/client.ts` | `HealthResponse` / `DependencyHealthStatus` | committed OpenAPI generated from FastAPI | YES | OpenAPI artifact and client both include `configured`; official generator execution is host-blocked here. |
+| `scripts/smoke-local.mjs` | service check results | Docker daemon plus configured ports/endpoints | PARTIAL | Docker unavailability fails correctly; Redis and MinIO are protocol-aware, PostgreSQL is TCP-only residual warning. |
 
 ### Behavioral Spot-Checks
 
 | Behavior | Command | Result | Status |
 |---|---|---|---|
-| Env examples static guard | `node scripts/check-env-examples.mjs` | `Environment examples are present, local-only, and secret-safe.` | PASS |
-| Compose config renders | `docker compose --env-file .env.example -f infra/compose.yml config` | Exit 0; services and healthchecks rendered. Docker config warnings only. | PASS |
-| Smoke without Docker | `node scripts/smoke-local.mjs` | Printed Docker prerequisite but exited 0. | FAIL |
-| Aggregate validation entry | `node scripts/validate-all.mjs` | Env guard passed; stopped at `pnpm --filter @caragent/web lint` with pnpm EPERM host blocker. | HOST BLOCKED |
-| API pytest subset | `PYTHONPATH=services/api/src python -B -m pytest -q -p no:cacheprovider services/api/tests` | `7 passed` | PASS |
-| Worker config tests | `PYTHONPATH=services/worker/src python -B -m pytest -q -p no:cacheprovider services/worker/tests/test_config.py` | `3 passed` | PASS |
-| Worker full tests | `PYTHONPATH=services/worker/src python -B -m pytest -q -p no:cacheprovider services/worker/tests` | Failed collecting `test_worker_app.py`: ambient Python lacks `celery`. | HOST/DEPENDENCY BLOCKED |
-| Key artifacts exist | Targeted `node -e` artifact check | All key artifacts present. | PASS |
+| Env examples are complete and secret-safe | `node scripts/check-env-examples.mjs` | Printed `Environment examples are present, local-only, and secret-safe.` | PASS |
+| API config, health, and OpenAPI tests | `PYTHONPATH=services/api/src python -B -m pytest -q -p no:cacheprovider services/api/tests/test_config.py services/api/tests/test_health.py services/api/tests/test_openapi_export.py` | `11 passed` | PASS |
+| Worker config tests | `PYTHONPATH=services/worker/src python -B -m pytest -q -p no:cacheprovider services/worker/tests/test_config.py` | `5 passed` | PASS |
+| Root/contracts command wiring | Node JSON static check | Root scripts and contracts `test` script verified | PASS |
+| OpenAPI/client health enum alignment | Python in-memory schema check | `/health` and `configured` enum aligned | PASS |
+| Docker unavailable default smoke | `node scripts/smoke-local.mjs` | Exited 1 with Docker prerequisite message | PASS |
+| Docker unavailable allow flag | `node scripts/smoke-local.mjs --allow-docker-unavailable` | Exited 0 and stated checks were not performed | PASS |
+| Compose config renders | `docker compose --env-file .env.example -f infra/compose.yml config` | Exit 0; rendered Postgres, Redis, MinIO with healthchecks | PASS |
+| Aggregate validation entry point | `node scripts/validate-all.mjs` | Env guard passed; stopped at `pnpm --filter @caragent/web lint` with EPERM host prerequisite hint | HOST BLOCKED |
+| Toolchain availability | `node --version; pnpm --version; uv --version; docker info` | Node `v20.12.0`; pnpm EPERM; uv missing; Docker daemon denied | HOST BLOCKED |
 
 ### Requirements Coverage
 
 | Requirement | Source Plan | Description | Status | Evidence |
 |---|---|---|---|---|
-| FOUND-01 | 01-01, 01-03, 01-04, 01-07, 01-09 | Run frontend, API, worker, PostgreSQL, Redis, MinIO locally from documented commands. | PARTIAL | Commands/docs/Compose exist. Host cannot execute full run; smoke false-positive behavior must be fixed. |
-| FOUND-02 | 01-01, 01-02, 01-03, 01-07, 01-08, 01-09 | Baseline lint, type-check, and test commands for frontend/backend. | FAILED | Root `pnpm test` calls a missing contracts script. Full validate is host-blocked here. |
-| FOUND-03 | 01-02, 01-05, 01-06, 01-08, 01-09 | Shared typed API contracts generated from FastAPI/Pydantic OpenAPI. | SATISFIED | FastAPI `/health` -> OpenAPI artifact -> generated client -> web import path verified. |
-| FOUND-04 | 01-02, 01-03, 01-04, 01-09 | Configure storage, database, queue, AI providers, CORS, runtime mode without code changes. | FAILED | Settings/env docs/examples are not wired consistently; `.env` files are not loaded and provider names mismatch. |
+| FOUND-01 | 01-01, 01-03, 01-04, 01-07, 01-09, 01-12 | Developer can run frontend, API, worker, PostgreSQL, Redis, and MinIO locally from documented commands. | HUMAN NEEDED | Source command surface, docs, and Compose config are verified; live Docker/app startup needs an unblocked host. |
+| FOUND-02 | 01-01, 01-02, 01-03, 01-07, 01-08, 01-09, 01-10, 01-12 | Developer can validate with baseline lint, type-check, and test commands for frontend/backend. | HUMAN NEEDED | Root runner and package/service scripts are wired; API/worker fallback tests pass; full pnpm/uv validation is host-blocked. |
+| FOUND-03 | 01-02, 01-05, 01-06, 01-08, 01-09, 01-12 | Frontend/backend share typed API contracts generated from FastAPI/Pydantic OpenAPI schemas. | SATISFIED | FastAPI `/health` -> committed OpenAPI -> generated TS client -> web wrapper import path verified. |
+| FOUND-04 | 01-02, 01-03, 01-04, 01-08, 01-09, 01-11 | Operator can configure storage, database, queue, AI providers, CORS, and runtime mode without code changes. | SATISFIED | Service `.env` loading, aligned `AI_PROVIDER_*` names, env examples, guard, and settings tests verified. |
+
+No additional Phase 1 requirement IDs were found in `.planning/REQUIREMENTS.md` beyond FOUND-01 through FOUND-04.
 
 ### Anti-Patterns Found
 
 | File | Line | Pattern | Severity | Impact |
 |---|---:|---|---|---|
-| `package.json` | 15 | Root command invokes missing package script | BLOCKER | `pnpm test` cannot satisfy FOUND-02. |
-| `services/api/src/caragent_api/config.py` | 24 | `SettingsConfigDict` lacks `env_file` despite docs copying `.env` | BLOCKER | Documented operator config path does not affect runtime settings. |
-| `services/api/.env.example` | 21-24 | Provider env names differ from settings aliases | BLOCKER | Provider placeholders do not configure API settings. |
-| `services/worker/.env.example` | 21-24 | Provider env names differ from settings aliases | BLOCKER | Provider placeholders do not configure worker settings. |
-| `services/api/src/caragent_api/main.py` | 28-40 | Dependency `ok` based on config presence | WARNING | API/UI can show local services healthy when they are not reachable. |
-| `scripts/smoke-local.mjs` | 31-34 | Docker unavailable exits 0 | BLOCKER | Smoke command can pass without validating local services. |
-| `packages/contracts/src/generated/client.ts` | 1-5 | Deterministic fallback, not verified Orval output | INFO | Acceptable as a sandbox fallback for FOUND-03, but regenerate on a working host. |
+| `apps/web/src/app/page.tsx` | 111 | Catch path only calls `setHasError(true)` | WARNING | Failed re-check can leave previous connected/configured cards visible with the alert. |
+| `scripts/smoke-local.mjs` | 17 | PostgreSQL uses raw `checkTcp` | WARNING | A TCP listener can pass without proving PostgreSQL protocol readiness. |
+| `scripts/check-contracts.mjs` | 142 | Fallback client template omits `configured` enum | WARNING | Direct sandbox fallback generation would mark contract artifacts stale after 01-12; normal Orval generation is still the intended host path. |
+| `.env.example`, service env examples, docs | n/a | Provider placeholder wording | INFO | Intentional Phase 1 configuration placeholders; no provider calls or secrets are present. |
+
+No blocker anti-patterns were found.
 
 ### Human Verification Required
 
-1. **Full aggregate validation after fixes**
+### 1. Full Aggregate Validation
 
-   **Test:** Install Node 24.15.0, pnpm 11.0.8, Python 3.13.13, uv; sync dependencies; run `pnpm validate`.
-   **Expected:** All web, API, worker, contract, env, lint, type, and test checks pass.
-   **Why human:** This sandbox blocks pnpm/uv execution.
+**Test:** On a host with Node `24.15.0`, pnpm `11.0.8`, Python `3.13.13`, and `uv`, run `pnpm validate`.  
+**Expected:** Env guard, web lint/type/test, API ruff/mypy/pytest, worker ruff/mypy/pytest, contract drift check, and contracts typecheck all complete successfully.  
+**Why human:** This sandbox blocks pnpm and lacks uv.
 
-2. **Docker local services smoke**
+### 2. Docker Local Services Smoke
 
-   **Test:** Start Docker, run `pnpm infra:up`, `pnpm smoke:local`, `pnpm infra:down`.
-   **Expected:** Smoke probes live PostgreSQL, Redis, and MinIO and fails if any are down.
-   **Why human:** Docker daemon is inaccessible here.
+**Test:** With Docker Desktop/Engine running, run `pnpm infra:up`, `pnpm smoke:local`, and `pnpm infra:down`.  
+**Expected:** Docker-backed PostgreSQL, Redis, and MinIO checks run and the smoke script fails if Docker or services are unavailable.  
+**Why human:** This sandbox cannot access the Docker daemon.
 
-3. **Web health UX accuracy**
+### 3. Live Web Health Shell
 
-   **Test:** Run web/API with local services stopped, click `检查堆栈健康`, then repeat after services are running.
-   **Expected:** The shell distinguishes unavailable services from healthy services.
-   **Why human:** Requires live processes and browser/UI observation.
+**Test:** Start API and web, open `/`, click `检查堆栈健康` with local services configured and with the API stopped.  
+**Expected:** Configured local services are not shown as live connected; API failure shows the inline unavailable alert and the shell remains usable.  
+**Why human:** Requires live web/API processes and browser/UI observation.
 
 ### Host Prerequisite Notes
 
-These are not counted as source-code gaps by themselves:
+These are not counted as source-level gaps:
 
 - `node --version` returned `v20.12.0`; repo pin is `24.15.0`.
 - `pnpm --version` failed with `EPERM: operation not permitted, lstat 'C:\Users\25858'`.
 - `uv --version` failed because `uv` is not available.
-- `docker info` showed Docker CLI 29.2.1 but daemon/config access is denied.
+- `docker info` failed because Docker config/daemon access is denied, although Compose config rendering works.
+- `git status --short` only showed untracked seed files `UI.png` and `init.MD` plus the existing user-level git ignore warning.
 
 ### Gaps Summary
 
-Phase 1 has the main foundation artifacts, and FOUND-03 is achieved. The phase goal is not fully achieved because validation/configuration paths have source-level gaps: the root test command is broken, documented env configuration is not actually loaded or aligned with settings, and health/smoke checks can report success without proving dependencies are reachable.
+No source-level blocking gaps remain from the prior verification. Plans 01-10 through 01-12 closed the missing contracts test script, service `.env`/provider-name mismatch, and health/smoke false-success blockers. The phase is not marked `passed` because the remaining proof requires host toolchain, Docker daemon, and live browser validation.
 
 ---
 
-_Verified: 2026-05-09T00:54:52Z_
-_Verifier: Claude (gsd-verifier)_
+_Verified: 2026-05-09T02:36:21Z_  
+_Verifier: Codex (gsd-verifier)_
