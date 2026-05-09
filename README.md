@@ -54,4 +54,4 @@ Use separate terminals for `pnpm dev:api`, `pnpm dev:worker`, and `pnpm dev:web`
 - `pnpm smoke:local`
 - `pnpm validate`
 
-See [docs/development.md](docs/development.md) for environment setup, command details, requirement coverage, and troubleshooting for blocked host prerequisites such as missing `uv`, pnpm profile `EPERM`, and Docker daemon availability.
+See [docs/development.md](docs/development.md) for environment setup, command details, requirement coverage, and troubleshooting for blocked host prerequisites such as missing `uv`, Node/Corepack profile `EPERM`, and Docker daemon availability. If `pnpm` cannot start, run `node scripts/check-host-prereqs.mjs` from the repository root for a direct prerequisite report.

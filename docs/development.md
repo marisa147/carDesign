@@ -16,7 +16,7 @@ Install the repo-visible runtime baselines before running commands:
 | uv | Host install on `PATH` | service commands | Python dependency sync and checks |
 | Docker Desktop or Docker Engine | Host install with daemon running | `infra/compose.yml` | PostgreSQL, Redis, and MinIO |
 
-The current sandbox may have Node and Docker CLIs without access to the required host resources. Treat `uv` not installed, pnpm profile `EPERM`, and Docker daemon unavailable as host prerequisites to fix before expecting the full validation command to pass.
+The current sandbox may have Node and Docker CLIs without access to the required host resources. Treat `uv` not installed, Node/Corepack profile `EPERM`, and Docker daemon unavailable as host prerequisites to fix before expecting the full validation command to pass. If `pnpm` itself cannot start, run `node scripts/check-host-prereqs.mjs` for a repository-local prerequisite report.
 
 ## Install And Sync
 
@@ -280,7 +280,7 @@ Deferred items from `01-CONTEXT.md` remain out of scope for this phase: durable 
 | Symptom | What It Means | Fix |
 | ------- | ------------- | --- |
 | `uv not installed` or `uv` is not recognized | Python service dependency manager is missing from `PATH`. | Install `uv`, open a new shell, run `cd services/api && uv sync --dev`, then `cd ../worker && uv sync --dev`. |
-| Node or pnpm fails with `EPERM: operation not permitted, lstat 'C:\Users\25858'` | The sandbox cannot access the Windows user profile path used by Node/pnpm. | Re-run the command on a host shell where pnpm can access the user profile, or fix the Node/npm profile permissions. |
+| Node/Corepack/pnpm fails with `EPERM: operation not permitted` under a Windows user profile path | The shell resolves Node or Corepack through a user-profile directory that the current sandbox cannot access. | Use an unrestricted host shell with Node `24.15.0`, or in the current shell set `NODE_OPTIONS="--preserve-symlinks --preserve-symlinks-main"` and `COREPACK_HOME` to a writable directory before running `corepack prepare pnpm@11.0.8 --activate`. Then run `pnpm install` and `pnpm validate`. |
 | Docker daemon unavailable | Docker CLI exists but Docker Desktop/Engine is not running or not reachable; `pnpm smoke:local` fails by design because live services were not checked. | Start Docker Desktop/Engine, confirm `docker info`, then run `pnpm infra:up`, `pnpm smoke:local`, and `pnpm infra:down`. Use `node scripts/smoke-local.mjs --allow-docker-unavailable` only to document a sandbox blocker, not as completion evidence. |
 | Docker Compose image pull failure | Compose cannot pull PostgreSQL, Redis, or MinIO images. | Check network access, registry access, and the pinned image names in `infra/compose.yml`; retry `pnpm infra:up`. |
 | Ports already in use | A local process already owns `3000`, `8000`, `5432`, `6379`, `9000`, or `9001`. | Stop the conflicting process or override the matching port in a local env file before restarting services. |

@@ -2,9 +2,26 @@ import { spawnSync } from "node:child_process";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import {
+  buildHostPrereqReport,
+  formatHostPrereqFailures,
+  isUserProfilePermissionError,
+  readExpectedPrereqs,
+} from "./check-host-prereqs.mjs";
+
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
 const requiredCommands = [
+  {
+    display: "node scripts/check-host-prereqs.mjs",
+    inlineFunction: () => {
+      const report = buildHostPrereqReport(readExpectedPrereqs());
+      if (!report.ok) {
+        throw new Error(formatHostPrereqFailures(report));
+      }
+      console.log("Host prerequisites are available for Phase 1 validation.");
+    },
+  },
   {
     display: "node scripts/check-env-examples.mjs",
     inlineModule: "./check-env-examples.mjs",
@@ -86,9 +103,13 @@ console.log("\nPhase 1 aggregate validation passed.");
 async function runRequiredCommand(command) {
   console.log(`\n$ ${command.display}`);
 
-  if (command.inlineModule) {
+  if (command.inlineModule || command.inlineFunction) {
     try {
-      await import(new URL(command.inlineModule, import.meta.url));
+      if (command.inlineFunction) {
+        command.inlineFunction();
+      } else {
+        await import(new URL(command.inlineModule, import.meta.url));
+      }
     } catch (error) {
       console.error(`\nValidation command failed: ${command.display}`);
       console.error(error instanceof Error ? error.message : String(error));
@@ -134,11 +155,11 @@ function printHostPrerequisiteHint(command, result) {
   const output = `${result.stdout ?? ""}\n${result.stderr ?? ""}\n${result.error?.message ?? ""}`;
 
   if (
-    (output.includes("EPERM: operation not permitted") && output.includes("C:\\Users\\25858")) ||
+    isUserProfilePermissionError(output) ||
     (command.display.startsWith("pnpm ") && result.error?.code === "EPERM")
   ) {
     console.error(
-      "Host prerequisite blocked: Node/pnpm cannot access the Windows user profile in this sandbox. Re-run pnpm validate on a host where pnpm can access C:\\Users\\25858.",
+      "Host prerequisite blocked: Node/pnpm cannot access the Windows user profile path in this shell. Re-run pnpm validate on an unrestricted host shell or configure a writable Corepack home.",
     );
     return;
   }
