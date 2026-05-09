@@ -44,7 +44,7 @@ Plans:
 - [x] 01-09-PLAN.md — Aggregate validation runner and final developer/operator docs.
 - [x] 01-10-PLAN.md — Gap closure: contracts test command and root validation wiring.
 - [x] 01-11-PLAN.md — Gap closure: service env-file loading and provider env-name alignment.
-- [ ] 01-12-PLAN.md — Gap closure: truthful health statuses, smoke failures, and contract refresh.
+- [x] 01-12-PLAN.md — Gap closure: truthful health statuses, smoke failures, and contract refresh.
 **UI hint**: yes
 **Verification**: Gaps found on 2026-05-09. Gap-closure plans 01-10 through 01-12 are ready. See `.planning/phases/01-foundation-and-contracts/01-VERIFICATION.md`.
 
@@ -143,7 +143,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation And Contracts | 11/12 | Gap Execution In Progress | - |
+| 1. Foundation And Contracts | 12/12 | In Review | - |
 | 2. Durable Data, Jobs, And Assets | 0/TBD | Not started | - |
 | 3. First Text-To-2D Generation Slice | 0/TBD | Not started | - |
 | 4. Workbench UI Integration | 0/TBD | Not started | - |
