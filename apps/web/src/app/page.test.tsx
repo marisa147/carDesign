@@ -29,6 +29,31 @@ const healthFixture: HealthResponse = {
   status: "ok",
 };
 
+const configuredHealthFixture: HealthResponse = {
+  api_version: "0.1.0",
+  dependencies: [
+    {
+      detail: "Dependency is configured; live validation is performed by pnpm smoke:local.",
+      name: "database",
+      status: "configured",
+    },
+    {
+      detail: "Dependency is configured; live validation is performed by pnpm smoke:local.",
+      name: "redis",
+      status: "configured",
+    },
+    {
+      detail: "Dependency is configured; live validation is performed by pnpm smoke:local.",
+      name: "object_storage",
+      status: "configured",
+    },
+    { detail: "Worker 将在后续任务接入队列状态", name: "worker", status: "not_configured" },
+    { name: "contracts", status: "ok" },
+  ],
+  runtime_mode: "local",
+  status: "ok",
+};
+
 describe("Phase 1 foundation shell", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
@@ -122,6 +147,30 @@ describe("Phase 1 foundation shell", () => {
     expect(await screen.findByText("API 健康检查通过 (0.1.0)")).toBeVisible();
   });
 
+  it("shows configured local services without claiming live health success", async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify(configuredHealthFixture), {
+        headers: { "content-type": "application/json" },
+        status: 200,
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    render(<Home />);
+
+    await user.click(screen.getByRole("button", { name: "检查堆栈健康" }));
+
+    expect(
+      await screen.findByText(
+        "PostgreSQL、Redis 和 MinIO 已配置；运行 pnpm smoke:local 验证本地服务。",
+      ),
+    ).toBeVisible();
+    expect(screen.getByText("已配置")).toBeVisible();
+    expect(
+      screen.queryByText("PostgreSQL、Redis 和 MinIO 健康检查通过。"),
+    ).not.toBeInTheDocument();
+  });
+
   it("maps the contract health response into the five shell status cards", () => {
     const result = mapHealthResponse(healthFixture, "http://api.test");
     const cardsByLabel = new Map(
@@ -140,5 +189,16 @@ describe("Phase 1 foundation shell", () => {
     ]);
     expect(cardsByLabel.get("Contracts")?.statusLabel).toBe("已生成");
     expect(cardsByLabel.get("Local Services")?.statusLabel).toBe("已连接");
+  });
+
+  it("maps configured local services to a non-connected configured state", () => {
+    const result = mapHealthResponse(configuredHealthFixture, "http://api.test");
+    const localServices = result.cards.find((card) => card.id === "local-services");
+
+    expect(localServices?.state).toBe("configured");
+    expect(localServices?.statusLabel).toBe("已配置");
+    expect(localServices?.detail).toBe(
+      "PostgreSQL、Redis 和 MinIO 已配置；运行 pnpm smoke:local 验证本地服务。",
+    );
   });
 });
