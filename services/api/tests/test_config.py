@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 from pydantic import ValidationError
 
@@ -15,9 +17,15 @@ ENV_KEYS = (
     "S3_BUCKET",
     "CORS_ORIGINS",
     "RUNTIME_MODE",
+    "AI_PROVIDER_DEFAULT",
+    "AI_PROVIDER_CALLS_ENABLED",
     "AI_PROVIDER_OPENAI_API_KEY",
     "AI_PROVIDER_FAL_API_KEY",
     "AI_PROVIDER_BFL_API_KEY",
+    "OPENAI_API_KEY",
+    "STABILITY_API_KEY",
+    "FAL_API_KEY",
+    "REPLICATE_API_TOKEN",
 )
 
 
@@ -36,6 +44,8 @@ def test_settings_parse_required_foundation_env(monkeypatch: pytest.MonkeyPatch)
     monkeypatch.setenv("S3_SECRET_ACCESS_KEY", "example-s3-secret")
     monkeypatch.setenv("S3_BUCKET", "caragent-test-artifacts")
     monkeypatch.setenv("CORS_ORIGINS", "https://app.example,https://admin.example")
+    monkeypatch.setenv("AI_PROVIDER_DEFAULT", "openai")
+    monkeypatch.setenv("AI_PROVIDER_CALLS_ENABLED", "true")
     monkeypatch.setenv("AI_PROVIDER_OPENAI_API_KEY", "openai-secret")
     monkeypatch.setenv("AI_PROVIDER_FAL_API_KEY", "fal-secret")
     monkeypatch.setenv("AI_PROVIDER_BFL_API_KEY", "bfl-secret")
@@ -50,12 +60,79 @@ def test_settings_parse_required_foundation_env(monkeypatch: pytest.MonkeyPatch)
     assert settings.s3_secret_access_key.get_secret_value() == "example-s3-secret"
     assert settings.s3_bucket == "caragent-test-artifacts"
     assert settings.cors_origins == ["https://app.example", "https://admin.example"]
+    assert settings.ai_provider_default == "openai"
+    assert settings.ai_provider_calls_enabled is True
     assert settings.ai_provider_openai_api_key is not None
     assert settings.ai_provider_openai_api_key.get_secret_value() == "openai-secret"
     assert settings.ai_provider_fal_api_key is not None
     assert settings.ai_provider_fal_api_key.get_secret_value() == "fal-secret"
     assert settings.ai_provider_bfl_api_key is not None
     assert settings.ai_provider_bfl_api_key.get_secret_value() == "bfl-secret"
+
+
+def test_settings_load_documented_service_env_file(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    clear_api_env(monkeypatch)
+    (tmp_path / ".env").write_text(
+        "\n".join(
+            [
+                "RUNTIME_MODE=development",
+                "DATABASE_URL=postgresql+asyncpg://api:api@db.internal/caragent",
+                "REDIS_URL=redis://redis.internal:6379/2",
+                "S3_ENDPOINT_URL=https://objects.internal",
+                "S3_ACCESS_KEY_ID=api-access-key",
+                "S3_SECRET_ACCESS_KEY=api-secret-key",
+                "S3_BUCKET=api-artifacts",
+                "CORS_ORIGINS=https://app.internal,https://ops.internal",
+                "AI_PROVIDER_DEFAULT=fal",
+                "AI_PROVIDER_CALLS_ENABLED=true",
+                "AI_PROVIDER_OPENAI_API_KEY=api-openai-secret",
+                "AI_PROVIDER_FAL_API_KEY=api-fal-secret",
+                "AI_PROVIDER_BFL_API_KEY=api-bfl-secret",
+            ],
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(tmp_path)
+
+    settings = ApiSettings()
+
+    assert settings.runtime_mode == "development"
+    assert settings.database_url == "postgresql+asyncpg://api:api@db.internal/caragent"
+    assert settings.redis_url == "redis://redis.internal:6379/2"
+    assert settings.s3_endpoint_url == "https://objects.internal"
+    assert settings.s3_access_key_id == "api-access-key"
+    assert settings.s3_secret_access_key.get_secret_value() == "api-secret-key"
+    assert settings.s3_bucket == "api-artifacts"
+    assert settings.cors_origins == ["https://app.internal", "https://ops.internal"]
+    assert settings.ai_provider_default == "fal"
+    assert settings.ai_provider_calls_enabled is True
+    assert settings.ai_provider_openai_api_key is not None
+    assert settings.ai_provider_openai_api_key.get_secret_value() == "api-openai-secret"
+    assert settings.ai_provider_fal_api_key is not None
+    assert settings.ai_provider_fal_api_key.get_secret_value() == "api-fal-secret"
+    assert settings.ai_provider_bfl_api_key is not None
+    assert settings.ai_provider_bfl_api_key.get_secret_value() == "api-bfl-secret"
+
+
+def test_legacy_provider_env_names_do_not_configure_api_settings(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    clear_api_env(monkeypatch)
+    monkeypatch.setenv("OPENAI_API_KEY", "legacy-openai-secret")
+    monkeypatch.setenv("STABILITY_API_KEY", "legacy-stability-secret")
+    monkeypatch.setenv("FAL_API_KEY", "legacy-fal-secret")
+    monkeypatch.setenv("REPLICATE_API_TOKEN", "legacy-replicate-secret")
+
+    settings = ApiSettings()
+
+    assert settings.ai_provider_default == "disabled"
+    assert settings.ai_provider_calls_enabled is False
+    assert settings.ai_provider_openai_api_key is None
+    assert settings.ai_provider_fal_api_key is None
+    assert settings.ai_provider_bfl_api_key is None
 
 
 def test_non_local_runtime_rejects_wildcard_cors(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -76,11 +153,17 @@ def test_non_local_runtime_rejects_wildcard_cors(monkeypatch: pytest.MonkeyPatch
 def test_settings_repr_masks_secret_values(monkeypatch: pytest.MonkeyPatch) -> None:
     clear_api_env(monkeypatch)
     monkeypatch.setenv("S3_SECRET_ACCESS_KEY", "super-secret-s3-value")
+    monkeypatch.setenv("AI_PROVIDER_DEFAULT", "openai")
+    monkeypatch.setenv("AI_PROVIDER_CALLS_ENABLED", "true")
     monkeypatch.setenv("AI_PROVIDER_OPENAI_API_KEY", "super-secret-provider-value")
+    monkeypatch.setenv("AI_PROVIDER_FAL_API_KEY", "super-secret-fal-value")
+    monkeypatch.setenv("AI_PROVIDER_BFL_API_KEY", "super-secret-bfl-value")
 
     settings = ApiSettings()
-    rendered = f"{settings!s}\n{settings!r}"
+    rendered = f"{settings!s}\n{settings!r}\n{settings.model_dump_json()}"
 
     assert "super-secret-s3-value" not in rendered
     assert "super-secret-provider-value" not in rendered
+    assert "super-secret-fal-value" not in rendered
+    assert "super-secret-bfl-value" not in rendered
     assert "**********" in rendered
