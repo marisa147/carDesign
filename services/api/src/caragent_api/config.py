@@ -23,6 +23,8 @@ class ApiSettings(BaseSettings):
 
     model_config = SettingsConfigDict(
         case_sensitive=False,
+        env_file=".env",
+        env_file_encoding="utf-8",
         extra="ignore",
         populate_by_name=True,
     )
@@ -43,6 +45,11 @@ class ApiSettings(BaseSettings):
         validation_alias="CORS_ORIGINS",
     )
     cors_allow_credentials: bool = Field(default=True, validation_alias="CORS_ALLOW_CREDENTIALS")
+    ai_provider_default: str = Field(default="disabled", validation_alias="AI_PROVIDER_DEFAULT")
+    ai_provider_calls_enabled: bool = Field(
+        default=False,
+        validation_alias="AI_PROVIDER_CALLS_ENABLED",
+    )
     ai_provider_openai_api_key: SecretStr | None = Field(
         default=None,
         validation_alias="AI_PROVIDER_OPENAI_API_KEY",
