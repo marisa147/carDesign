@@ -270,6 +270,10 @@ function statusVariant(
     return "default";
   }
 
+  if (state === "configured") {
+    return "warning";
+  }
+
   if (state === "not-configured") {
     return "muted";
   }

@@ -15,6 +15,7 @@ export type FoundationStatusId =
 
 export type FoundationStatusState =
   | "connected"
+  | "configured"
   | "current"
   | "unavailable"
   | "not-configured";
@@ -125,6 +126,16 @@ function dependencyCard(
     };
   }
 
+  if (dependency.status === "configured") {
+    return {
+      detail: dependency.detail ?? `${label} configured.`,
+      id,
+      label,
+      state: "configured",
+      statusLabel: "已配置",
+    };
+  }
+
   if (dependency.status === "not_configured") {
     return {
       detail: dependency.detail ?? fallbackDetail,
@@ -164,6 +175,16 @@ function localServicesCard(
       label: "Local Services",
       state: "connected",
       statusLabel: "已连接",
+    };
+  }
+
+  if (dependencies.every((dependency) => dependency.status === "configured")) {
+    return {
+      detail: "PostgreSQL、Redis 和 MinIO 已配置；运行 pnpm smoke:local 验证本地服务。",
+      id: "local-services",
+      label: "Local Services",
+      state: "configured",
+      statusLabel: "已配置",
     };
   }
 
