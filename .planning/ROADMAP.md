@@ -31,7 +31,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   2. Developer can run baseline lint, type-check, and test commands for both frontend and backend.
   3. Frontend code consumes generated TypeScript API contracts from FastAPI/Pydantic OpenAPI schemas.
   4. Operator can configure storage, database, queue, AI providers, CORS, and runtime mode without code changes.
-**Plans**: 9 plans
+**Plans**: 12 plans
 Plans:
 - [x] 01-01-PLAN.md — Repo tooling, runtime pins, root commands, and developer command index.
 - [x] 01-02-PLAN.md — FastAPI API foundation, typed settings, health endpoint, and OpenAPI export.
@@ -42,8 +42,11 @@ Plans:
 - [x] 01-07-PLAN.md — Next.js scaffold and design-system baseline.
 - [x] 01-08-PLAN.md — Web foundation shell, generated health-client integration, and tests.
 - [x] 01-09-PLAN.md — Aggregate validation runner and final developer/operator docs.
+- [ ] 01-10-PLAN.md — Gap closure: contracts test command and root validation wiring.
+- [ ] 01-11-PLAN.md — Gap closure: service env-file loading and provider env-name alignment.
+- [ ] 01-12-PLAN.md — Gap closure: truthful health statuses, smoke failures, and contract refresh.
 **UI hint**: yes
-**Verification**: Gaps found on 2026-05-09. See `.planning/phases/01-foundation-and-contracts/01-VERIFICATION.md`.
+**Verification**: Gaps found on 2026-05-09. Gap-closure plans 01-10 through 01-12 are ready. See `.planning/phases/01-foundation-and-contracts/01-VERIFICATION.md`.
 
 ### Phase 2: Durable Data, Jobs, And Assets
 **Goal**: User workspaces, uploaded assets, generation jobs, events, artifacts, versions, feedback, exports, and costs survive refreshes, retries, and worker restarts.
@@ -140,7 +143,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation And Contracts | 9/9 | Gaps Found | - |
+| 1. Foundation And Contracts | 9/12 | Ready for Gap Execution | - |
 | 2. Durable Data, Jobs, And Assets | 0/TBD | Not started | - |
 | 3. First Text-To-2D Generation Slice | 0/TBD | Not started | - |
 | 4. Workbench UI Integration | 0/TBD | Not started | - |
