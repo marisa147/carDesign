@@ -5,14 +5,14 @@
 See: .planning/PROJECT.md (updated 2026-05-07)
 
 **Core value:** 用户能用自然语言快速得到一套可预览、可迭代、可导出的高质量痛车设计方案。
-**Current focus:** Phase 1: Foundation And Contracts
+**Current focus:** Phase 1: Foundation And Contracts gap closure
 
 ## Current Position
 
 Phase: 1 of 7 (Foundation And Contracts)
 Plan: 9 of 9 in current phase
-Status: In review
-Last activity: 2026-05-09 - Completed all Phase 1 plans; review and verification gates running.
+Status: Gaps found
+Last activity: 2026-05-09 - Phase 1 verification found 3 gaps; gap closure planning required.
 
 Progress: [██████████] 100%
 
@@ -52,6 +52,7 @@ None yet.
 
 ### Blockers/Concerns
 
+- Phase 1 verification gaps: root test command invokes a missing contracts test script; service `.env` loading/provider names are misaligned; health/smoke checks can report success without proving dependencies are reachable.
 - Provider/model quality, pricing, moderation, commercial terms, and account access need current validation before Phase 3 implementation choices.
 - Minimum viable vehicle-template format, rights UX, and concept export wording need to be locked before deeper template/export work.
 
@@ -70,4 +71,4 @@ Items acknowledged and carried forward from milestone planning:
 
 Last session: 2026-05-08
 Stopped at: Completed all Phase 1 plans
-Resume file: .planning/phases/01-foundation-and-contracts/
+Resume file: .planning/phases/01-foundation-and-contracts/01-VERIFICATION.md
