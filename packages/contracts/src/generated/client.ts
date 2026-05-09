@@ -6,7 +6,11 @@
  * package-manager execution is blocked in the current sandbox.
  */
 
-export type DependencyHealthStatus = "ok" | "unavailable" | "not_configured";
+export type DependencyHealthStatus =
+  | "ok"
+  | "configured"
+  | "unavailable"
+  | "not_configured";
 
 export interface DependencyHealth {
   detail?: string | null;

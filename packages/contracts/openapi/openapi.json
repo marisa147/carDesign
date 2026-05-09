@@ -21,6 +21,7 @@
           "status": {
             "enum": [
               "ok",
+              "configured",
               "unavailable",
               "not_configured"
             ],

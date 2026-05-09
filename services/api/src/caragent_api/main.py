@@ -9,7 +9,7 @@ from pydantic import BaseModel
 from caragent_api import __version__
 from caragent_api.config import ApiSettings, get_settings
 
-DependencyStatus = Literal["ok", "unavailable", "not_configured"]
+DependencyStatus = Literal["ok", "configured", "unavailable", "not_configured"]
 
 
 class DependencyHealth(BaseModel):
@@ -27,7 +27,14 @@ class HealthResponse(BaseModel):
 
 def _configured_dependency(name: str, configured: bool) -> DependencyHealth:
     if configured:
-        return DependencyHealth(name=name, status="ok", detail="configured")
+        return DependencyHealth(
+            name=name,
+            status="configured",
+            detail=(
+                "Dependency is configured; live validation is performed by "
+                "pnpm smoke:local."
+            ),
+        )
     return DependencyHealth(name=name, status="not_configured", detail="missing configuration")
 
 
