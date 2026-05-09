@@ -42,7 +42,7 @@ Plans:
 - [x] 01-07-PLAN.md — Next.js scaffold and design-system baseline.
 - [x] 01-08-PLAN.md — Web foundation shell, generated health-client integration, and tests.
 - [x] 01-09-PLAN.md — Aggregate validation runner and final developer/operator docs.
-- [ ] 01-10-PLAN.md — Gap closure: contracts test command and root validation wiring.
+- [x] 01-10-PLAN.md — Gap closure: contracts test command and root validation wiring.
 - [ ] 01-11-PLAN.md — Gap closure: service env-file loading and provider env-name alignment.
 - [ ] 01-12-PLAN.md — Gap closure: truthful health statuses, smoke failures, and contract refresh.
 **UI hint**: yes
@@ -143,7 +143,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation And Contracts | 9/12 | Ready for Gap Execution | - |
+| 1. Foundation And Contracts | 10/12 | Gap Execution In Progress | - |
 | 2. Durable Data, Jobs, And Assets | 0/TBD | Not started | - |
 | 3. First Text-To-2D Generation Slice | 0/TBD | Not started | - |
 | 4. Workbench UI Integration | 0/TBD | Not started | - |
