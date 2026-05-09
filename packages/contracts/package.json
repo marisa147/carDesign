@@ -20,6 +20,7 @@
   "scripts": {
     "generate": "orval --config ./orval.config.ts",
     "check": "node ../../scripts/check-contracts.mjs",
+    "test": "tsc --project tsconfig.json --noEmit",
     "typecheck": "tsc --project tsconfig.json --noEmit",
     "lint": "tsc --project tsconfig.json --noEmit"
   },
