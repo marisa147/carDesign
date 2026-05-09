@@ -69,7 +69,7 @@ Python services are managed by `uv` and are intentionally not pnpm workspace pac
 | `pnpm contracts:check` | `pnpm --filter @caragent/contracts check` | Regenerate/check contract artifacts for drift. |
 | `pnpm lint` | Web, contracts, API, and worker lint commands | Run lint checks. |
 | `pnpm typecheck` | Web, contracts, API, and worker type checks | Run type checks. |
-| `pnpm test` | Web, contracts, API, and worker tests | Run unit tests. |
+| `pnpm test` | Web, contracts, API, and worker tests | Run the root unit-test surface. |
 | `pnpm smoke:local` | `node scripts/smoke-local.mjs` | Probe local infrastructure after Compose startup. |
 | `pnpm validate` | `node scripts/validate-all.mjs` | Run the required Phase 1 aggregate validation sequence. |
 
@@ -157,6 +157,7 @@ FastAPI/Pydantic OpenAPI is the source of truth. The generated TypeScript client
 ```powershell
 pnpm contracts:generate
 pnpm contracts:check
+pnpm --filter @caragent/contracts test
 pnpm --filter @caragent/contracts typecheck
 ```
 
@@ -168,6 +169,12 @@ pnpm contracts:check
 ```
 
 ## Validation
+
+Run the root unit-test surface for web, contracts, API, and worker:
+
+```powershell
+pnpm test
+```
 
 Run the aggregate Phase 1 gate from the root:
 
