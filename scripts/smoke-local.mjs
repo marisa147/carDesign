@@ -4,6 +4,7 @@ import http from "node:http";
 import net from "node:net";
 
 const args = new Set(process.argv.slice(2));
+const allowDockerUnavailable = args.has("--allow-docker-unavailable");
 const shouldManageCompose = args.has("--with-compose-if-docker");
 const dockerInfoCommand = "docker info";
 const composeUpCommand = "pnpm infra:up";
@@ -28,10 +29,17 @@ const serviceChecks = [
 async function main() {
   const docker = runCommand(dockerInfoCommand, { stdio: "pipe" });
   if (!docker.ok) {
-    console.log(
+    if (allowDockerUnavailable) {
+      console.log(
+        "Docker daemon unavailable; configured Docker-backed service checks were not performed because --allow-docker-unavailable was passed. This is not Phase 1 completion evidence.",
+      );
+      process.exit(0);
+    }
+
+    console.error(
       "Docker daemon unavailable; enable Docker Desktop or Docker Engine, then run pnpm infra:up, pnpm smoke:local, and pnpm infra:down.",
     );
-    process.exit(0);
+    process.exit(1);
   }
 
   if (shouldManageCompose) {

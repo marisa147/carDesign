@@ -87,11 +87,23 @@ pnpm smoke:local
 pnpm infra:down
 ```
 
-`pnpm smoke:local` expects Docker services to already be running. To let the smoke script manage Compose when Docker is available:
+`pnpm smoke:local` is a required live local-services check. It fails when the
+Docker daemon is unavailable because PostgreSQL, Redis, and MinIO were not
+validated. To let the smoke script manage Compose when Docker is available:
 
 ```powershell
 node scripts/smoke-local.mjs --with-compose-if-docker
 ```
+
+For sandbox or report-writing flows where Docker is known to be inaccessible,
+the script has an explicit non-verification escape hatch:
+
+```powershell
+node scripts/smoke-local.mjs --allow-docker-unavailable
+```
+
+That command only records that Docker checks were not performed; it is not Phase 1 completion evidence. Use `pnpm infra:up`, `pnpm smoke:local`, and
+`pnpm infra:down` on a Docker-enabled host for verification.
 
 Compose credentials and exposed ports bind to local development defaults only. They are not production deployment guidance.
 
@@ -269,7 +281,7 @@ Deferred items from `01-CONTEXT.md` remain out of scope for this phase: durable 
 | ------- | ------------- | --- |
 | `uv not installed` or `uv` is not recognized | Python service dependency manager is missing from `PATH`. | Install `uv`, open a new shell, run `cd services/api && uv sync --dev`, then `cd ../worker && uv sync --dev`. |
 | Node or pnpm fails with `EPERM: operation not permitted, lstat 'C:\Users\25858'` | The sandbox cannot access the Windows user profile path used by Node/pnpm. | Re-run the command on a host shell where pnpm can access the user profile, or fix the Node/npm profile permissions. |
-| Docker daemon unavailable | Docker CLI exists but Docker Desktop/Engine is not running or not reachable. | Start Docker Desktop/Engine, confirm `docker info`, then run `pnpm infra:up` and `pnpm smoke:local`. |
+| Docker daemon unavailable | Docker CLI exists but Docker Desktop/Engine is not running or not reachable; `pnpm smoke:local` fails by design because live services were not checked. | Start Docker Desktop/Engine, confirm `docker info`, then run `pnpm infra:up`, `pnpm smoke:local`, and `pnpm infra:down`. Use `node scripts/smoke-local.mjs --allow-docker-unavailable` only to document a sandbox blocker, not as completion evidence. |
 | Docker Compose image pull failure | Compose cannot pull PostgreSQL, Redis, or MinIO images. | Check network access, registry access, and the pinned image names in `infra/compose.yml`; retry `pnpm infra:up`. |
 | Ports already in use | A local process already owns `3000`, `8000`, `5432`, `6379`, `9000`, or `9001`. | Stop the conflicting process or override the matching port in a local env file before restarting services. |
 | Contract drift failure | Generated OpenAPI or TypeScript client artifacts differ from the committed baseline. | Run `pnpm contracts:generate`, review the generated files, then re-run `pnpm contracts:check`. |

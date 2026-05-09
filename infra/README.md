@@ -26,6 +26,9 @@ Run the local smoke checks after the services are healthy:
 pnpm smoke:local
 ```
 
+This command is a live verification gate. It fails when `docker info` cannot
+reach the Docker daemon because PostgreSQL, Redis, and MinIO were not checked.
+
 Stop the local services:
 
 ```powershell
@@ -46,6 +49,17 @@ pnpm infra:down
 
 If `docker info` fails, start Docker Desktop or the Docker daemon first, then
 rerun the same commands.
+
+For sandbox or reporting flows where Docker is intentionally inaccessible, this
+non-verification command exits successfully while stating that Docker checks
+were not performed:
+
+```powershell
+node scripts/smoke-local.mjs --allow-docker-unavailable
+```
+
+Do not use the allow flag as Phase 1 completion evidence; use the `pnpm infra:up`,
+`pnpm smoke:local`, `pnpm infra:down` path on a Docker-enabled host.
 
 ## Boundaries
 
