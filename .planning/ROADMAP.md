@@ -41,7 +41,7 @@ Plans:
 - [x] 01-06-PLAN.md — Generated OpenAPI/client artifacts and contract drift checking.
 - [x] 01-07-PLAN.md — Next.js scaffold and design-system baseline.
 - [x] 01-08-PLAN.md — Web foundation shell, generated health-client integration, and tests.
-- [ ] 01-09-PLAN.md — Aggregate validation runner and final developer/operator docs.
+- [x] 01-09-PLAN.md — Aggregate validation runner and final developer/operator docs.
 **UI hint**: yes
 
 ### Phase 2: Durable Data, Jobs, And Assets
@@ -139,7 +139,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation And Contracts | 8/9 | In Progress | - |
+| 1. Foundation And Contracts | 9/9 | In Review | - |
 | 2. Durable Data, Jobs, And Assets | 0/TBD | Not started | - |
 | 3. First Text-To-2D Generation Slice | 0/TBD | Not started | - |
 | 4. Workbench UI Integration | 0/TBD | Not started | - |
