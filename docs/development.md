@@ -42,6 +42,8 @@ Copy-Item services/worker/.env.example services/worker/.env
 
 Only `.env.example` files belong in source control. Real secrets and local overrides must stay untracked.
 
+When commands run from `services/api` or `services/worker` (including the root `pnpm dev:api`, `pnpm dev:worker`, and validation delegates), `pydantic-settings` loads the copied service `.env` file from that service directory. Use service `.env` files as the primary local override path instead of manually exporting variables in every shell.
+
 ## Repository Layout
 
 | Path | Owner | Purpose |
@@ -111,7 +113,7 @@ uv run pytest -q
 uv run python -m caragent_api.scripts.export_openapi --out ../../packages/contracts/openapi/openapi.json
 ```
 
-API settings cover database URL, Redis URL, S3/MinIO endpoint and bucket settings, CORS origins, runtime mode, and AI provider placeholders. Non-local runtime modes must provide explicit required settings instead of relying on local defaults.
+API settings cover database URL, Redis URL, S3/MinIO endpoint and bucket settings, CORS origins, runtime mode, and the Phase 1 provider contract: `AI_PROVIDER_DEFAULT`, `AI_PROVIDER_CALLS_ENABLED`, `AI_PROVIDER_OPENAI_API_KEY`, `AI_PROVIDER_FAL_API_KEY`, and `AI_PROVIDER_BFL_API_KEY`. The API parses and redacts provider entries for configuration only; D-16 keeps provider validation and calls out of Phase 1. Non-local runtime modes must provide explicit required settings instead of relying on local defaults.
 
 ## Worker
 
@@ -130,7 +132,7 @@ uv run mypy src
 uv run pytest -q
 ```
 
-The worker boot path is limited to Celery, Redis broker configuration, and the no-op health task. It does not import FastAPI routers and does not call providers during Phase 1.
+The worker boot path is limited to Celery, Redis broker configuration, service `.env` loading, provider setting parsing/redaction, and the no-op health task. It does not import FastAPI routers and does not call providers during Phase 1.
 
 ## Web
 
@@ -214,7 +216,7 @@ pnpm infra:down
 | FOUND-01 | Local run commands for `pnpm infra:up`, `pnpm dev:api`, `pnpm dev:worker`, `pnpm dev:web`, and `pnpm smoke:local`. | Start Docker services, run the app processes, then run `pnpm smoke:local`. |
 | FOUND-02 | Aggregate lint, type-check, and test command surface in `pnpm validate`. | Run `pnpm validate`; focused checks are available for web, contracts, API, and worker. |
 | FOUND-03 | FastAPI OpenAPI export, `packages/contracts` generated TypeScript client, `pnpm contracts:generate`, `pnpm contracts:check`, and web generated-client import. | Run `pnpm contracts:generate`, `pnpm contracts:check`, and web tests that exercise the generated health wrapper. |
-| FOUND-04 | Root/web/API/worker `.env.example` files plus API and worker settings tests. | Run `node scripts/check-env-examples.mjs`, API config tests, and worker settings tests through `pnpm validate`. |
+| FOUND-04 | Root/web/API/worker `.env.example` files plus service `.env` loading and API/worker settings tests. | Run `node scripts/check-env-examples.mjs`, API config tests, and worker settings tests through `pnpm validate`. |
 
 ## Source Coverage
 
@@ -224,7 +226,7 @@ pnpm infra:down
 | FOUND-01 | `infra/compose.yml`, `infra/README.md`, `scripts/smoke-local.mjs`, and the documented dev commands cover local web, API, worker, PostgreSQL, Redis, and MinIO run paths. |
 | FOUND-02 | `scripts/validate-all.mjs` sequences frontend, contract, API, and worker lint/type/test checks from `pnpm validate`. |
 | FOUND-03 | `services/api/src/caragent_api/scripts/export_openapi.py`, `packages/contracts/openapi/openapi.json`, `packages/contracts/src/generated/client.ts`, `scripts/check-contracts.mjs`, and `apps/web/src/lib/api/health.ts` cover generated API contracts. |
-| FOUND-04 | `.env.example`, service env examples, API/worker typed settings, env guard, and config tests cover database, queue, storage, provider placeholders, CORS, and runtime mode without code changes. |
+| FOUND-04 | `.env.example`, service env examples, service `.env` loading, API/worker typed settings, env guard, and config tests cover database, queue, storage, provider placeholders, CORS, and runtime mode without code changes. |
 | Research constraints | The monorepo keeps `apps/web`, `services/api`, `services/worker`, `packages/contracts`, and `infra` ownership separate; Python stays `uv`-managed; frontend contracts come from OpenAPI; local infrastructure is Docker Compose; validation is root-runnable. |
 
 | Locked Decision | Shipped Command Or File |
@@ -243,8 +245,8 @@ pnpm infra:down
 | D-12 | `/health` is the minimal contract surface used by the web shell. |
 | D-13 | `pnpm contracts:check` and `scripts/check-contracts.mjs` fail on generated artifact drift. |
 | D-14 | Only example env files are committed; real env files remain ignored. |
-| D-15 | API settings use typed `pydantic-settings` validation and reject unsafe config. |
-| D-16 | AI provider keys are placeholders only and are not exercised in Phase 1. |
+| D-15 | API and worker settings use typed `pydantic-settings` validation, load service `.env` files, and reject unsafe config. |
+| D-16 | AI provider keys use the `AI_PROVIDER_*` contract, are parsed and redacted as placeholders only, and are not exercised in Phase 1. |
 | D-17 | `pnpm validate` covers lint, type-check, tests, env guard, contract drift, and service checks. |
 | D-18 | Web, API, worker, and contract tests stay small and focused on foundation behavior. |
 | D-19 | Local commands and docs are the hard requirement; no CI dependency blocks Phase 1. |
@@ -256,7 +258,7 @@ Deferred items from `01-CONTEXT.md` remain out of scope for this phase: durable 
 ## Security Notes
 
 - Commit `.env.example` files only; keep real env files, keys, certificates, and local overrides ignored.
-- AI provider keys are configuration placeholders in Phase 1. Provider validation and calls belong to Phase 3.
+- AI provider keys use `AI_PROVIDER_OPENAI_API_KEY`, `AI_PROVIDER_FAL_API_KEY`, and `AI_PROVIDER_BFL_API_KEY` as configuration placeholders in Phase 1. They are parsed and redacted, but provider validation and calls belong to Phase 3.
 - Docker Compose credentials and ports are local-only and not a production hardening guide.
 - CORS origins are explicit configuration values; wildcard CORS is rejected by API settings tests.
 - Contract drift is blocked by `pnpm contracts:check` before frontend/backend API changes are accepted.
@@ -272,7 +274,7 @@ Deferred items from `01-CONTEXT.md` remain out of scope for this phase: durable 
 | Ports already in use | A local process already owns `3000`, `8000`, `5432`, `6379`, `9000`, or `9001`. | Stop the conflicting process or override the matching port in a local env file before restarting services. |
 | Contract drift failure | Generated OpenAPI or TypeScript client artifacts differ from the committed baseline. | Run `pnpm contracts:generate`, review the generated files, then re-run `pnpm contracts:check`. |
 | Wildcard CORS rejection | API settings rejected `CORS_ORIGINS=*` in an unsafe mode. | Set explicit origins such as `http://localhost:3000`; do not use wildcard origins with credentials. |
-| Missing non-local config | `RUNTIME_MODE` is not `local`, but required URLs, secrets, or provider settings are absent. | Add explicit database, Redis, S3, CORS, and provider config through ignored env files or deployment configuration. |
+| Missing non-local config | `RUNTIME_MODE` is not `local`, but required URLs, secrets, or provider settings are absent. | Add explicit database, Redis, S3, CORS, and `AI_PROVIDER_*` config through ignored service `.env` files or deployment configuration. |
 
 ## Phase Boundary
 

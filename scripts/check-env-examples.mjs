@@ -31,10 +31,9 @@ const requiredByFile = {
     "NEXT_PUBLIC_API_BASE_URL",
     "AI_PROVIDER_DEFAULT",
     "AI_PROVIDER_CALLS_ENABLED",
-    "OPENAI_API_KEY",
-    "STABILITY_API_KEY",
-    "FAL_API_KEY",
-    "REPLICATE_API_TOKEN",
+    "AI_PROVIDER_OPENAI_API_KEY",
+    "AI_PROVIDER_FAL_API_KEY",
+    "AI_PROVIDER_BFL_API_KEY",
   ],
   "apps/web/.env.example": [
     "RUNTIME_MODE",
@@ -54,10 +53,9 @@ const requiredByFile = {
     "CORS_ORIGINS",
     "AI_PROVIDER_DEFAULT",
     "AI_PROVIDER_CALLS_ENABLED",
-    "OPENAI_API_KEY",
-    "STABILITY_API_KEY",
-    "FAL_API_KEY",
-    "REPLICATE_API_TOKEN",
+    "AI_PROVIDER_OPENAI_API_KEY",
+    "AI_PROVIDER_FAL_API_KEY",
+    "AI_PROVIDER_BFL_API_KEY",
   ],
   "services/worker/.env.example": [
     "RUNTIME_MODE",
@@ -71,10 +69,9 @@ const requiredByFile = {
     "S3_BUCKET",
     "AI_PROVIDER_DEFAULT",
     "AI_PROVIDER_CALLS_ENABLED",
-    "OPENAI_API_KEY",
-    "STABILITY_API_KEY",
-    "FAL_API_KEY",
-    "REPLICATE_API_TOKEN",
+    "AI_PROVIDER_OPENAI_API_KEY",
+    "AI_PROVIDER_FAL_API_KEY",
+    "AI_PROVIDER_BFL_API_KEY",
   ],
 };
 
@@ -94,6 +91,12 @@ const realEnvTrackedPatterns = [
 ];
 
 const providerKeys = [
+  "AI_PROVIDER_OPENAI_API_KEY",
+  "AI_PROVIDER_FAL_API_KEY",
+  "AI_PROVIDER_BFL_API_KEY",
+];
+
+const legacyProviderKeys = [
   "OPENAI_API_KEY",
   "STABILITY_API_KEY",
   "FAL_API_KEY",
@@ -181,6 +184,14 @@ function assertProviderKeysOptionalInLocal(file, values) {
   }
 }
 
+function assertNoLegacyProviderKeys(file, values) {
+  for (const key of legacyProviderKeys) {
+    if (values.has(key)) {
+      throw new Error(`${file} still uses legacy provider key ${key}`);
+    }
+  }
+}
+
 function assertNoTrackedRealEnvFiles() {
   let trackedFiles = [];
   try {
@@ -255,6 +266,7 @@ for (const file of envFiles) {
   assertRequiredKeys(file, values);
   assertLocalSecrets(file, values);
   assertProviderKeysOptionalInLocal(file, values);
+  assertNoLegacyProviderKeys(file, values);
 }
 
 assertNoTrackedRealEnvFiles();
