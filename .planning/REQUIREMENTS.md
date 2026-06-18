@@ -10,8 +10,8 @@
 
 - [x] **V2-READY-01**: Operator can confirm v1.0 is closed, archived, and verified before any V2-only capability is enabled.
 - [x] **V2-READY-02**: Developer can run contract drift checks, backend tests, worker tests, frontend tests, Docker smoke, and Browser UAT from a clean checkout.
-- [ ] **V2-READY-03**: Operator can keep V2 feature flags disabled by default and verify V1 local-only behavior remains unchanged.
-- [ ] **V2-READY-04**: Operator can run the application without hosted provider credentials while retaining the local deterministic provider path.
+- [x] **V2-READY-03**: Operator can keep V2 feature flags disabled by default and verify V1 local-only behavior remains unchanged.
+- [x] **V2-READY-04**: Operator can run the application without hosted provider credentials while retaining the local deterministic provider path.
 
 ### Hosted Provider
 
@@ -96,8 +96,8 @@
 |-------------|-------|--------|
 | V2-READY-01 | Phase 8 | Complete |
 | V2-READY-02 | Phase 8 | Complete |
-| V2-READY-03 | Phase 8 | Pending |
-| V2-READY-04 | Phase 8 | Pending |
+| V2-READY-03 | Phase 8 | Complete |
+| V2-READY-04 | Phase 8 | Complete |
 | V2-PROVIDER-01 | Phase 9 | Pending |
 | V2-PROVIDER-02 | Phase 9 | Pending |
 | V2-PROVIDER-03 | Phase 9 | Pending |
