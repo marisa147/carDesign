@@ -10,6 +10,7 @@
     "infra:down": "docker compose --env-file .env.example -f infra/compose.yml down",
     "contracts:generate": "corepack pnpm --filter @caragent/contracts generate",
     "contracts:check": "corepack pnpm --filter @caragent/contracts check",
+    "compat:v1": "node scripts/check-v1-compatibility.mjs",
     "lint": "corepack pnpm --filter @caragent/web lint && corepack pnpm --filter @caragent/contracts lint && cd services/core && uv run ruff check . && cd ../api && uv run ruff check . && cd ../worker && uv run ruff check .",
     "typecheck": "corepack pnpm --filter @caragent/web typecheck && corepack pnpm --filter @caragent/contracts typecheck && cd services/core && uv run mypy src && cd ../api && uv run mypy src && cd ../worker && uv run mypy src",
     "test": "corepack pnpm --filter @caragent/web test && corepack pnpm --filter @caragent/contracts test && cd services/core && uv run pytest -q && cd ../api && uv run pytest -q && cd ../worker && uv run pytest -q",

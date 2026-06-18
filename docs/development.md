@@ -72,6 +72,7 @@ Python services and the shared core package are managed by `uv` and are intentio
 | `pnpm dev:web` | `pnpm --filter @caragent/web dev` | Run the Next.js web shell. |
 | `pnpm contracts:generate` | `pnpm --filter @caragent/contracts generate` | Refresh generated TypeScript contracts from OpenAPI. |
 | `pnpm contracts:check` | `pnpm --filter @caragent/contracts check` | Regenerate/check contract artifacts for drift. |
+| `pnpm compat:v1` | `node scripts/check-v1-compatibility.mjs` | Verify key v1 routes, schemas, generated helpers, and PreviewSpec-compatible parameter surfaces still exist before V2 schema work. |
 | `pnpm lint` | Web, contracts, core, API, and worker lint commands | Run lint checks. |
 | `pnpm typecheck` | Web, contracts, core, API, and worker type checks | Run type checks. |
 | `pnpm test` | Web, contracts, core, API, and worker tests | Run the root unit-test surface. |
@@ -91,10 +92,13 @@ Use these commands as the Phase 8 readiness vocabulary:
 | ------- | ----------------- |
 | `pnpm validate` | Aggregate lint, typecheck, tests, env guard, and contract drift checks. |
 | `pnpm contracts:check` | Confirms generated OpenAPI and TypeScript contracts are in sync. |
+| `pnpm compat:v1` | Confirms key v1 workbench, job, artifact, version, operations, feedback/export/iteration, and PreviewSpec-compatible contract surfaces still exist. |
 | `pnpm infra:up` | Starts PostgreSQL, Redis, and MinIO for live local smoke. |
 | `pnpm smoke:local` | Proves Docker-backed local infrastructure, migrations, durable data, and local deterministic generation smoke. |
 | `pnpm smoke:worker -- --dry-run` | Proves worker smoke command wiring without requiring live API/worker processes. |
 | `pnpm smoke:worker` | Proves the live API -> Redis/Celery -> worker -> durable artifact/version path on a prepared host. |
+
+`pnpm compat:v1` does not replace `pnpm contracts:check`: run compatibility first to confirm required v1 surfaces are still present, then run contract drift checks to confirm generated artifacts remain synchronized with FastAPI/Pydantic OpenAPI.
 
 Browser readiness UAT for Phase 8 is host-only: start local infrastructure, run API migrations, start the API, a Windows-safe worker, and web, then confirm the V1 workbench loads and future/V2 gates remain disabled or clearly deferred. Phase 8 must not imply hosted provider calls are enabled by default. Hosted provider production rollout, provider quality, pricing, moderation, account access, and commercial-rights checks remain Phase 9 scope.
 
