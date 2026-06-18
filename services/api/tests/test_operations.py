@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
@@ -171,6 +172,70 @@ def test_operations_provider_status_reports_hosted_quota_guards(
     assert provider["hosted_rate_limit_per_minute"] == 4
     assert provider["max_estimated_cost_per_job"] == "0.7500"
     assert "bfl-secret" not in response.text
+
+
+def test_operations_provider_status_exposes_safe_capabilities_and_guard_state(
+    tmp_path: Path,
+) -> None:
+    settings = ApiSettings(
+        ai_hosted_daily_call_limit=25,
+        ai_hosted_rate_limit_per_minute=4,
+        ai_max_estimated_cost_per_job=Decimal("0.7500"),
+        ai_provider_bfl_api_key=SecretStr("bfl-secret"),
+        ai_provider_calls_enabled=True,
+        ai_provider_default="bfl",
+        ai_provider_model="flux-2-pro-preview",
+        database_url=f"sqlite+aiosqlite:///{(tmp_path / 'hosted-capabilities.db').as_posix()}",
+        v2_hosted_provider_rollout_enabled=True,
+    )
+    client, _app = create_operations_client(tmp_path, settings=settings)
+
+    response = client.get("/operations/provider-status")
+
+    assert response.status_code == 200
+    provider = response.json()["provider"]
+    assert provider["guard_state"] == {
+        "daily_call_limit": 25,
+        "hosted_quota_guard_enabled": True,
+        "max_estimated_cost_per_job": "0.7500",
+        "rate_limit_per_minute": 4,
+    }
+    capabilities = {item["provider"]: item for item in provider["capabilities"]}
+    assert set(capabilities) == {"local-deterministic", "bfl"}
+    assert capabilities["local-deterministic"]["enabled"] is True
+    assert capabilities["local-deterministic"]["credential_required"] is False
+    assert capabilities["bfl"]["enabled"] is True
+    assert capabilities["bfl"]["credential_configured"] is True
+    assert capabilities["bfl"]["default_model"] == "flux-2-pro-preview"
+    assert capabilities["bfl"]["blocked_reasons"] == []
+    rendered = json.dumps(provider, sort_keys=True)
+    assert "bfl-secret" not in rendered
+    assert "api_key" not in rendered.lower()
+    assert "token" not in rendered.lower()
+
+
+def test_operations_provider_status_blocks_bfl_without_secrets_or_guards(
+    tmp_path: Path,
+) -> None:
+    settings = ApiSettings(
+        ai_provider_calls_enabled=True,
+        ai_provider_default="bfl",
+        database_url=f"sqlite+aiosqlite:///{(tmp_path / 'blocked-capabilities.db').as_posix()}",
+        v2_hosted_provider_rollout_enabled=True,
+    )
+    client, _app = create_operations_client(tmp_path, settings=settings)
+
+    response = client.get("/operations/provider-status")
+
+    assert response.status_code == 200
+    provider = response.json()["provider"]
+    bfl = next(item for item in provider["capabilities"] if item["provider"] == "bfl")
+    assert bfl["enabled"] is False
+    assert bfl["credential_configured"] is False
+    assert "AI_PROVIDER_BFL_API_KEY is missing" in bfl["blocked_reasons"]
+    assert "Hosted quota/rate/cost guards are incomplete" in bfl["blocked_reasons"]
+    assert provider["guard_state"]["hosted_quota_guard_enabled"] is False
+    assert "secret" not in response.text.lower()
 
 
 def test_operations_provider_status_degrades_when_queue_probe_raises(

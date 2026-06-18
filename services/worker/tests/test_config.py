@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 import pytest
@@ -185,6 +186,51 @@ def test_worker_v2_readiness_flags_default_off_in_local_mode(
     assert settings.ai_provider_openai_api_key is None
     assert settings.ai_provider_fal_api_key is None
     assert settings.ai_provider_bfl_api_key is None
+
+
+def test_worker_settings_expose_safe_provider_capabilities(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    clear_worker_env(monkeypatch)
+    monkeypatch.setenv("AI_PROVIDER_DEFAULT", "bfl")
+    monkeypatch.setenv("AI_PROVIDER_MODEL", "flux-2-pro-preview")
+    monkeypatch.setenv("AI_PROVIDER_CALLS_ENABLED", "true")
+    monkeypatch.setenv("AI_PROVIDER_BFL_API_KEY", "bfl-secret")
+    monkeypatch.setenv("V2_HOSTED_PROVIDER_ROLLOUT_ENABLED", "true")
+    monkeypatch.setenv("AI_HOSTED_DAILY_CALL_LIMIT", "10")
+    monkeypatch.setenv("AI_HOSTED_RATE_LIMIT_PER_MINUTE", "2")
+    monkeypatch.setenv("AI_MAX_ESTIMATED_COST_PER_JOB", "0.2500")
+
+    settings = WorkerSettings()
+
+    assert hasattr(settings, "provider_capability_map")
+    capabilities = settings.provider_capability_map()
+    assert set(capabilities) == {"local-deterministic", "bfl"}
+    assert capabilities["local-deterministic"]["enabled"] is True
+    assert capabilities["local-deterministic"]["credential_required"] is False
+    assert capabilities["bfl"]["enabled"] is True
+    assert capabilities["bfl"]["credential_configured"] is True
+    assert capabilities["bfl"]["default_model"] == "flux-2-pro-preview"
+    assert capabilities["bfl"]["guard_state"] == {
+        "daily_call_limit": 10,
+        "hosted_quota_guard_enabled": True,
+        "max_estimated_cost_per_job": "0.2500",
+        "rate_limit_per_minute": 2,
+    }
+    assert "bfl-secret" not in json.dumps(capabilities, sort_keys=True)
+
+
+def test_worker_settings_block_hosted_capability_without_secrets_or_guards() -> None:
+    settings = WorkerSettings(ai_provider_default="bfl")
+
+    bfl = settings.provider_capability_map()["bfl"]
+
+    assert bfl["enabled"] is False
+    assert bfl["credential_configured"] is False
+    assert "V2_HOSTED_PROVIDER_ROLLOUT_ENABLED is disabled" in bfl["blocked_reasons"]
+    assert "AI_PROVIDER_CALLS_ENABLED is disabled" in bfl["blocked_reasons"]
+    assert "AI_PROVIDER_BFL_API_KEY is missing" in bfl["blocked_reasons"]
+    assert "Hosted quota/rate/cost guards are incomplete" in bfl["blocked_reasons"]
 
 
 def test_worker_settings_rejects_zero_quota_and_rate_limits() -> None:

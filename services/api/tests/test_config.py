@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
@@ -155,6 +156,70 @@ def test_v2_readiness_flags_default_off_in_local_mode(
     assert settings.ai_provider_openai_api_key is None
     assert settings.ai_provider_fal_api_key is None
     assert settings.ai_provider_bfl_api_key is None
+
+
+def test_settings_expose_browser_safe_provider_capabilities(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    clear_api_env(monkeypatch)
+    monkeypatch.setenv("AI_PROVIDER_DEFAULT", "bfl")
+    monkeypatch.setenv("AI_PROVIDER_MODEL", "flux-2-pro-preview")
+    monkeypatch.setenv("AI_PROVIDER_CALLS_ENABLED", "true")
+    monkeypatch.setenv("AI_PROVIDER_BFL_API_KEY", "bfl-secret")
+    monkeypatch.setenv("V2_HOSTED_PROVIDER_ROLLOUT_ENABLED", "true")
+    monkeypatch.setenv("AI_HOSTED_DAILY_CALL_LIMIT", "10")
+    monkeypatch.setenv("AI_HOSTED_RATE_LIMIT_PER_MINUTE", "2")
+    monkeypatch.setenv("AI_MAX_ESTIMATED_COST_PER_JOB", "0.2500")
+
+    settings = ApiSettings()
+
+    assert hasattr(settings, "provider_capability_map")
+    capabilities = settings.provider_capability_map()
+    assert set(capabilities) == {"local-deterministic", "bfl"}
+
+    local = capabilities["local-deterministic"]
+    assert local["provider"] == "local-deterministic"
+    assert local["display_name"] == "Local deterministic"
+    assert local["credential_required"] is False
+    assert local["credential_configured"] is True
+    assert local["enabled"] is True
+    assert local["blocked_reasons"] == []
+    assert local["supports"]["generation"] is True
+    assert local["supports"]["references"] is False
+    assert local["supports"]["masks"] is False
+
+    bfl = capabilities["bfl"]
+    assert bfl["provider"] == "bfl"
+    assert bfl["display_name"] == "BFL"
+    assert bfl["credential_required"] is True
+    assert bfl["credential_configured"] is True
+    assert bfl["enabled"] is True
+    assert bfl["default_model"] == "flux-2-pro-preview"
+    assert bfl["blocked_reasons"] == []
+    assert bfl["guard_state"] == {
+        "daily_call_limit": 10,
+        "hosted_quota_guard_enabled": True,
+        "max_estimated_cost_per_job": "0.2500",
+        "rate_limit_per_minute": 2,
+    }
+    assert "bfl-secret" not in json.dumps(capabilities, sort_keys=True)
+
+
+def test_settings_block_hosted_capability_without_credentials_or_guards(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    clear_api_env(monkeypatch)
+
+    settings = ApiSettings(ai_provider_default="bfl")
+    bfl = settings.provider_capability_map()["bfl"]
+
+    assert bfl["enabled"] is False
+    assert bfl["credential_configured"] is False
+    assert bfl["guard_state"]["hosted_quota_guard_enabled"] is False
+    assert "V2_HOSTED_PROVIDER_ROLLOUT_ENABLED is disabled" in bfl["blocked_reasons"]
+    assert "AI_PROVIDER_CALLS_ENABLED is disabled" in bfl["blocked_reasons"]
+    assert "AI_PROVIDER_BFL_API_KEY is missing" in bfl["blocked_reasons"]
+    assert "Hosted quota/rate/cost guards are incomplete" in bfl["blocked_reasons"]
 
 
 def test_non_local_runtime_rejects_wildcard_cors(monkeypatch: pytest.MonkeyPatch) -> None:
