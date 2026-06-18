@@ -2,6 +2,7 @@ import type { DesignVersionResponse } from "@caragent/contracts";
 import type { CSSProperties } from "react";
 
 import { Badge } from "@/components/ui/badge";
+import { REFERENCE_ROLE_OPTIONS } from "@/lib/api/generation";
 import { useWorkbenchStore } from "@/lib/workbench/store";
 
 interface ComparisonPanelProps {
@@ -24,6 +25,7 @@ export function ComparisonPanel({ versions }: ComparisonPanelProps) {
     ? versions.find((version) => version.id === selectedVersion.parent_version_id) ?? null
     : null;
   const targetedComparison = readTargetedComparison(selectedVersion);
+  const referenceTrace = readReferenceTrace(selectedVersion?.parameters ?? {});
   const differences = compareParameters(
     parentVersion?.parameters ?? {},
     selectedVersion?.parameters ?? {},
@@ -63,6 +65,7 @@ export function ComparisonPanel({ versions }: ComparisonPanelProps) {
       {targetedComparison ? (
         <TargetedComparisonDetails comparison={targetedComparison} />
       ) : null}
+      {referenceTrace ? <ReferenceTraceSummary trace={referenceTrace} /> : null}
 
       <div className="grid gap-2">
         {differences.length > 0 ? (
@@ -110,6 +113,49 @@ function TargetedComparisonDetails({
         region={comparison.region}
         targetSummary={comparison.targetSummary}
       />
+    </div>
+  );
+}
+
+interface ReferenceTrace {
+  includedCount: number;
+  omittedCount: number;
+  roleCounts: Array<{ count: number; label: string; role: string }>;
+  unsupportedRoleLabels: string[];
+  warningCount: number;
+}
+
+function ReferenceTraceSummary({ trace }: { trace: ReferenceTrace }) {
+  const hasWarnings =
+    trace.warningCount > 0 ||
+    trace.omittedCount > 0 ||
+    trace.unsupportedRoleLabels.length > 0;
+
+  return (
+    <div className="grid gap-2 rounded-md border border-border bg-card px-3 py-2 text-xs">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="font-medium">引用追踪</span>
+        {hasWarnings ? <Badge variant="warning">引用受限</Badge> : null}
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <Badge variant="muted">已用引用 {trace.includedCount}</Badge>
+        {trace.omittedCount > 0 ? (
+          <Badge variant="warning">省略引用 {trace.omittedCount}</Badge>
+        ) : null}
+        <Badge variant={hasWarnings ? "warning" : "muted"}>
+          警告 {trace.warningCount}
+        </Badge>
+        {trace.roleCounts.map((entry) => (
+          <Badge key={entry.role} variant="muted">
+            {entry.label} {entry.count}
+          </Badge>
+        ))}
+      </div>
+      {trace.unsupportedRoleLabels.length > 0 ? (
+        <p className="text-secondary-foreground">
+          不支持角色 {trace.unsupportedRoleLabels.join(", ")}
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -173,10 +219,21 @@ function compareParameters(
   parentParameters: Record<string, unknown>,
   selectedParameters: Record<string, unknown>,
 ) {
+  const compactTraceKeys = new Set([
+    "included_reference_asset_ids",
+    "omitted_reference_asset_ids",
+    "reference_roles",
+    "reference_usage",
+    "reference_warning_count",
+    "rights_snapshot",
+    "unsupported_reference_roles",
+  ]);
+
   return Array.from(
     new Set([...Object.keys(parentParameters), ...Object.keys(selectedParameters)]),
   )
     .sort()
+    .filter((key) => !compactTraceKeys.has(key))
     .filter((key) => formatValue(parentParameters[key]) !== formatValue(selectedParameters[key]))
     .map((key) => ({
       after: formatValue(selectedParameters[key]),
@@ -259,6 +316,63 @@ function readTargetedComparison(
     routeLabel: formatRouteLabel(route),
     targetSummary,
   };
+}
+
+function readReferenceTrace(parameters: Record<string, unknown>): ReferenceTrace | null {
+  const roleCounts = readReferenceRoleCounts(asRecord(parameters.reference_roles));
+  const usageItemCount = readReferenceUsageItemCount(parameters.reference_usage);
+  const includedCount = readStringArray(parameters.included_reference_asset_ids).length;
+  const omittedCount = readStringArray(parameters.omitted_reference_asset_ids).length;
+  const unsupportedRoleLabels = readStringArray(parameters.unsupported_reference_roles).map(
+    referenceRoleLabel,
+  );
+  const warningCount = readNumber(parameters.reference_warning_count) ?? 0;
+  const effectiveIncludedCount = Math.max(
+    includedCount,
+    usageItemCount,
+    roleCounts.reduce((total, entry) => total + entry.count, 0),
+  );
+
+  if (
+    effectiveIncludedCount === 0 &&
+    omittedCount === 0 &&
+    unsupportedRoleLabels.length === 0 &&
+    warningCount === 0
+  ) {
+    return null;
+  }
+
+  return {
+    includedCount: effectiveIncludedCount,
+    omittedCount,
+    roleCounts,
+    unsupportedRoleLabels,
+    warningCount,
+  };
+}
+
+function readReferenceRoleCounts(
+  roles: Record<string, unknown> | null,
+): Array<{ count: number; label: string; role: string }> {
+  if (!roles) {
+    return [];
+  }
+
+  return Object.entries(roles)
+    .map(([role, assetIds]) => ({
+      count: Array.isArray(assetIds) ? assetIds.length : 0,
+      label: referenceRoleLabel(role),
+      role,
+    }))
+    .filter((entry) => entry.count > 0);
+}
+
+function readReferenceUsageItemCount(value: unknown): number {
+  if (Array.isArray(value)) {
+    return value.length;
+  }
+  const usage = asRecord(value);
+  return Array.isArray(usage?.items) ? usage.items.length : 0;
 }
 
 function findRecord(
@@ -353,6 +467,10 @@ function readNullableString(value: unknown): string | null {
     return String(value);
   }
   return null;
+}
+
+function referenceRoleLabel(role: string): string {
+  return REFERENCE_ROLE_OPTIONS.find((option) => option.value === role)?.label ?? role;
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {

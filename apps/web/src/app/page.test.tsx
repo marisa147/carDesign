@@ -1157,8 +1157,8 @@ describe("Phase 4 workbench shell", () => {
     await user.click(screen.getByRole("button", { name: "刷新状态" }));
     await user.click(await screen.findByRole("button", { name: "BFL 托管" }));
 
-    expect(screen.getByText("引用受限")).toBeVisible();
-    expect(screen.getByText("供应商不支持")).toBeVisible();
+    expect(await screen.findByText("引用受限")).toBeVisible();
+    expect(await screen.findByText("供应商不支持")).toBeVisible();
     expect(screen.getByText("供应商不支持 角色")).toBeVisible();
     expect(document.body.textContent).not.toMatch(/api[_-]?key|secret|[A-Z]:\\/i);
   });
@@ -1621,6 +1621,7 @@ describe("Phase 4 workbench shell", () => {
     } satisfies GenerationJobResponse;
     const fetchMock = mockResumeWithGenerationState({
       artifacts: [artifactFixture, secondArtifactFixture],
+      brief: referenceDesignBriefFixture,
       events: [
         {
           ...jobEventFixture,
@@ -1756,6 +1757,7 @@ describe("Phase 4 workbench shell", () => {
     };
     const fetchMock = mockResumeWithGenerationState({
       artifacts: [artifactFixture, secondArtifactFixture],
+      brief: referenceDesignBriefFixture,
       events: [
         {
           ...jobEventFixture,

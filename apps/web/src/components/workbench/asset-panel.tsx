@@ -26,6 +26,7 @@ interface AssetPanelProps {
   ) => Promise<AssetResponse>;
   onUpload: (payload: { file: File; kind: string }) => Promise<AssetResponse>;
   referenceAssignments: ReferenceUsageDraft[];
+  unsupportedReferenceRoles: string[];
   workspaceId: string | null;
 }
 
@@ -36,6 +37,7 @@ export function AssetPanel({
   onRightsUpdate,
   onUpload,
   referenceAssignments,
+  unsupportedReferenceRoles,
   workspaceId,
 }: AssetPanelProps) {
   const [file, setFile] = useState<File | null>(null);
@@ -132,6 +134,7 @@ export function AssetPanel({
               key={`${asset.id}-${asset.updated_at}`}
               onReferenceAssignmentChange={onReferenceAssignmentChange}
               onRightsUpdate={onRightsUpdate}
+              unsupportedReferenceRoles={unsupportedReferenceRoles}
             />
           ))}
         </div>
@@ -145,6 +148,7 @@ function AssetListItem({
   asset,
   onReferenceAssignmentChange,
   onRightsUpdate,
+  unsupportedReferenceRoles,
 }: {
   assignment: ReferenceUsageDraft | undefined;
   asset: AssetResponse;
@@ -156,6 +160,7 @@ function AssetListItem({
     assetId: string,
     payload: AssetRightsUpdateRequest,
   ) => Promise<AssetResponse>;
+  unsupportedReferenceRoles: string[];
 }) {
   const [sourceLabel, setSourceLabel] = useState(asset.source_label ?? "");
   const [rightsNotes, setRightsNotes] = useState(asset.rights_notes ?? "");
@@ -164,6 +169,8 @@ function AssetListItem({
   const eligibility = getReferenceEligibility(asset);
   const selectedRole = assignment?.role ?? DEFAULT_REFERENCE_ROLE;
   const isSelected = Boolean(assignment?.enabled);
+  const isUnsupportedByProvider =
+    isSelected && unsupportedReferenceRoles.includes(selectedRole);
 
   const handleRightsSave = async () => {
     setSaveState("saving");
@@ -229,8 +236,14 @@ function AssetListItem({
           </select>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Badge variant={eligibility.canUseForGeneration ? "primary" : "warning"}>
-            {eligibility.label}
+          <Badge
+            variant={
+              eligibility.canUseForGeneration && !isUnsupportedByProvider
+                ? "primary"
+                : "warning"
+            }
+          >
+            {isUnsupportedByProvider ? "供应商不支持" : eligibility.label}
           </Badge>
           {eligibility.warning ? <Badge variant="warning">{eligibility.warning}</Badge> : null}
         </div>

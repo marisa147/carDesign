@@ -46,7 +46,6 @@ import {
 } from "@/lib/api/assets";
 import {
   DEFAULT_REFERENCE_ROLE,
-  buildProviderIntentPayload,
   createGenerationBrief,
   loadGenerationState,
   retryGenerationJob,
@@ -57,6 +56,7 @@ import {
 import {
   createConceptExport,
   createVersionFeedback,
+  buildIterationSubmissionPayload,
   submitChildIteration,
 } from "@/lib/api/iteration";
 import { cancelGenerationJob, listWorkspaceJobs } from "@/lib/api/jobs";
@@ -325,6 +325,7 @@ export function WorkbenchApp() {
       setJobs(nextJobs);
       setGenerationState(nextGenerationState);
       setOperationsStatus(nextOperationsStatus);
+      setSelectedProviderId(normalizeProviderStatus(nextOperationsStatus).activeProviderId);
       queryClient.setQueryData(workbenchQueryKeys.jobs(workspace.id), nextJobs);
       if (nextGenerationState) {
         queryClient.setQueryData(
@@ -404,15 +405,22 @@ export function WorkbenchApp() {
     setIterationNotice(null);
     try {
       const result = await submitChildIteration(workspace.id, selectedVersion.id, {
-        brief_id: currentBrief.id,
-        change_request: changeRequest,
-        idempotency_key: `iteration-${selectedVersion.id}-${Date.now()}`,
-        ...(targetedEditResult.editIntent
-          ? { edit_intent: targetedEditResult.editIntent }
-          : {}),
-        parameter_overrides: {},
-        ...buildProviderIntentPayload(selectedProviderOption),
-        requested_by: "web-workbench",
+        ...buildIterationSubmissionPayload(
+          {
+            brief_id: currentBrief.id,
+            change_request: changeRequest,
+            idempotency_key: `iteration-${selectedVersion.id}-${Date.now()}`,
+            ...(targetedEditResult.editIntent
+              ? { edit_intent: targetedEditResult.editIntent }
+              : {}),
+            parameter_overrides: {},
+            requested_by: "web-workbench",
+          },
+          {
+            providerSelection: selectedProviderOption,
+            referenceAssignments,
+          },
+        ),
       });
 
       setJobs((existing) => {
@@ -560,6 +568,9 @@ export function WorkbenchApp() {
           onRightsUpdate={handleAssetRightsUpdate}
           onUpload={handleAssetUpload}
           referenceAssignments={referenceAssignments}
+          unsupportedReferenceRoles={
+            selectedProviderOption?.referenceInput.unsupportedRoles ?? []
+          }
           workspaceId={workspace?.id ?? null}
         />
       }

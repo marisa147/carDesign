@@ -12,6 +12,12 @@ import {
   type GenerationJobSubmissionResponse,
 } from "@caragent/contracts";
 
+import {
+  buildProviderIntentPayload,
+  buildReferenceUsagePayload,
+  type ProviderIntentSelection,
+  type ReferenceUsageDraft,
+} from "@/lib/api/generation";
 import { publicEnv } from "@/lib/config/public-env";
 
 export interface IterationApiOptions {
@@ -35,6 +41,31 @@ export async function submitChildIteration(
     payload,
     options,
   );
+}
+
+export function buildIterationSubmissionPayload(
+  basePayload: GenerationIterationSubmissionRequest,
+  options: {
+    providerSelection?: ProviderIntentSelection | null;
+    referenceAssignments?: ReferenceUsageDraft[];
+  } = {},
+): GenerationIterationSubmissionRequest {
+  const referenceOverrides =
+    options.referenceAssignments && options.referenceAssignments.length > 0
+      ? buildReferenceUsagePayload(options.referenceAssignments)
+      : {};
+  const parameterOverrides = {
+    ...(basePayload.parameter_overrides ?? {}),
+    ...referenceOverrides,
+  };
+
+  return {
+    ...basePayload,
+    ...(Object.keys(parameterOverrides).length > 0
+      ? { parameter_overrides: parameterOverrides }
+      : {}),
+    ...buildProviderIntentPayload(options.providerSelection),
+  };
 }
 
 export async function createVersionFeedback(
