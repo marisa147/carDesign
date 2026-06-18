@@ -188,7 +188,7 @@ v2.0 MVP is successful when:
 
 **Plans:** 8 plans
 
-- [ ] 12-01-PLAN.md — Preview3DSpec schema, compatibility mapping, and artifact contract.
+- [x] 12-01-PLAN.md — Preview3DSpec schema, compatibility mapping, and artifact contract.
 - [ ] 12-02-PLAN.md — Minimal vehicle shell asset registration and local fixture pipeline.
 - [ ] 12-03-PLAN.md — Frontend 3D preview viewer scaffold with camera controls and fallback states.
 - [ ] 12-04-PLAN.md — Texture/material mapping from PreviewSpec to lightweight preview shell.
@@ -333,7 +333,7 @@ A single end-to-end V2 MVP UAT should prove:
 | 9. Hosted Provider Rollout MVP | 7/7 | Complete | 2026-06-18 |
 | 10. Targeted Regeneration And Masked Editing MVP | 8/8 | Complete | 2026-06-18 |
 | 11. Reference-Guided Generation MVP | 7/7 | Complete | 2026-06-18 |
-| 12. Lightweight 3D Preview MVP | 0/8 | Not started | - |
+| 12. Lightweight 3D Preview MVP | 1/8 | In Progress | - |
 | 13. Enhanced Concept Handoff Package MVP | 0/7 | Not started | - |
 | 14. V2 MVP Hardening, Docs, Smoke, And UAT | 0/6 | Not started | - |
 
