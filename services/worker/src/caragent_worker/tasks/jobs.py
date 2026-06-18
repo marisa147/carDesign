@@ -698,8 +698,10 @@ async def _run_deterministic_recomposition(
             width=settings.ai_local_image_width,
         )
         preview_spec_summary = _preview_spec_summary(recomposition.preview_spec)
+        targeted_edit_metadata = _edit_intent_metadata(edit_intent)
         trace_metadata: dict[str, object] = {
             **preview_spec_summary,
+            **targeted_edit_metadata,
             "changed_fields": list(recomposition.metadata["changed_fields"]),
             "external_calls": False,
             "parent_artifact_id": str(parent_artifact.id),
@@ -722,6 +724,7 @@ async def _run_deterministic_recomposition(
             },
             prompt_payload={
                 "edit_intent": edit_intent.model_dump(mode="json"),
+                "mask_edit": targeted_edit_metadata,
                 "parent_preview_spec": parent_preview_spec,
                 "preview_spec": recomposition.preview_spec,
             },
@@ -1443,6 +1446,13 @@ def _mask_edit_request_from_intent(edit_intent: EditIntent | None) -> MaskEditRe
         route_preference=edit_intent.route_preference,
         target=edit_intent.target.model_dump(mode="json"),
     )
+
+
+def _edit_intent_metadata(edit_intent: EditIntent) -> dict[str, object]:
+    mask_edit = _mask_edit_request_from_intent(edit_intent)
+    if mask_edit is None:
+        return {}
+    return _mask_edit_metadata(mask_edit)
 
 
 def _provider_trace_metadata(

@@ -226,6 +226,14 @@ def test_generation_worker_recomposes_safe_targeted_edit_without_provider_call(
     }
     assert child_layer["text"] == "STAR RUN"
     assert child_layer["y"] < 0.47
+    assert child.parameters["edit_route"] == "deterministic_recomposition"
+    assert child.parameters["mask_artifact_id"] == str(state.artifacts[0].id)
+    assert child.parameters["mask_content_type"] == "image/png"
+    assert child.parameters["prompt_delta"] == {
+        "instructions": ["text=STAR RUN; move up"],
+        "summary": "text=STAR RUN; move up",
+    }
+    assert child.parameters["region"]["unit"] == "normalized"
     assert child.parameters["recomposition_route"] == "deterministic_recomposition"
     assert child.parameters["target"] == {"id": "text-1", "type": "overlay_layer"}
     assert set(child.parameters["changed_fields"]) >= {"text", "y"}
@@ -235,18 +243,35 @@ def test_generation_worker_recomposes_safe_targeted_edit_without_provider_call(
     assert model_run.status == ModelRunStatus.SUCCEEDED.value
     assert model_run.provider == "deterministic-recomposition"
     assert model_run.model == "preview-spec-recomposer-v1"
+    assert model_run.parameters["edit_route"] == "deterministic_recomposition"
+    assert model_run.parameters["mask_artifact_id"] == str(state.artifacts[0].id)
+    assert model_run.parameters["prompt_delta"]["summary"] == "text=STAR RUN; move up"
     assert model_run.parameters["recomposition_route"] == "deterministic_recomposition"
     assert model_run.parameters["parent_version_id"] == str(parent.id)
+    assert model_run.prompt_payload["mask_edit"]["edit_route"] == (
+        "deterministic_recomposition"
+    )
     assert model_run.output_artifact_id == state.artifacts[1].id
 
     child_artifact = state.artifacts[1]
+    assert child_artifact.metadata_json["edit_route"] == "deterministic_recomposition"
+    assert child_artifact.metadata_json["mask_artifact_id"] == str(state.artifacts[0].id)
+    assert child_artifact.metadata_json["prompt_delta"]["instructions"] == [
+        "text=STAR RUN; move up",
+    ]
     assert child_artifact.metadata_json["recomposition_route"] == "deterministic_recomposition"
     assert child_artifact.metadata_json["parent_version_id"] == str(parent.id)
     assert child_artifact.metadata_json["target"] == {"id": "text-1", "type": "overlay_layer"}
     assert child_artifact.object_key in output_storage.objects
+    start_event = next(
+        event for event in state.events if event.message == "Deterministic recomposition started."
+    )
+    assert start_event.metadata_json["edit_route"] == "deterministic_recomposition"
     assert state.job.metadata_json["operations"]["recomposition_route"] == (
         "deterministic_recomposition"
     )
+    assert state.job.metadata_json["operations"]["edit_route"] == "deterministic_recomposition"
+    assert state.job.metadata_json["operations"]["mask_artifact_id"] == str(state.artifacts[0].id)
 
 
 def test_generation_worker_rejects_invalid_recomposition_without_partial_child(
@@ -391,8 +416,18 @@ def test_generation_worker_passes_mask_metadata_to_allowed_mock_provider(
         "id": "text-1",
         "type": "overlay_layer",
     }
+    parent, child = state.versions
+    assert child.parent_version_id == parent.id
+    assert child.lineage_depth == parent.lineage_depth + 1
+    assert parent.parameters["preview_spec"]["overlay_layers"][0]["text"] == "MOON DRIVE"
+    assert state.model_runs[0].parameters["mask_artifact_id"] == str(state.artifacts[0].id)
+    assert state.model_runs[0].parameters["prompt_delta"]["summary"] == (
+        "Repaint the selected door text."
+    )
     assert state.artifacts[1].metadata_json["edit_route"] == "provider_masked_generation"
     assert state.versions[1].parameters["edit_route"] == "provider_masked_generation"
+    assert state.job.metadata_json["operations"]["edit_route"] == "provider_masked_generation"
+    assert state.events[-1].metadata_json["edit_route"] == "provider_masked_generation"
 
 
 def test_generation_worker_records_sanitized_provider_failure(tmp_path: Path) -> None:

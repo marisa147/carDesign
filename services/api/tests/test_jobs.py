@@ -15,7 +15,7 @@ from caragent_core.enums import (
     JobStatus,
     ModelRunStatus,
 )
-from caragent_core.models import metadata
+from caragent_core.models import Artifact, DesignVersion, metadata
 from caragent_core.services import jobs
 from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker
@@ -111,6 +111,92 @@ async def create_simulation_records(
         "feedback_id": str(feedback.id),
         "model_run_id": str(model_run.id),
         "version_id": str(version.id),
+    }
+
+
+async def create_targeted_edit_records(
+    session_factory: async_sessionmaker[Any],
+    workspace_id: UUID,
+    job_id: UUID,
+) -> dict[str, str]:
+    async with session_scope(session_factory) as session:
+        parent = await jobs.create_design_version(
+            session,
+            workspace_id,
+            job_id=job_id,
+            parameters={"concept_label": "parent_preview", "preview_spec": parent_preview_spec()},
+            status=DesignVersionStatus.GENERATED.value,
+            title="Parent concept",
+        )
+        parent_artifact = await jobs.create_artifact(
+            session,
+            workspace_id,
+            job_id=job_id,
+            version_id=parent.id,
+            kind=ArtifactKind.GENERATED_IMAGE.value,
+            object_key=f"workspaces/{workspace_id}/generated/{parent.id}/parent.png",
+            content_type="image/png",
+            byte_size=128,
+            metadata={"concept_label": "parent_preview", "preview_spec": parent_preview_spec()},
+            height=768,
+            width=1536,
+        )
+        trace_metadata = targeted_edit_trace_metadata(parent, parent_artifact)
+        child = await jobs.create_design_version(
+            session,
+            workspace_id,
+            job_id=job_id,
+            parent_version_id=parent.id,
+            parameters={
+                "concept_label": "targeted_recomposition",
+                "preview_spec": parent_preview_spec(),
+                **trace_metadata,
+            },
+            status=DesignVersionStatus.GENERATED.value,
+            title="Targeted recomposition preview",
+        )
+        child_artifact = await jobs.create_artifact(
+            session,
+            workspace_id,
+            job_id=job_id,
+            version_id=child.id,
+            kind=ArtifactKind.GENERATED_IMAGE.value,
+            object_key=f"workspaces/{workspace_id}/generated/{child.id}/concept.png",
+            content_type="image/png",
+            byte_size=144,
+            metadata=trace_metadata,
+            height=768,
+            width=1536,
+        )
+        model_run = await jobs.create_model_run(
+            session,
+            job_id,
+            provider="deterministic-recomposition",
+            model="preview-spec-recomposer-v1",
+            status=ModelRunStatus.SUCCEEDED.value,
+            parameters=trace_metadata,
+            prompt_payload={"mask_edit": trace_metadata},
+            prompt_text="Move selected door text.",
+            estimated_cost=Decimal("0.0000"),
+            actual_cost=Decimal("0.0000"),
+            input_artifact_ids=[str(parent_artifact.id)],
+            output_artifact_id=child_artifact.id,
+        )
+        await jobs.transition_job_status(
+            session,
+            job_id,
+            status=JobStatus.SUCCEEDED.value,
+            message="Generation completed.",
+            metadata={**trace_metadata, "stage": "completed"},
+            source="worker-generation",
+        )
+
+    return {
+        "child_artifact_id": str(child_artifact.id),
+        "child_version_id": str(child.id),
+        "model_run_id": str(model_run.id),
+        "parent_artifact_id": str(parent_artifact.id),
+        "parent_version_id": str(parent.id),
     }
 
 
@@ -259,6 +345,57 @@ def test_simulation_records_are_readable_through_api(tmp_path: Path) -> None:
     assert [item["id"] for item in exports.json()] == [records["export_id"]]
 
 
+def test_targeted_edit_records_are_readable_through_api(tmp_path: Path) -> None:
+    client, app = create_job_client(tmp_path)
+    workspace_id = client.post("/workspaces", json={"title": "Targeted evidence"}).json()["id"]
+    job_id = client.post(
+        f"/workspaces/{workspace_id}/jobs",
+        json={"idempotency_key": "targeted-api-001", "operation": "generate_2d_concept"},
+    ).json()["id"]
+    records = asyncio.run(
+        create_targeted_edit_records(
+            app.state.session_factory,
+            UUID(workspace_id),
+            UUID(job_id),
+        ),
+    )
+
+    fetched_job = client.get(f"/jobs/{job_id}")
+    events = client.get(f"/jobs/{job_id}/events")
+    versions = client.get(f"/workspaces/{workspace_id}/versions")
+    artifacts = client.get(f"/workspaces/{workspace_id}/artifacts")
+    model_runs = client.get(f"/jobs/{job_id}/model-runs")
+
+    assert fetched_job.json()["metadata"]["operations"]["edit_route"] == (
+        "deterministic_recomposition"
+    )
+    assert events.json()[-1]["metadata"]["target"] == {
+        "id": "text-1",
+        "type": "overlay_layer",
+    }
+    parent, child = versions.json()
+    assert parent["id"] == records["parent_version_id"]
+    assert child["id"] == records["child_version_id"]
+    assert child["parent_version_id"] == records["parent_version_id"]
+    assert child["parameters"]["edit_route"] == "deterministic_recomposition"
+    assert child["parameters"]["mask_artifact_id"] == records["parent_artifact_id"]
+    assert child["parameters"]["prompt_delta"]["summary"] == "Move selected door text."
+
+    parent_artifact, child_artifact = artifacts.json()
+    assert parent_artifact["id"] == records["parent_artifact_id"]
+    assert child_artifact["id"] == records["child_artifact_id"]
+    assert child_artifact["metadata"]["region"]["unit"] == "normalized"
+    assert child_artifact["metadata"]["target"]["id"] == "text-1"
+
+    model_run = model_runs.json()[0]
+    assert model_run["id"] == records["model_run_id"]
+    assert model_run["input_artifact_ids"] == [records["parent_artifact_id"]]
+    assert model_run["parameters"]["edit_route"] == "deterministic_recomposition"
+    assert model_run["prompt_payload"]["mask_edit"]["mask_artifact_id"] == (
+        records["parent_artifact_id"]
+    )
+
+
 def test_feedback_and_concept_export_can_be_created_through_api(tmp_path: Path) -> None:
     client, app = create_job_client(tmp_path)
     workspace_id = client.post("/workspaces", json={"title": "Iteration"}).json()["id"]
@@ -332,3 +469,54 @@ def test_feedback_and_export_creation_validate_inputs(tmp_path: Path) -> None:
     assert bad_rating.status_code == 422
     assert wrong_workspace.status_code == 422
     assert bad_export_format.status_code == 422
+
+
+def parent_preview_spec() -> dict[str, object]:
+    return {
+        "overlay_layers": [
+            {"id": "text-1", "kind": "text", "text": "MOON DRIVE", "zone_id": "door-main"},
+        ],
+        "safe_zones": [
+            {
+                "height": 0.24,
+                "id": "door-main",
+                "kind": "body",
+                "label": "Door / main side panel",
+                "width": 0.34,
+                "x": 0.32,
+                "y": 0.47,
+            },
+        ],
+    }
+
+
+def targeted_edit_trace_metadata(
+    parent: DesignVersion,
+    parent_artifact: Artifact,
+) -> dict[str, object]:
+    parent_id = str(parent.id)
+    parent_artifact_id = str(parent_artifact.id)
+    return {
+        "changed_fields": ["text", "y"],
+        "edit_route": "deterministic_recomposition",
+        "external_calls": False,
+        "mask_artifact_id": parent_artifact_id,
+        "mask_content_type": "image/png",
+        "mask_height": 768,
+        "mask_width": 1536,
+        "parent_artifact_id": parent_artifact_id,
+        "parent_version_id": parent_id,
+        "prompt_delta": {
+            "instructions": ["Move selected door text."],
+            "summary": "Move selected door text.",
+        },
+        "region": {
+            "height": 0.24,
+            "type": "rectangle",
+            "unit": "normalized",
+            "width": 0.34,
+            "x": 0.32,
+            "y": 0.47,
+        },
+        "target": {"id": "text-1", "type": "overlay_layer"},
+    }
