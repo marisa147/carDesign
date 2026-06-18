@@ -571,6 +571,7 @@ def test_preview_3d_screenshot_artifacts_are_readable_through_api(tmp_path: Path
 
     assert versions.status_code == 200
     assert versions.json()[0]["parameters"]["preview_3d"]["schema_version"] == 1
+    assert versions.json()[0]["preview_3d"]["schema_version"] == 1
     assert versions.json()[0]["parameters"]["preview_3d"]["compatibility"] == {
         "reason": None,
         "shell_id": "generic-side-coupe-lightweight-v1",
@@ -585,6 +586,11 @@ def test_preview_3d_screenshot_artifacts_are_readable_through_api(tmp_path: Path
     assert artifact["metadata"]["preview_3d_screenshot"]["shell_id"] == (
         "generic-side-coupe-lightweight-v1"
     )
+    assert artifact["preview_3d_screenshot"]["schema_version"] == 1
+    assert artifact["preview_3d_screenshot"]["warning_ids"] == [
+        "non_production_preview",
+        "uv_not_verified",
+    ]
     rendered = str(artifact["metadata"]).lower()
     assert "base64" not in rendered
     assert "image_bytes" not in rendered

@@ -8,8 +8,9 @@ from uuid import UUID
 from caragent_core.editing import EditIntent
 from caragent_core.enums import MessageRole
 from caragent_core.generation import GenerationBriefPayload
+from caragent_core.preview3d import Preview3DScreenshotMetadata, Preview3DSpec
 from caragent_core.references import ReferenceAssignment
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class WorkspaceCreateRequest(BaseModel):
@@ -325,8 +326,21 @@ class DesignVersionResponse(BaseModel):
     summary: str | None
     lineage_depth: int
     parameters: dict[str, Any]
+    preview_3d: Preview3DSpec | None = None
     created_at: datetime
     updated_at: datetime
+
+    @model_validator(mode="after")
+    def derive_preview_3d(self) -> DesignVersionResponse:
+        if self.preview_3d is not None:
+            return self
+        candidate = self.parameters.get("preview_3d")
+        if isinstance(candidate, dict):
+            try:
+                self.preview_3d = Preview3DSpec.model_validate(candidate)
+            except ValueError:
+                self.preview_3d = None
+        return self
 
 
 class ArtifactResponse(BaseModel):
@@ -343,10 +357,23 @@ class ArtifactResponse(BaseModel):
     byte_size: int | None
     checksum_sha256: str | None
     metadata: dict[str, Any] = Field(default_factory=dict, validation_alias="metadata_json")
+    preview_3d_screenshot: Preview3DScreenshotMetadata | None = None
     width: int | None
     height: int | None
     created_at: datetime
     updated_at: datetime
+
+    @model_validator(mode="after")
+    def derive_preview_3d_screenshot(self) -> ArtifactResponse:
+        if self.preview_3d_screenshot is not None:
+            return self
+        candidate = self.metadata.get("preview_3d_screenshot")
+        if isinstance(candidate, dict):
+            try:
+                self.preview_3d_screenshot = Preview3DScreenshotMetadata.model_validate(candidate)
+            except ValueError:
+                self.preview_3d_screenshot = None
+        return self
 
 
 class ModelRunResponse(BaseModel):

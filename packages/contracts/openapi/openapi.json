@@ -94,6 +94,16 @@
             "title": "Object Key",
             "type": "string"
           },
+          "preview_3d_screenshot": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Preview3DScreenshotMetadata"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "updated_at": {
             "format": "date-time",
             "title": "Updated At",
@@ -547,6 +557,16 @@
               }
             ],
             "title": "Parent Version Id"
+          },
+          "preview_3d": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Preview3DSpec"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "status": {
             "title": "Status",
@@ -2699,6 +2719,362 @@
           "worker"
         ],
         "title": "OperationsProviderStatusResponse",
+        "type": "object"
+      },
+      "Preview3DCameraPreset": {
+        "additionalProperties": false,
+        "properties": {
+          "position": {
+            "$ref": "#/components/schemas/Preview3DVector3"
+          },
+          "preset_id": {
+            "minLength": 1,
+            "title": "Preset Id",
+            "type": "string"
+          },
+          "target": {
+            "$ref": "#/components/schemas/Preview3DVector3"
+          },
+          "zoom": {
+            "default": 1.0,
+            "exclusiveMinimum": 0.0,
+            "title": "Zoom",
+            "type": "number"
+          }
+        },
+        "required": [
+          "preset_id",
+          "position",
+          "target"
+        ],
+        "title": "Preview3DCameraPreset",
+        "type": "object"
+      },
+      "Preview3DCompatibility": {
+        "additionalProperties": false,
+        "properties": {
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "shell_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Shell Id"
+          },
+          "status": {
+            "enum": [
+              "compatible",
+              "incompatible"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "Preview3DCompatibility",
+        "type": "object"
+      },
+      "Preview3DMaterialPlan": {
+        "additionalProperties": false,
+        "properties": {
+          "decal_strategy": {
+            "const": "preview_spec_projection",
+            "title": "Decal Strategy",
+            "type": "string"
+          },
+          "overlay_layers": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Overlay Layers",
+            "type": "array"
+          },
+          "safe_zone_overlays": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Safe Zone Overlays",
+            "type": "array"
+          },
+          "source_artifact_id": {
+            "format": "uuid",
+            "title": "Source Artifact Id",
+            "type": "string"
+          },
+          "source_kind": {
+            "enum": [
+              "preview_spec",
+              "artifact_object_key"
+            ],
+            "title": "Source Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "decal_strategy",
+          "source_artifact_id",
+          "source_kind"
+        ],
+        "title": "Preview3DMaterialPlan",
+        "type": "object"
+      },
+      "Preview3DScreenshotMetadata": {
+        "additionalProperties": false,
+        "properties": {
+          "camera": {
+            "$ref": "#/components/schemas/Preview3DCameraPreset"
+          },
+          "preview_3d": {
+            "$ref": "#/components/schemas/Preview3DSpec"
+          },
+          "schema_version": {
+            "default": 1,
+            "maximum": 1.0,
+            "minimum": 1.0,
+            "title": "Schema Version",
+            "type": "integer"
+          },
+          "shell_id": {
+            "minLength": 1,
+            "title": "Shell Id",
+            "type": "string"
+          },
+          "source_artifact_id": {
+            "format": "uuid",
+            "title": "Source Artifact Id",
+            "type": "string"
+          },
+          "warning_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warning Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "camera",
+          "preview_3d",
+          "shell_id",
+          "source_artifact_id"
+        ],
+        "title": "Preview3DScreenshotMetadata",
+        "type": "object"
+      },
+      "Preview3DShell": {
+        "additionalProperties": false,
+        "properties": {
+          "dimensions": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Dimensions",
+            "type": "object"
+          },
+          "id": {
+            "minLength": 1,
+            "title": "Id",
+            "type": "string"
+          },
+          "label": {
+            "minLength": 1,
+            "title": "Label",
+            "type": "string"
+          },
+          "material_slots": {
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Material Slots",
+            "type": "array"
+          },
+          "template_id": {
+            "minLength": 1,
+            "title": "Template Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "dimensions",
+          "id",
+          "label",
+          "material_slots",
+          "template_id"
+        ],
+        "title": "Preview3DShell",
+        "type": "object"
+      },
+      "Preview3DSource": {
+        "additionalProperties": false,
+        "properties": {
+          "artifact_id": {
+            "format": "uuid",
+            "title": "Artifact Id",
+            "type": "string"
+          },
+          "artifact_object_key": {
+            "minLength": 1,
+            "title": "Artifact Object Key",
+            "type": "string"
+          },
+          "preview_spec_template_id": {
+            "minLength": 1,
+            "title": "Preview Spec Template Id",
+            "type": "string"
+          },
+          "preview_spec_view": {
+            "minLength": 1,
+            "title": "Preview Spec View",
+            "type": "string"
+          },
+          "version_id": {
+            "format": "uuid",
+            "title": "Version Id",
+            "type": "string"
+          },
+          "workspace_id": {
+            "format": "uuid",
+            "title": "Workspace Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "artifact_id",
+          "artifact_object_key",
+          "preview_spec_template_id",
+          "preview_spec_view",
+          "version_id",
+          "workspace_id"
+        ],
+        "title": "Preview3DSource",
+        "type": "object"
+      },
+      "Preview3DSpec": {
+        "additionalProperties": false,
+        "properties": {
+          "camera": {
+            "$ref": "#/components/schemas/Preview3DCameraPreset"
+          },
+          "compatibility": {
+            "$ref": "#/components/schemas/Preview3DCompatibility"
+          },
+          "materials": {
+            "$ref": "#/components/schemas/Preview3DMaterialPlan"
+          },
+          "mode": {
+            "const": "lightweight_shell",
+            "title": "Mode",
+            "type": "string"
+          },
+          "schema_version": {
+            "default": 1,
+            "maximum": 1.0,
+            "minimum": 1.0,
+            "title": "Schema Version",
+            "type": "integer"
+          },
+          "shell": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Preview3DShell"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "source": {
+            "$ref": "#/components/schemas/Preview3DSource"
+          },
+          "warnings": {
+            "items": {
+              "$ref": "#/components/schemas/Preview3DWarning"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "camera",
+          "compatibility",
+          "materials",
+          "mode",
+          "source"
+        ],
+        "title": "Preview3DSpec",
+        "type": "object"
+      },
+      "Preview3DVector3": {
+        "additionalProperties": false,
+        "properties": {
+          "x": {
+            "title": "X",
+            "type": "number"
+          },
+          "y": {
+            "title": "Y",
+            "type": "number"
+          },
+          "z": {
+            "title": "Z",
+            "type": "number"
+          }
+        },
+        "required": [
+          "x",
+          "y",
+          "z"
+        ],
+        "title": "Preview3DVector3",
+        "type": "object"
+      },
+      "Preview3DWarning": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "minLength": 1,
+            "title": "Id",
+            "type": "string"
+          },
+          "message": {
+            "minLength": 1,
+            "title": "Message",
+            "type": "string"
+          },
+          "severity": {
+            "default": "warning",
+            "enum": [
+              "info",
+              "warning"
+            ],
+            "title": "Severity",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "message"
+        ],
+        "title": "Preview3DWarning",
         "type": "object"
       },
       "PromptDelta": {

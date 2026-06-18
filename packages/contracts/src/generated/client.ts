@@ -25,6 +25,126 @@ import type {
 
 export type ArtifactResponseMetadata = { [key: string]: unknown };
 
+export interface Preview3DVector3 {
+  x: number;
+  y: number;
+  z: number;
+}
+
+export interface Preview3DCameraPreset {
+  position: Preview3DVector3;
+  /** @minLength 1 */
+  preset_id: string;
+  target: Preview3DVector3;
+  /** @exclusiveMinimum 0 */
+  zoom?: number;
+}
+
+export type Preview3DCompatibilityStatus = typeof Preview3DCompatibilityStatus[keyof typeof Preview3DCompatibilityStatus];
+
+
+export const Preview3DCompatibilityStatus = {
+  compatible: 'compatible',
+  incompatible: 'incompatible',
+} as const;
+
+export interface Preview3DCompatibility {
+  reason?: string | null;
+  shell_id?: string | null;
+  status: Preview3DCompatibilityStatus;
+}
+
+export type Preview3DMaterialPlanSourceKind = typeof Preview3DMaterialPlanSourceKind[keyof typeof Preview3DMaterialPlanSourceKind];
+
+
+export const Preview3DMaterialPlanSourceKind = {
+  preview_spec: 'preview_spec',
+  artifact_object_key: 'artifact_object_key',
+} as const;
+
+export type Preview3DMaterialPlanOverlayLayersItem = { [key: string]: unknown };
+
+export type Preview3DMaterialPlanSafeZoneOverlaysItem = { [key: string]: unknown };
+
+export interface Preview3DMaterialPlan {
+  decal_strategy: 'preview_spec_projection';
+  overlay_layers?: Preview3DMaterialPlanOverlayLayersItem[];
+  safe_zone_overlays?: Preview3DMaterialPlanSafeZoneOverlaysItem[];
+  source_artifact_id: string;
+  source_kind: Preview3DMaterialPlanSourceKind;
+}
+
+export type Preview3DShellDimensions = {[key: string]: number};
+
+export interface Preview3DShell {
+  dimensions: Preview3DShellDimensions;
+  /** @minLength 1 */
+  id: string;
+  /** @minLength 1 */
+  label: string;
+  /** @minItems 1 */
+  material_slots: string[];
+  /** @minLength 1 */
+  template_id: string;
+}
+
+export interface Preview3DSource {
+  artifact_id: string;
+  /** @minLength 1 */
+  artifact_object_key: string;
+  /** @minLength 1 */
+  preview_spec_template_id: string;
+  /** @minLength 1 */
+  preview_spec_view: string;
+  version_id: string;
+  workspace_id: string;
+}
+
+export type Preview3DWarningSeverity = typeof Preview3DWarningSeverity[keyof typeof Preview3DWarningSeverity];
+
+
+export const Preview3DWarningSeverity = {
+  info: 'info',
+  warning: 'warning',
+} as const;
+
+export interface Preview3DWarning {
+  /** @minLength 1 */
+  id: string;
+  /** @minLength 1 */
+  message: string;
+  severity?: Preview3DWarningSeverity;
+}
+
+export interface Preview3DSpec {
+  camera: Preview3DCameraPreset;
+  compatibility: Preview3DCompatibility;
+  materials: Preview3DMaterialPlan;
+  mode: 'lightweight_shell';
+  /**
+     * @minimum 1
+     * @maximum 1
+     */
+  schema_version?: number;
+  shell?: Preview3DShell | null;
+  source: Preview3DSource;
+  warnings?: Preview3DWarning[];
+}
+
+export interface Preview3DScreenshotMetadata {
+  camera: Preview3DCameraPreset;
+  preview_3d: Preview3DSpec;
+  /**
+     * @minimum 1
+     * @maximum 1
+     */
+  schema_version?: number;
+  /** @minLength 1 */
+  shell_id: string;
+  source_artifact_id: string;
+  warning_ids?: string[];
+}
+
 export interface ArtifactResponse {
   asset_id: string | null;
   byte_size: number | null;
@@ -37,6 +157,7 @@ export interface ArtifactResponse {
   kind: string;
   metadata?: ArtifactResponseMetadata;
   object_key: string;
+  preview_3d_screenshot?: Preview3DScreenshotMetadata | null;
   updated_at: string;
   version_id: string | null;
   width: number | null;
@@ -121,6 +242,7 @@ export interface DesignVersionResponse {
   lineage_depth: number;
   parameters: DesignVersionResponseParameters;
   parent_version_id: string | null;
+  preview_3d?: Preview3DSpec | null;
   status: string;
   summary: string | null;
   title: string | null;
