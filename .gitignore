@@ -1,6 +1,7 @@
 # Dependencies
 node_modules/
 .pnpm-store/
+.cache/
 
 # Frontend build output
 .next/
@@ -18,11 +19,13 @@ __pycache__/
 htmlcov/
 .venv/
 venv/
+.python313/
 
 # Test and coverage output
 coverage/
 test-results/
 playwright-report/
+*.tsbuildinfo
 
 # Local environment and secrets
 .env
@@ -51,6 +54,7 @@ temp/
 .tmp/
 .contract-check/
 .generated-check/
+services/worker/.caragent-generated/
 *.tmp
 
 # Keep committed examples visible.

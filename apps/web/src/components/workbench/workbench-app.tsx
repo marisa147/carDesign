@@ -1,0 +1,723 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import type {
+  ArtifactResponse,
+  AssetResponse,
+  AssetRightsUpdateRequest,
+  DesignVersionResponse,
+  DesignBriefResponse,
+  ExportResponse,
+  FeedbackResponse,
+  GenerationBriefResponse,
+  GenerationBriefUpdateRequest,
+  GenerationJobResponse,
+  MessageResponse,
+  OperationsProviderStatusResponse,
+  WorkspaceResponse,
+} from "@caragent/contracts";
+
+import { Button } from "@/components/ui/button";
+import { AssetPanel } from "@/components/workbench/asset-panel";
+import { ChatPanel, type WorkbenchBrief } from "@/components/workbench/chat-panel";
+import { ComparisonPanel } from "@/components/workbench/comparison-panel";
+import {
+  ExportPanel,
+  manifestDisclaimer,
+  type ConceptExportFormat,
+} from "@/components/workbench/export-panel";
+import {
+  FeedbackPanel,
+  type FeedbackApprovalState,
+} from "@/components/workbench/feedback-panel";
+import { FutureGates } from "@/components/workbench/future-gates";
+import { IterationPanel } from "@/components/workbench/iteration-panel";
+import { ParameterPanel } from "@/components/workbench/parameter-panel";
+import { PreviewPanel } from "@/components/workbench/preview-panel";
+import { ProgressPanel } from "@/components/workbench/progress-panel";
+import { WorkbenchShell } from "@/components/workbench/workbench-shell";
+import {
+  listWorkspaceAssets,
+  updateAssetRights,
+  uploadWorkspaceAsset,
+} from "@/lib/api/assets";
+import {
+  createGenerationBrief,
+  loadGenerationState,
+  retryGenerationJob,
+  updateGenerationBrief,
+  type GenerationState,
+} from "@/lib/api/generation";
+import {
+  createConceptExport,
+  createVersionFeedback,
+  submitChildIteration,
+} from "@/lib/api/iteration";
+import { cancelGenerationJob, listWorkspaceJobs } from "@/lib/api/jobs";
+import { getProviderStatus } from "@/lib/api/operations";
+import {
+  createWorkspace,
+  createWorkspaceMessage,
+  listWorkspaceDesignBriefs,
+  listWorkspaceMessages,
+  resumeWorkspace,
+} from "@/lib/api/workspaces";
+import { workbenchQueryKeys } from "@/lib/workbench/query-keys";
+import { useWorkbenchStore } from "@/lib/workbench/store";
+
+const WORKBENCH_WORKSPACE_ID_KEY = "caragent.workbench.workspaceId";
+const WORKBENCH_BRIEF_ID_KEY = "caragent.workbench.briefId";
+
+export function WorkbenchApp() {
+  const queryClient = useQueryClient();
+  const selectedVersionId = useWorkbenchStore((state) => state.selectedVersionId);
+  const [draft, setDraft] = useState("");
+  const [workspace, setWorkspace] = useState<WorkspaceResponse | null>(null);
+  const [messages, setMessages] = useState<MessageResponse[]>([]);
+  const [currentBrief, setCurrentBrief] = useState<WorkbenchBrief | null>(null);
+  const [assets, setAssets] = useState<AssetResponse[]>([]);
+  const [jobs, setJobs] = useState<GenerationJobResponse[]>([]);
+  const [generationState, setGenerationState] = useState<GenerationState | null>(null);
+  const [operationsStatus, setOperationsStatus] =
+    useState<OperationsProviderStatusResponse | null>(null);
+  const [selectedReferenceAssetIds, setSelectedReferenceAssetIds] = useState<string[]>([]);
+  const [isCancelingGeneration, setIsCancelingGeneration] = useState(false);
+  const [isLoadingGeneration, setIsLoadingGeneration] = useState(false);
+  const [isRetryingGeneration, setIsRetryingGeneration] = useState(false);
+  const [isLoadingSession, setIsLoadingSession] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [chatError, setChatError] = useState<string | null>(null);
+  const [iterationDraft, setIterationDraft] = useState("");
+  const [iterationError, setIterationError] = useState<string | null>(null);
+  const [iterationNotice, setIterationNotice] = useState<string | null>(null);
+  const [isSubmittingIteration, setIsSubmittingIteration] = useState(false);
+  const [feedbackApprovalState, setFeedbackApprovalState] =
+    useState<FeedbackApprovalState>("none");
+  const [feedbackComment, setFeedbackComment] = useState("");
+  const [feedbackError, setFeedbackError] = useState<string | null>(null);
+  const [feedbackNotice, setFeedbackNotice] = useState<string | null>(null);
+  const [feedbackRating, setFeedbackRating] = useState<number | null>(null);
+  const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
+  const [exportFormat, setExportFormat] = useState<ConceptExportFormat>("png");
+  const [exportNotice, setExportNotice] = useState<string | null>(null);
+  const [isSubmittingExport, setIsSubmittingExport] = useState(false);
+
+  const versions = generationState?.versions ?? [];
+  const feedback = generationState?.feedback ?? [];
+  const exports = generationState?.exports ?? [];
+  const artifacts = generationState?.artifacts ?? [];
+  const selectedVersion = selectSelectedVersion(versions, selectedVersionId);
+  const selectedArtifact = selectArtifactForVersion(artifacts, selectedVersion);
+
+  useEffect(() => {
+    const storedWorkspaceId = readStoredId(WORKBENCH_WORKSPACE_ID_KEY);
+    if (!storedWorkspaceId) {
+      return;
+    }
+
+    let isCancelled = false;
+
+    queueMicrotask(() => {
+      if (!isCancelled) {
+        setIsLoadingSession(true);
+        setChatError(null);
+      }
+    });
+
+    Promise.all([
+      resumeWorkspace(storedWorkspaceId),
+      listWorkspaceMessages(storedWorkspaceId),
+      listWorkspaceDesignBriefs(storedWorkspaceId),
+      listWorkspaceAssets(storedWorkspaceId),
+      listWorkspaceJobs(storedWorkspaceId),
+    ])
+      .then(async ([nextWorkspace, nextMessages, nextBriefs, nextAssets, nextJobs]) => {
+        const latestJob = selectLatestJob(nextJobs);
+        const nextGenerationState = latestJob
+          ? await loadGenerationState(nextWorkspace.id, latestJob.id)
+          : null;
+
+        if (isCancelled) {
+          return;
+        }
+
+        const nextBrief = selectResumeBrief(
+          nextBriefs,
+          readStoredId(WORKBENCH_BRIEF_ID_KEY),
+        );
+        setWorkspace(nextWorkspace);
+        setMessages(nextMessages);
+        setCurrentBrief(nextBrief);
+        setAssets(nextAssets);
+        setJobs(nextJobs);
+        setGenerationState(nextGenerationState);
+        setSelectedReferenceAssetIds(readBriefReferenceAssetIds(nextBrief));
+        queryClient.setQueryData(
+          workbenchQueryKeys.workspace(nextWorkspace.id),
+          nextWorkspace,
+        );
+        queryClient.setQueryData(
+          workbenchQueryKeys.messages(nextWorkspace.id),
+          nextMessages,
+        );
+        queryClient.setQueryData(
+          workbenchQueryKeys.briefs(nextWorkspace.id),
+          nextBriefs,
+        );
+        queryClient.setQueryData(
+          workbenchQueryKeys.assets(nextWorkspace.id),
+          nextAssets,
+        );
+        queryClient.setQueryData(workbenchQueryKeys.jobs(nextWorkspace.id), nextJobs);
+        if (nextGenerationState) {
+          queryClient.setQueryData(
+            workbenchQueryKeys.generationState(nextWorkspace.id, nextGenerationState.job.id),
+            nextGenerationState,
+          );
+        }
+        writeStoredId(WORKBENCH_WORKSPACE_ID_KEY, nextWorkspace.id);
+        writeStoredId(WORKBENCH_BRIEF_ID_KEY, nextBrief?.id ?? null);
+      })
+      .catch(() => {
+        if (!isCancelled) {
+          setChatError("无法恢复工作台记录，请稍后重试。");
+        }
+      })
+      .finally(() => {
+        if (!isCancelled) {
+          setIsLoadingSession(false);
+        }
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [queryClient]);
+
+  const handleChatSubmit = async () => {
+    const prompt = draft.trim();
+    if (prompt.length === 0 || isSubmitting || isLoadingSession) {
+      return;
+    }
+
+    setIsSubmitting(true);
+    setChatError(null);
+
+    try {
+      const activeWorkspace =
+        workspace ?? (await createWorkspace({ title: "痛车设计工作台" }));
+      setWorkspace(activeWorkspace);
+      writeStoredId(WORKBENCH_WORKSPACE_ID_KEY, activeWorkspace.id);
+      queryClient.setQueryData(
+        workbenchQueryKeys.workspace(activeWorkspace.id),
+        activeWorkspace,
+      );
+
+      const userMessage = await createWorkspaceMessage(activeWorkspace.id, {
+        content: prompt,
+        role: "user",
+      });
+      const nextMessages = [...messages, userMessage];
+      setMessages(nextMessages);
+      queryClient.setQueryData(
+        workbenchQueryKeys.messages(activeWorkspace.id),
+        nextMessages,
+      );
+
+      const nextBrief = await createGenerationBrief(activeWorkspace.id, {
+        original_request: userMessage.content,
+        source_message_id: userMessage.id,
+        title: "Workbench brief",
+      });
+      setCurrentBrief(nextBrief);
+      setSelectedReferenceAssetIds(readBriefReferenceAssetIds(nextBrief));
+      writeStoredId(WORKBENCH_BRIEF_ID_KEY, nextBrief.id);
+      queryClient.setQueryData<WorkbenchBrief[]>(
+        workbenchQueryKeys.briefs(activeWorkspace.id),
+        (existing = []) => upsertBrief(existing, nextBrief),
+      );
+      setDraft("");
+    } catch {
+      setChatError("需求保存失败，请检查本地 API 后重试。");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleParameterSave = async (payload: GenerationBriefUpdateRequest) => {
+    if (!currentBrief) {
+      throw new Error("No active generation brief is available.");
+    }
+
+    const nextBrief = await updateGenerationBrief(currentBrief.id, payload);
+    setCurrentBrief(nextBrief);
+    setSelectedReferenceAssetIds(readBriefReferenceAssetIds(nextBrief));
+    writeStoredId(WORKBENCH_BRIEF_ID_KEY, nextBrief.id);
+    queryClient.setQueryData<WorkbenchBrief[]>(
+      workbenchQueryKeys.briefs(nextBrief.workspace_id),
+      (existing = []) => upsertBrief(existing, nextBrief),
+    );
+
+    return nextBrief;
+  };
+
+  const handleAssetUpload = async ({ file, kind }: { file: File; kind: string }) => {
+    if (!workspace) {
+      throw new Error("No active workspace is available.");
+    }
+
+    const nextAsset = await uploadWorkspaceAsset(workspace.id, { file, kind });
+    setAssets((existing) => {
+      const nextAssets = upsertAsset(existing, nextAsset);
+      queryClient.setQueryData(workbenchQueryKeys.assets(workspace.id), nextAssets);
+      return nextAssets;
+    });
+
+    return nextAsset;
+  };
+
+  const refreshGenerationState = async () => {
+    if (!workspace) {
+      return;
+    }
+
+    setIsLoadingGeneration(true);
+    try {
+      const nextJobs = await listWorkspaceJobs(workspace.id);
+      const latestJob = selectLatestJob(nextJobs);
+      const nextGenerationState = latestJob
+        ? await loadGenerationState(workspace.id, latestJob.id)
+        : null;
+      const nextOperationsStatus = await getProviderStatus().catch(() => null);
+      setJobs(nextJobs);
+      setGenerationState(nextGenerationState);
+      setOperationsStatus(nextOperationsStatus);
+      queryClient.setQueryData(workbenchQueryKeys.jobs(workspace.id), nextJobs);
+      if (nextGenerationState) {
+        queryClient.setQueryData(
+          workbenchQueryKeys.generationState(workspace.id, nextGenerationState.job.id),
+          nextGenerationState,
+        );
+      }
+    } finally {
+      setIsLoadingGeneration(false);
+    }
+  };
+
+  const cancelCurrentGeneration = async () => {
+    if (!generationState) {
+      return;
+    }
+
+    setIsCancelingGeneration(true);
+    try {
+      const cancelResult = await cancelGenerationJob(generationState.job.id, {
+        reason: "user_request",
+        requested_by: "web-workbench",
+      });
+      setJobs((existing) => upsertJob(existing, cancelResult.job));
+      setGenerationState((existing) =>
+        existing ? { ...existing, job: cancelResult.job } : existing,
+      );
+    } finally {
+      setIsCancelingGeneration(false);
+    }
+  };
+
+  const retryCurrentGeneration = async () => {
+    if (!generationState) {
+      return;
+    }
+
+    setIsRetryingGeneration(true);
+    try {
+      const retryResult = await retryGenerationJob(generationState.job.id, {
+        idempotency_key: `retry-${generationState.job.id}`,
+        requested_by: "web-workbench",
+      });
+      setJobs((existing) => upsertJob(existing, retryResult.job));
+      setGenerationState((existing) =>
+        existing ? { ...existing, job: retryResult.job } : existing,
+      );
+    } finally {
+      setIsRetryingGeneration(false);
+    }
+  };
+
+  const submitSelectedIteration = async () => {
+    const changeRequest = iterationDraft.trim();
+    if (!workspace || !currentBrief || !selectedVersion || changeRequest.length === 0) {
+      return;
+    }
+
+    setIsSubmittingIteration(true);
+    setIterationError(null);
+    setIterationNotice(null);
+    try {
+      const result = await submitChildIteration(workspace.id, selectedVersion.id, {
+        brief_id: currentBrief.id,
+        change_request: changeRequest,
+        idempotency_key: `iteration-${selectedVersion.id}-${Date.now()}`,
+        parameter_overrides: {},
+        requested_by: "web-workbench",
+      });
+
+      setJobs((existing) => {
+        const nextJobs = upsertJob(existing, result.job);
+        queryClient.setQueryData(workbenchQueryKeys.jobs(workspace.id), nextJobs);
+        return nextJobs;
+      });
+      setGenerationState((existing) =>
+        existing ? { ...existing, events: [], job: result.job } : existing,
+      );
+      queryClient.setQueryData(
+        workbenchQueryKeys.iteration(workspace.id, selectedVersion.id),
+        result,
+      );
+      setIterationDraft("");
+      setIterationNotice("子迭代已提交，父版本仍保留。");
+      await refreshGenerationState();
+    } catch {
+      setIterationError("子迭代提交失败，请稍后重试。");
+    } finally {
+      setIsSubmittingIteration(false);
+    }
+  };
+
+  const submitSelectedFeedback = async () => {
+    if (!workspace || !selectedVersion) {
+      return;
+    }
+
+    setIsSubmittingFeedback(true);
+    setFeedbackError(null);
+    setFeedbackNotice(null);
+    try {
+      const savedFeedback = await createVersionFeedback(workspace.id, selectedVersion.id, {
+        approval_state: feedbackApprovalState,
+        comment: feedbackComment.trim() || null,
+        metadata: { source: "web-workbench" },
+        rating: feedbackRating,
+      });
+      setGenerationState((existing) =>
+        existing
+          ? {
+              ...existing,
+              feedback: upsertFeedback(existing.feedback, savedFeedback),
+            }
+          : existing,
+      );
+      queryClient.setQueryData<FeedbackResponse[]>(
+        workbenchQueryKeys.feedback(workspace.id),
+        (existing = []) => upsertFeedback(existing, savedFeedback),
+      );
+      setFeedbackApprovalState("none");
+      setFeedbackComment("");
+      setFeedbackRating(null);
+      setFeedbackNotice("反馈已保存。");
+    } catch {
+      setFeedbackError("反馈保存失败，请稍后重试。");
+    } finally {
+      setIsSubmittingFeedback(false);
+    }
+  };
+
+  const submitSelectedExport = async () => {
+    if (!workspace || !selectedVersion || !selectedArtifact) {
+      return;
+    }
+
+    setIsSubmittingExport(true);
+    setExportError(null);
+    setExportNotice(null);
+    try {
+      const savedExport = await createConceptExport(workspace.id, selectedVersion.id, {
+        artifact_id: selectedArtifact.id,
+        concept_label: "client-review",
+        format: exportFormat,
+        manifest: {
+          disclaimer: manifestDisclaimer,
+          source: "web-workbench",
+          source_artifact_object_key: selectedArtifact.object_key,
+          version_id: selectedVersion.id,
+        },
+      });
+      setGenerationState((existing) =>
+        existing
+          ? {
+              ...existing,
+              exports: upsertExport(existing.exports, savedExport),
+            }
+          : existing,
+      );
+      queryClient.setQueryData<ExportResponse[]>(
+        workbenchQueryKeys.exports(workspace.id),
+        (existing = []) => upsertExport(existing, savedExport),
+      );
+      setExportNotice("概念导出已记录。");
+    } catch {
+      setExportError("概念导出创建失败，请稍后重试。");
+    } finally {
+      setIsSubmittingExport(false);
+    }
+  };
+
+  const handleAssetRightsUpdate = async (
+    assetId: string,
+    payload: AssetRightsUpdateRequest,
+  ) => {
+    const nextAsset = await updateAssetRights(assetId, payload);
+    setAssets((existing) => {
+      const nextAssets = upsertAsset(existing, nextAsset);
+      queryClient.setQueryData(workbenchQueryKeys.assets(nextAsset.workspace_id), nextAssets);
+      return nextAssets;
+    });
+
+    return nextAsset;
+  };
+
+  const handleReferenceSelectionChange = (assetId: string, selected: boolean) => {
+    setSelectedReferenceAssetIds((existing) => {
+      if (selected) {
+        return Array.from(new Set([...existing, assetId]));
+      }
+
+      return existing.filter((existingAssetId) => existingAssetId !== assetId);
+    });
+  };
+
+  return (
+    <WorkbenchShell
+      assets={
+        <AssetPanel
+          assets={assets}
+          isLoading={isLoadingSession}
+          onReferenceChange={handleReferenceSelectionChange}
+          onRightsUpdate={handleAssetRightsUpdate}
+          onUpload={handleAssetUpload}
+          selectedReferenceAssetIds={selectedReferenceAssetIds}
+          workspaceId={workspace?.id ?? null}
+        />
+      }
+      chat={
+        <ChatPanel
+          currentBrief={currentBrief}
+          draft={draft}
+          error={chatError}
+          isLoading={isLoadingSession}
+          isSubmitting={isSubmitting}
+          messages={messages}
+          onDraftChange={setDraft}
+          onSubmit={handleChatSubmit}
+        />
+      }
+      futureGates={<FutureGates />}
+      history={
+        <div className="grid gap-4">
+          <ComparisonPanel versions={versions} />
+          <IterationPanel
+            changeRequest={iterationDraft}
+            error={iterationError}
+            isSubmitting={isSubmittingIteration}
+            notice={iterationNotice}
+            onChangeRequestChange={(value) => {
+              setIterationDraft(value);
+              setIterationNotice(null);
+              setIterationError(null);
+            }}
+            onSubmit={() => {
+              void submitSelectedIteration();
+            }}
+            selectedVersion={selectedVersion}
+            workspaceReady={workspace !== null && currentBrief !== null}
+          />
+          <FeedbackPanel
+            approvalState={feedbackApprovalState}
+            comment={feedbackComment}
+            error={feedbackError}
+            feedback={feedback}
+            isSubmitting={isSubmittingFeedback}
+            notice={feedbackNotice}
+            onApprovalStateChange={(value) => {
+              setFeedbackApprovalState(value);
+              setFeedbackNotice(null);
+              setFeedbackError(null);
+            }}
+            onCommentChange={(value) => {
+              setFeedbackComment(value);
+              setFeedbackNotice(null);
+              setFeedbackError(null);
+            }}
+            onRatingChange={(value) => {
+              setFeedbackRating(value);
+              setFeedbackNotice(null);
+              setFeedbackError(null);
+            }}
+            onSubmit={() => {
+              void submitSelectedFeedback();
+            }}
+            rating={feedbackRating}
+            selectedVersion={selectedVersion}
+          />
+          <ExportPanel
+            artifact={selectedArtifact}
+            error={exportError}
+            exports={exports}
+            format={exportFormat}
+            isSubmitting={isSubmittingExport}
+            notice={exportNotice}
+            onFormatChange={(value) => {
+              setExportFormat(value);
+              setExportNotice(null);
+              setExportError(null);
+            }}
+            onSubmit={() => {
+              void submitSelectedExport();
+            }}
+            selectedVersion={selectedVersion}
+          />
+        </div>
+      }
+      parameters={
+        <ParameterPanel
+          currentBrief={currentBrief}
+          isLoading={isLoadingSession}
+          key={`${currentBrief?.id ?? "empty-brief"}:${selectedReferenceAssetIds.join(",")}`}
+          onSave={handleParameterSave}
+          selectedReferenceAssetIds={selectedReferenceAssetIds}
+        />
+      }
+      preview={
+        <PreviewPanel
+          artifacts={generationState?.artifacts ?? []}
+          isLoading={isLoadingGeneration || isLoadingSession}
+          versions={versions}
+        />
+      }
+      progress={
+        <ProgressPanel
+          events={generationState?.events ?? []}
+          isCanceling={isCancelingGeneration}
+          isLoading={isLoadingGeneration}
+          isRetrying={isRetryingGeneration}
+          job={generationState?.job ?? selectLatestJob(jobs)}
+          operationsStatus={operationsStatus}
+          onCancel={() => {
+            void cancelCurrentGeneration();
+          }}
+          onRefresh={() => {
+            void refreshGenerationState();
+          }}
+          onRetry={() => {
+            void retryCurrentGeneration();
+          }}
+        />
+      }
+    />
+  );
+}
+
+function readStoredId(key: string): string | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  return window.localStorage.getItem(key);
+}
+
+function writeStoredId(key: string, value: string | null) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  if (value) {
+    window.localStorage.setItem(key, value);
+    return;
+  }
+
+  window.localStorage.removeItem(key);
+}
+
+function selectResumeBrief(
+  briefs: DesignBriefResponse[],
+  storedBriefId: string | null,
+): WorkbenchBrief | null {
+  if (briefs.length === 0) {
+    return null;
+  }
+
+  return (
+    briefs.find((brief) => brief.id === storedBriefId) ??
+    [...briefs].sort((left, right) => right.updated_at.localeCompare(left.updated_at))[0] ??
+    null
+  );
+}
+
+function upsertBrief(
+  existing: WorkbenchBrief[],
+  nextBrief: GenerationBriefResponse,
+): WorkbenchBrief[] {
+  return [nextBrief, ...existing.filter((brief) => brief.id !== nextBrief.id)];
+}
+
+function upsertAsset(existing: AssetResponse[], nextAsset: AssetResponse): AssetResponse[] {
+  return [nextAsset, ...existing.filter((asset) => asset.id !== nextAsset.id)];
+}
+
+function upsertJob(
+  existing: GenerationJobResponse[],
+  nextJob: GenerationJobResponse,
+): GenerationJobResponse[] {
+  return [nextJob, ...existing.filter((job) => job.id !== nextJob.id)];
+}
+
+function upsertFeedback(
+  existing: FeedbackResponse[],
+  nextFeedback: FeedbackResponse,
+): FeedbackResponse[] {
+  return [
+    nextFeedback,
+    ...existing.filter((feedback) => feedback.id !== nextFeedback.id),
+  ];
+}
+
+function upsertExport(existing: ExportResponse[], nextExport: ExportResponse): ExportResponse[] {
+  return [nextExport, ...existing.filter((entry) => entry.id !== nextExport.id)];
+}
+
+function selectLatestJob(jobs: GenerationJobResponse[]): GenerationJobResponse | null {
+  if (jobs.length === 0) {
+    return null;
+  }
+
+  return [...jobs].sort((left, right) => right.updated_at.localeCompare(left.updated_at))[0];
+}
+
+function selectSelectedVersion(
+  versions: DesignVersionResponse[],
+  selectedVersionId: string | null,
+): DesignVersionResponse | null {
+  return versions.find((version) => version.id === selectedVersionId) ?? versions[0] ?? null;
+}
+
+function selectArtifactForVersion(
+  artifacts: ArtifactResponse[],
+  selectedVersion: DesignVersionResponse | null,
+): ArtifactResponse | null {
+  if (!selectedVersion) {
+    return null;
+  }
+
+  return artifacts.find((artifact) => artifact.version_id === selectedVersion.id) ?? null;
+}
+
+function readBriefReferenceAssetIds(brief: WorkbenchBrief | null): string[] {
+  const value = brief?.payload.reference_asset_ids;
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.filter((item): item is string => typeof item === "string");
+}

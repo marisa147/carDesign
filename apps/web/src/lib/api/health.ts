@@ -1,5 +1,5 @@
 import {
-  healthHealthGet,
+  getHealthHealthGetUrl,
   type DependencyHealth,
   type HealthResponse,
 } from "@caragent/contracts";
@@ -48,11 +48,30 @@ export async function checkStackHealth(
   options: CheckStackHealthOptions = {},
 ): Promise<StackHealthResult> {
   const apiBaseUrl = options.apiBaseUrl ?? publicEnv.apiBaseUrl;
-  const response = await healthHealthGet({
-    baseUrl: apiBaseUrl,
-    fetch: options.fetch,
-    signal: options.signal,
-  });
+  const fetcher = options.fetch ?? globalThis.fetch;
+
+  if (!fetcher) {
+    throw new Error("No fetch implementation is available for the health client.");
+  }
+
+  const requestInit: RequestInit = {
+    method: "GET",
+  };
+
+  if (options.signal !== undefined) {
+    requestInit.signal = options.signal;
+  }
+
+  const healthResponse = await fetcher(
+    `${apiBaseUrl}${getHealthHealthGetUrl()}`,
+    requestInit,
+  );
+
+  if (!healthResponse.ok) {
+    throw new Error(`Health request failed with status ${healthResponse.status}`);
+  }
+
+  const response = (await healthResponse.json()) as HealthResponse;
 
   return mapHealthResponse(response, apiBaseUrl);
 }

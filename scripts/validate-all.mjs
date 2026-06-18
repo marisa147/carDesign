@@ -1,4 +1,3 @@
-import { spawnSync } from "node:child_process";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -7,6 +6,7 @@ import {
   formatHostPrereqFailures,
   isUserProfilePermissionError,
   readExpectedPrereqs,
+  runHostCommand,
 } from "./check-host-prereqs.mjs";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -19,7 +19,7 @@ const requiredCommands = [
       if (!report.ok) {
         throw new Error(formatHostPrereqFailures(report));
       }
-      console.log("Host prerequisites are available for Phase 1 validation.");
+      console.log("Host prerequisites are available for Phase 3 validation.");
     },
   },
   {
@@ -37,9 +37,27 @@ const requiredCommands = [
     args: ["--filter", "@caragent/web", "typecheck"],
   },
   {
-    display: "pnpm --filter @caragent/web test -- --run",
+    display: "pnpm --filter @caragent/web test",
     command: "pnpm",
-    args: ["--filter", "@caragent/web", "test", "--", "--run"],
+    args: ["--filter", "@caragent/web", "test"],
+  },
+  {
+    display: "cd services/core && uv run ruff check .",
+    command: "uv",
+    args: ["run", "ruff", "check", "."],
+    cwd: "services/core",
+  },
+  {
+    display: "cd services/core && uv run mypy src",
+    command: "uv",
+    args: ["run", "mypy", "src"],
+    cwd: "services/core",
+  },
+  {
+    display: "cd services/core && uv run pytest -q",
+    command: "uv",
+    args: ["run", "pytest", "-q"],
+    cwd: "services/core",
   },
   {
     display: "cd services/api && uv run ruff check .",
@@ -89,16 +107,16 @@ const requiredCommands = [
   },
 ];
 
-console.log("Phase 1 aggregate validation");
+console.log("Phase 3 aggregate validation");
 console.log(
-  "Docker-dependent smoke is not part of this required sequence. Run pnpm smoke:local after pnpm infra:up when Docker is available, following the Plan 01-04 conditional flow.",
+  "Docker-dependent Phase 2/3 smoke is not part of this required sequence. Run pnpm smoke:local after pnpm infra:up when Docker is available.",
 );
 
 for (const command of requiredCommands) {
   await runRequiredCommand(command);
 }
 
-console.log("\nPhase 1 aggregate validation passed.");
+console.log("\nPhase 3 aggregate validation passed.");
 
 async function runRequiredCommand(command) {
   console.log(`\n$ ${command.display}`);
@@ -118,12 +136,7 @@ async function runRequiredCommand(command) {
     return;
   }
 
-  const result = spawnSync(command.command, command.args, {
-    encoding: "utf8",
-    cwd: command.cwd ? resolve(repoRoot, command.cwd) : repoRoot,
-    shell: false,
-    windowsHide: true,
-  });
+  const result = runValidationCommand(command);
 
   writeOutput(result);
 
@@ -139,6 +152,17 @@ async function runRequiredCommand(command) {
     printHostPrerequisiteHint(command, result);
     process.exit(result.status ?? 1);
   }
+}
+
+function runValidationCommand(command) {
+  const options = {
+    cwd: command.cwd ? resolve(repoRoot, command.cwd) : repoRoot,
+  };
+  if (command.command === "pnpm") {
+    return runHostCommand("corepack", ["pnpm", ...command.args], options);
+  }
+
+  return runHostCommand(command.command, command.args, options);
 }
 
 function writeOutput(result) {

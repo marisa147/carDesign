@@ -2,6 +2,7 @@ import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import http from "node:http";
 import net from "node:net";
+import { resolve } from "node:path";
 
 const args = new Set(process.argv.slice(2));
 const allowDockerUnavailable = args.has("--allow-docker-unavailable");
@@ -9,6 +10,7 @@ const shouldManageCompose = args.has("--with-compose-if-docker");
 const dockerInfoCommand = "docker info";
 const composeUpCommand = "pnpm infra:up";
 const composeDownCommand = "pnpm infra:down";
+const repoRoot = process.cwd();
 
 const env = parseEnvFile(".env.example");
 const serviceChecks = [
@@ -31,7 +33,7 @@ async function main() {
   if (!docker.ok) {
     if (allowDockerUnavailable) {
       console.log(
-        "Docker daemon unavailable; configured Docker-backed service checks were not performed because --allow-docker-unavailable was passed. This is not Phase 1 completion evidence.",
+        "Docker daemon unavailable; configured Docker-backed service checks were not performed because --allow-docker-unavailable was passed. This is not Phase 2 or Phase 3 completion evidence.",
       );
       process.exit(0);
     }
@@ -101,6 +103,7 @@ function numberFromEnv(key, fallback) {
 
 function runCommand(command, options = {}) {
   const result = spawnSync(command, {
+    cwd: options.cwd ? resolve(repoRoot, options.cwd) : repoRoot,
     shell: true,
     stdio: options.stdio ?? "inherit",
     windowsHide: true,
@@ -119,6 +122,42 @@ async function runServiceChecks(maxAttempts) {
   }
 
   console.log("Local PostgreSQL, Redis, and MinIO smoke checks passed.");
+  runPhase2DataSmoke();
+  runPhase3GenerationSmoke();
+}
+
+function runPhase2DataSmoke() {
+  console.log("Running Phase 2 Alembic migration and durable data smoke.");
+
+  const migration = runCommand("uv run alembic upgrade head", { cwd: "services/api" });
+  if (!migration.ok) {
+    throw new Error(`Alembic migration check failed with exit ${migration.status ?? 1}`);
+  }
+
+  const dataSmoke = runCommand("uv run python -m caragent_api.scripts.phase2_data_smoke", {
+    cwd: "services/api",
+  });
+  if (!dataSmoke.ok) {
+    throw new Error(`Phase 2 durable data smoke failed with exit ${dataSmoke.status ?? 1}`);
+  }
+}
+
+function runPhase3GenerationSmoke() {
+  console.log("Running Phase 3 local deterministic generation smoke.");
+
+  const generationSmoke = runCommand(
+    "uv run python -m caragent_api.scripts.phase3_generation_smoke",
+    {
+      cwd: "services/api",
+    },
+  );
+  if (!generationSmoke.ok) {
+    throw new Error(
+      `Phase 3 local deterministic generation smoke failed with exit ${
+        generationSmoke.status ?? 1
+      }`,
+    );
+  }
 }
 
 async function retry(name, check, maxAttempts) {

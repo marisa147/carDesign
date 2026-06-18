@@ -1,0 +1,900 @@
+from __future__ import annotations
+
+import asyncio
+import hashlib
+from datetime import timedelta
+from decimal import Decimal
+from pathlib import Path
+from typing import TypedDict
+from uuid import UUID, uuid4
+
+from caragent_core.database import create_engine, create_session_factory, session_scope
+from caragent_core.enums import (
+    ArtifactKind,
+    DesignVersionStatus,
+    FailureCategory,
+    JobEventType,
+    JobStatus,
+    ModelRunStatus,
+)
+from caragent_core.generation import (
+    GenerationBriefPayload,
+    PromptPlan,
+    PromptProviderSettings,
+    build_prompt_plan,
+)
+from caragent_core.models import DesignBrief, ModelRun, utc_now
+from caragent_core.services import assets, jobs
+from caragent_core.storage import FileObjectStorage, ObjectStorage, build_object_key
+from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from caragent_worker import __version__
+from caragent_worker.app import celery_app
+from caragent_worker.config import WorkerSettings, get_settings
+from caragent_worker.providers import (
+    ImageGenerationRequest,
+    ImageGenerationResult,
+    ImageProvider,
+    ImageProviderConfigurationError,
+    ImageProviderError,
+    ImageProviderTimeoutError,
+    select_image_provider,
+)
+from caragent_worker.providers.base import sanitize_provider_error
+
+LOCAL_SIMULATION_PROVIDER = "local-simulation"
+LOCAL_SIMULATION_MODEL = "phase-2-no-provider"
+LOCAL_SIMULATION_SOURCE = "worker-local-simulation"
+JOB_CANCELED_MESSAGE = "Job canceled."
+WORKER_CANCELED_MESSAGE = "Worker observed canceled job."
+HOSTED_GUARD_REQUIRED_MESSAGE = (
+    "Hosted calls require daily, per-minute, and per-job cost limits."
+)
+LOCAL_PROVIDER_NAMES = {"disabled", "local", "local-deterministic"}
+
+
+class LocalSimulationResult(TypedDict):
+    external_calls: bool
+    job_id: str
+    model: str
+    provider: str
+    status: str
+
+
+class Generate2DConceptResult(TypedDict, total=False):
+    artifact_id: str
+    error: str
+    external_calls: bool
+    job_id: str
+    model: str
+    model_run_id: str
+    provider: str
+    status: str
+    version_id: str
+
+
+@celery_app.task(name="caragent_worker.simulate_local_generation_job")  # type: ignore[untyped-decorator]
+def simulate_local_generation_job(
+    job_id: str,
+    *,
+    database_url: str | None = None,
+    force_error_message: str | None = None,
+) -> LocalSimulationResult:
+    active_database_url = database_url or get_settings().database_url
+    if active_database_url is None:
+        raise RuntimeError("DATABASE_URL is required for local job simulation")
+
+    return asyncio.run(
+        _simulate_local_generation_job(
+            active_database_url,
+            UUID(job_id),
+            force_error_message=force_error_message,
+        ),
+    )
+
+
+@celery_app.task(name="caragent_worker.generate_2d_concept_job")  # type: ignore[untyped-decorator]
+def generate_2d_concept_job(
+    job_id: str,
+    *,
+    database_url: str | None = None,
+) -> Generate2DConceptResult:
+    settings = get_settings()
+    active_database_url = database_url or settings.database_url
+    if active_database_url is None:
+        raise RuntimeError("DATABASE_URL is required for generation jobs")
+
+    return asyncio.run(
+        run_generate_2d_concept_job(
+            active_database_url,
+            UUID(job_id),
+            settings=settings,
+            storage=FileObjectStorage(root=Path(".caragent-generated")),
+        ),
+    )
+
+
+async def run_generate_2d_concept_job(
+    database_url: str,
+    job_id: UUID,
+    *,
+    settings: WorkerSettings,
+    storage: ObjectStorage,
+    provider: ImageProvider | None = None,
+) -> Generate2DConceptResult:
+    engine = create_engine(database_url)
+    session_factory = create_session_factory(engine)
+    try:
+        async with session_scope(session_factory) as session:
+            return await _run_generate_2d_concept_job(
+                session,
+                job_id,
+                provider=provider,
+                settings=settings,
+                storage=storage,
+            )
+    finally:
+        await engine.dispose()
+
+
+async def _run_generate_2d_concept_job(
+    session: AsyncSession,
+    job_id: UUID,
+    *,
+    settings: WorkerSettings,
+    storage: ObjectStorage,
+    provider: ImageProvider | None = None,
+) -> Generate2DConceptResult:
+    model_run_id: UUID | None = None
+    failure_stage = "worker_start"
+    failure_provider: str | None = None
+    failure_model: str | None = None
+    try:
+        canceled_result = await _return_if_canceled(
+            session,
+            job_id,
+            external_calls=False,
+            stage="worker_start",
+        )
+        if canceled_result is not None:
+            return canceled_result
+
+        failure_stage = "job_transition_running"
+        await jobs.transition_job_status(
+            session,
+            job_id,
+            status=JobStatus.RUNNING.value,
+            message="Generation worker started.",
+            source="worker-generation",
+        )
+        job = await jobs.get_job(session, job_id)
+        if job.brief_id is None:
+            raise RuntimeError("Generation job requires a design brief")
+
+        failure_stage = "brief_load"
+        brief = await session.get(DesignBrief, job.brief_id)
+        if brief is None:
+            raise RuntimeError(f"Design brief not found: {job.brief_id}")
+
+        failure_stage = "prompt_plan"
+        parent_version_id, iteration_parameters = _generation_iteration_context(job.metadata_json)
+        brief_payload = GenerationBriefPayload.model_validate(brief.payload)
+        prompt_plan = build_prompt_plan(
+            brief_payload,
+            provider_settings=_prompt_provider_settings(settings),
+        )
+        failure_provider = prompt_plan.provider
+        failure_model = prompt_plan.model
+        preview_spec = _preview_spec_from_prompt_payload(prompt_plan.prompt_payload)
+        preview_spec_summary = _preview_spec_summary(preview_spec)
+        input_artifact_ids = _input_artifact_ids(
+            prompt_plan.input_artifact_ids,
+            preview_spec=preview_spec,
+        )
+        await jobs.append_event(
+            session,
+            job_id,
+            event_type=JobEventType.STATUS.value,
+            status=JobStatus.RUNNING.value,
+            message="Prompt planned.",
+            source="worker-generation",
+        )
+        canceled_result = await _return_if_canceled(
+            session,
+            job_id,
+            external_calls=False,
+            stage="after_prompt_plan",
+        )
+        if canceled_result is not None:
+            return canceled_result
+
+        provider_result: ImageGenerationResult | None = None
+        request: ImageGenerationRequest | None = None
+        model_run = None
+        attempt_metadata: dict[str, object] = {}
+        total_attempts = 0
+        primary_attempts = settings.ai_generation_max_attempts
+
+        for attempt_index in range(1, primary_attempts + 1):
+            total_attempts += 1
+            request = _image_request_from_prompt_plan(
+                prompt_plan,
+                input_artifact_ids=input_artifact_ids,
+            )
+            model_run = await jobs.create_model_run(
+                session,
+                job_id,
+                estimated_cost=prompt_plan.estimated_cost,
+                input_artifact_ids=input_artifact_ids,
+                model=request.model,
+                parameters={
+                    **prompt_plan.parameters,
+                    **iteration_parameters,
+                    **preview_spec_summary,
+                    "provider_attempt": attempt_index,
+                    "provider_route": request.provider,
+                },
+                prompt_payload=request.prompt_payload,
+                prompt_text=request.prompt_text,
+                provider=request.provider,
+                status=ModelRunStatus.RUNNING.value,
+            )
+            model_run_id = model_run.id
+            try:
+                failure_stage = "rights_check"
+                await _require_confirmed_reference_rights(
+                    session,
+                    job.workspace_id,
+                    input_artifact_ids,
+                )
+                canceled_result = await _return_if_canceled(
+                    session,
+                    job_id,
+                    external_calls=False,
+                    model_run_id=model_run_id,
+                    stage="after_rights_check",
+                )
+                if canceled_result is not None:
+                    return canceled_result
+
+                failure_stage = "hosted_preflight"
+                failure_provider = request.provider
+                failure_model = request.model
+                await _enforce_hosted_preflight(
+                    session,
+                    request,
+                    settings=settings,
+                    current_model_run_id=model_run_id,
+                )
+                active_provider = provider or select_image_provider(
+                    settings,
+                    provider_name=request.provider,
+                )
+                failure_stage = "provider_generate"
+                failure_provider = request.provider
+                failure_model = request.model
+                provider_result = await active_provider.generate(request)
+                canceled_result = await _return_if_canceled(
+                    session,
+                    job_id,
+                    external_calls=True,
+                    model_run_id=model_run_id,
+                    stage="after_provider",
+                )
+                if canceled_result is not None:
+                    return canceled_result
+                attempt_metadata = {"provider_attempt_count": total_attempts}
+                break
+            except Exception as exc:
+                sanitized_attempt_error = sanitize_provider_error(
+                    str(exc),
+                    secrets=_provider_secrets(settings),
+                )
+                attempt_category = _classify_generation_failure(exc, stage=failure_stage)
+                await jobs.fail_model_run(
+                    session,
+                    model_run_id,
+                    error_message=sanitized_attempt_error,
+                )
+                await jobs.append_event(
+                    session,
+                    job_id,
+                    event_type=JobEventType.ERROR.value,
+                    message="Provider attempt failed.",
+                    metadata={
+                        "error": sanitized_attempt_error,
+                        "failure_category": attempt_category.value,
+                        "model": failure_model,
+                        "provider": failure_provider,
+                        "provider_attempt": attempt_index,
+                        "provider_attempt_count": total_attempts,
+                        "stage": failure_stage,
+                        "worker_version": __version__,
+                    },
+                    source="worker-generation",
+                    status=JobStatus.RUNNING.value,
+                )
+                if _should_retry_provider_attempt(
+                    attempt_category,
+                    attempt_index,
+                    primary_attempts,
+                ):
+                    continue
+                if not _should_fallback_to_local(
+                    attempt_category,
+                    primary_provider=request.provider,
+                    settings=settings,
+                ):
+                    raise
+
+                total_attempts += 1
+                fallback_request = _image_request_from_prompt_plan(
+                    prompt_plan,
+                    input_artifact_ids=input_artifact_ids,
+                    provider_name=settings.ai_provider_fallback_name,
+                )
+                model_run = await jobs.create_model_run(
+                    session,
+                    job_id,
+                    estimated_cost=prompt_plan.estimated_cost,
+                    input_artifact_ids=input_artifact_ids,
+                    model=fallback_request.model,
+                    parameters={
+                        **prompt_plan.parameters,
+                        **iteration_parameters,
+                        **preview_spec_summary,
+                        "fallback_from_provider": request.provider,
+                        "fallback_reason": sanitized_attempt_error,
+                        "provider_attempt": total_attempts,
+                        "provider_route": fallback_request.provider,
+                    },
+                    prompt_payload=fallback_request.prompt_payload,
+                    prompt_text=fallback_request.prompt_text,
+                    provider=fallback_request.provider,
+                    status=ModelRunStatus.RUNNING.value,
+                )
+                model_run_id = model_run.id
+                request = fallback_request
+                try:
+                    failure_stage = "hosted_preflight"
+                    failure_provider = fallback_request.provider
+                    failure_model = fallback_request.model
+                    await _enforce_hosted_preflight(
+                        session,
+                        fallback_request,
+                        settings=settings,
+                        current_model_run_id=model_run_id,
+                    )
+                    active_provider = select_image_provider(
+                        settings,
+                        provider_name=fallback_request.provider,
+                    )
+                    failure_stage = "provider_generate"
+                    failure_provider = fallback_request.provider
+                    failure_model = fallback_request.model
+                    provider_result = await active_provider.generate(fallback_request)
+                    canceled_result = await _return_if_canceled(
+                        session,
+                        job_id,
+                        external_calls=bool(
+                            provider_result.metadata.get("external_calls", True),
+                        ),
+                        model_run_id=model_run_id,
+                        stage="after_provider",
+                    )
+                    if canceled_result is not None:
+                        return canceled_result
+                    attempt_metadata = {
+                        "fallback_from_provider": prompt_plan.provider,
+                        "fallback_reason": sanitized_attempt_error,
+                        "provider_attempt_count": total_attempts,
+                    }
+                    break
+                except Exception as fallback_exc:
+                    sanitized_fallback_error = sanitize_provider_error(
+                        str(fallback_exc),
+                        secrets=_provider_secrets(settings),
+                    )
+                    await jobs.fail_model_run(
+                        session,
+                        model_run_id,
+                        error_message=sanitized_fallback_error,
+                    )
+                    raise
+
+        if provider_result is None or request is None or model_run is None:
+            raise RuntimeError("Generation provider did not produce a result")
+
+        artifact_metadata = {
+            **provider_result.metadata,
+            **preview_spec_summary,
+            **attempt_metadata,
+            "concept_label": request.concept_label,
+            "preview_spec": preview_spec,
+        }
+        object_key = build_object_key(
+            filename="concept.png",
+            kind=ArtifactKind.GENERATED_IMAGE.value,
+            record_id=uuid4(),
+            workspace_id=job.workspace_id,
+        )
+        failure_stage = "storage_put"
+        await storage.put_object(
+            object_key,
+            provider_result.image_bytes,
+            provider_result.content_type,
+        )
+
+        failure_stage = "version_write"
+        version = await jobs.create_design_version(
+            session,
+            job.workspace_id,
+            brief_id=job.brief_id,
+            job_id=job_id,
+            parent_version_id=parent_version_id,
+            parameters={
+                "concept_label": request.concept_label,
+                **iteration_parameters,
+                **attempt_metadata,
+                "model": provider_result.model,
+                "preview_spec": preview_spec,
+                "provider": provider_result.provider,
+                **preview_spec_summary,
+            },
+            status=DesignVersionStatus.GENERATED.value,
+            summary="Generated 2D concept preview.",
+            title="Generated concept preview",
+        )
+        artifact = await jobs.create_artifact(
+            session,
+            job.workspace_id,
+            byte_size=len(provider_result.image_bytes),
+            checksum_sha256=hashlib.sha256(provider_result.image_bytes).hexdigest(),
+            content_type=provider_result.content_type,
+            height=provider_result.height,
+            job_id=job_id,
+            kind=ArtifactKind.GENERATED_IMAGE.value,
+            metadata=artifact_metadata,
+            object_key=object_key,
+            version_id=version.id,
+            width=provider_result.width,
+        )
+        await jobs.append_event(
+            session,
+            job_id,
+            event_type=JobEventType.STATUS.value,
+            status=JobStatus.RUNNING.value,
+            message="Generated artifact stored.",
+            source="worker-generation",
+        )
+        await jobs.append_event(
+            session,
+            job_id,
+            event_type=JobEventType.STATUS.value,
+            status=JobStatus.RUNNING.value,
+            message="Design version created.",
+            source="worker-generation",
+        )
+        await jobs.complete_model_run(
+            session,
+            model_run.id,
+            actual_cost=provider_result.actual_cost,
+            output_artifact_id=artifact.id,
+        )
+        await jobs.update_job_costs(
+            session,
+            job_id,
+            actual_cost=provider_result.actual_cost,
+            estimated_cost=provider_result.estimated_cost,
+        )
+        canceled_result = await _return_if_canceled(
+            session,
+            job_id,
+            external_calls=True,
+            model_run_id=model_run_id,
+            stage="before_success",
+        )
+        if canceled_result is not None:
+            return canceled_result
+        await jobs.transition_job_status(
+            session,
+            job_id,
+            status=JobStatus.SUCCEEDED.value,
+            message="Generation completed.",
+            metadata={
+                **attempt_metadata,
+                "external_calls": bool(provider_result.metadata.get("external_calls", True)),
+                "model": provider_result.model,
+                "provider": provider_result.provider,
+                "stage": "completed",
+                "worker_version": __version__,
+            },
+            source="worker-generation",
+        )
+
+        return {
+            "artifact_id": str(artifact.id),
+            "external_calls": bool(provider_result.metadata.get("external_calls", True)),
+            "job_id": str(job_id),
+            "model": provider_result.model,
+            "model_run_id": str(model_run.id),
+            "provider": provider_result.provider,
+            "status": JobStatus.SUCCEEDED.value,
+            "version_id": str(version.id),
+        }
+    except Exception as exc:
+        sanitized_error = sanitize_provider_error(str(exc), secrets=_provider_secrets(settings))
+        failure_category = _classify_generation_failure(exc, stage=failure_stage)
+        failure_metadata: dict[str, object] = {
+            "error": sanitized_error,
+            "failure_category": failure_category.value,
+            "model": failure_model,
+            "provider": failure_provider,
+            "stage": failure_stage,
+            "worker_version": __version__,
+        }
+        if model_run_id is not None:
+            await jobs.fail_model_run(
+                session,
+                model_run_id,
+                error_message=sanitized_error,
+            )
+        await jobs.transition_job_status(
+            session,
+            job_id,
+            status=JobStatus.FAILED.value,
+            latest_error=sanitized_error,
+            metadata=failure_metadata,
+            message="Generation failed.",
+            source="worker-generation",
+        )
+        return {
+            "error": sanitized_error,
+            "external_calls": False,
+            "job_id": str(job_id),
+            "status": JobStatus.FAILED.value,
+        }
+
+
+async def _simulate_local_generation_job(
+    database_url: str,
+    job_id: UUID,
+    *,
+    force_error_message: str | None = None,
+) -> LocalSimulationResult:
+    engine = create_engine(database_url)
+    session_factory = create_session_factory(engine)
+    try:
+        async with session_scope(session_factory) as session:
+            await jobs.transition_job_status(
+                session,
+                job_id,
+                status=JobStatus.RUNNING.value,
+                message="Local no-provider simulation started.",
+                source=LOCAL_SIMULATION_SOURCE,
+            )
+
+            if force_error_message is not None:
+                await jobs.create_model_run(
+                    session,
+                    job_id,
+                    actual_cost=Decimal("0.0000"),
+                    estimated_cost=Decimal("0.0000"),
+                    model=LOCAL_SIMULATION_MODEL,
+                    parameters={"external_calls": False},
+                    provider=LOCAL_SIMULATION_PROVIDER,
+                    status=ModelRunStatus.FAILED.value,
+                )
+                await jobs.transition_job_status(
+                    session,
+                    job_id,
+                    status=JobStatus.FAILED.value,
+                    message="Local no-provider simulation failed.",
+                    source=LOCAL_SIMULATION_SOURCE,
+                    latest_error=force_error_message,
+                )
+                return _result(job_id, JobStatus.FAILED.value)
+
+            await jobs.create_model_run(
+                session,
+                job_id,
+                actual_cost=Decimal("0.0000"),
+                estimated_cost=Decimal("0.0000"),
+                model=LOCAL_SIMULATION_MODEL,
+                parameters={"external_calls": False},
+                provider=LOCAL_SIMULATION_PROVIDER,
+                status=ModelRunStatus.SUCCEEDED.value,
+            )
+            await jobs.update_job_costs(
+                session,
+                job_id,
+                actual_cost=Decimal("0.0000"),
+                estimated_cost=Decimal("0.0000"),
+            )
+            await jobs.transition_job_status(
+                session,
+                job_id,
+                status=JobStatus.SUCCEEDED.value,
+                message="Local no-provider simulation completed.",
+                source=LOCAL_SIMULATION_SOURCE,
+            )
+            return _result(job_id, JobStatus.SUCCEEDED.value)
+    finally:
+        await engine.dispose()
+
+
+def _result(job_id: UUID, status: str) -> LocalSimulationResult:
+    return {
+        "external_calls": False,
+        "job_id": str(job_id),
+        "model": LOCAL_SIMULATION_MODEL,
+        "provider": LOCAL_SIMULATION_PROVIDER,
+        "status": status,
+    }
+
+
+def _classify_generation_failure(exc: Exception, *, stage: str) -> FailureCategory:
+    if isinstance(exc, ImageProviderTimeoutError):
+        return FailureCategory.TIMEOUT
+    if isinstance(exc, ImageProviderConfigurationError):
+        return FailureCategory.PROVIDER_CONFIGURATION
+    if isinstance(exc, ImageProviderError):
+        return FailureCategory.PROVIDER
+    if isinstance(exc, PermissionError):
+        return FailureCategory.VALIDATION_RIGHTS
+    if stage == "storage_put" or isinstance(exc, OSError):
+        return FailureCategory.STORAGE
+    return FailureCategory.UNKNOWN
+
+
+def _should_retry_provider_attempt(
+    category: FailureCategory,
+    attempt_index: int,
+    max_attempts: int,
+) -> bool:
+    return category in {
+        FailureCategory.PROVIDER,
+        FailureCategory.TIMEOUT,
+    } and attempt_index < max_attempts
+
+
+def _should_fallback_to_local(
+    category: FailureCategory,
+    *,
+    primary_provider: str,
+    settings: WorkerSettings,
+) -> bool:
+    if category not in {FailureCategory.PROVIDER, FailureCategory.TIMEOUT}:
+        return False
+    if not settings.ai_provider_fallback_enabled:
+        return False
+    return primary_provider.strip().lower() not in {
+        "disabled",
+        "local",
+        "local-deterministic",
+    }
+
+
+async def _enforce_hosted_preflight(
+    session: AsyncSession,
+    request: ImageGenerationRequest,
+    *,
+    current_model_run_id: UUID,
+    settings: WorkerSettings,
+) -> None:
+    if _is_local_provider(request.provider):
+        return
+    if (
+        settings.ai_hosted_daily_call_limit is None
+        or settings.ai_hosted_rate_limit_per_minute is None
+        or settings.ai_max_estimated_cost_per_job is None
+    ):
+        raise ImageProviderConfigurationError(HOSTED_GUARD_REQUIRED_MESSAGE)
+    if (
+        request.estimated_cost is not None
+        and request.estimated_cost > settings.ai_max_estimated_cost_per_job
+    ):
+        raise ImageProviderConfigurationError(
+            "Hosted provider estimated cost exceeds per-job limit.",
+        )
+
+    now = utc_now()
+    daily_count = await _count_recent_hosted_model_runs(
+        session,
+        current_model_run_id=current_model_run_id,
+        since=now - timedelta(days=1),
+    )
+    if daily_count >= settings.ai_hosted_daily_call_limit:
+        raise ImageProviderConfigurationError("Hosted provider daily call limit reached.")
+
+    minute_count = await _count_recent_hosted_model_runs(
+        session,
+        current_model_run_id=current_model_run_id,
+        since=now - timedelta(minutes=1),
+    )
+    if minute_count >= settings.ai_hosted_rate_limit_per_minute:
+        raise ImageProviderConfigurationError("Hosted provider per-minute rate limit reached.")
+
+
+async def _count_recent_hosted_model_runs(
+    session: AsyncSession,
+    *,
+    current_model_run_id: UUID,
+    since: object,
+) -> int:
+    result = await session.execute(
+        select(func.count())
+        .select_from(ModelRun)
+        .where(
+            ModelRun.created_at >= since,
+            ModelRun.id != current_model_run_id,
+            ModelRun.provider.is_not(None),
+            ~ModelRun.provider.in_(LOCAL_PROVIDER_NAMES),
+        ),
+    )
+    return int(result.scalar_one())
+
+
+def _is_local_provider(provider_name: str) -> bool:
+    return provider_name.strip().lower() in LOCAL_PROVIDER_NAMES
+
+
+async def _return_if_canceled(
+    session: AsyncSession,
+    job_id: UUID,
+    *,
+    external_calls: bool,
+    stage: str,
+    model_run_id: UUID | None = None,
+) -> Generate2DConceptResult | None:
+    job = await jobs.get_job(session, job_id)
+    await session.refresh(job)
+    if job.status != JobStatus.CANCELED.value:
+        return None
+
+    if model_run_id is not None:
+        model_run = await jobs.get_model_run(session, model_run_id)
+        await session.refresh(model_run)
+        if model_run.status in {
+            ModelRunStatus.PLANNED.value,
+            ModelRunStatus.RUNNING.value,
+        }:
+            await jobs.fail_model_run(
+                session,
+                model_run_id,
+                error_message=JOB_CANCELED_MESSAGE,
+            )
+
+    await jobs.append_event(
+        session,
+        job_id,
+        event_type=JobEventType.STATUS.value,
+        message=WORKER_CANCELED_MESSAGE,
+        metadata={
+            "failure_category": FailureCategory.CANCELED.value,
+            "stage": stage,
+            "worker_version": __version__,
+        },
+        source="worker-generation",
+        status=JobStatus.CANCELED.value,
+    )
+    return {
+        "external_calls": external_calls,
+        "job_id": str(job_id),
+        "status": JobStatus.CANCELED.value,
+    }
+
+
+def _prompt_provider_settings(settings: WorkerSettings) -> PromptProviderSettings:
+    provider = (
+        settings.ai_provider_default
+        if settings.ai_provider_calls_enabled and settings.ai_provider_default != "disabled"
+        else "local-deterministic"
+    )
+    model = settings.ai_provider_model
+    return PromptProviderSettings(
+        model=model,
+        parameters={
+            "quality": "concept",
+            "size": f"{settings.ai_local_image_width}x{settings.ai_local_image_height}",
+        },
+        provider=provider,
+    )
+
+
+def _generation_iteration_context(metadata: object) -> tuple[UUID | None, dict[str, object]]:
+    if not isinstance(metadata, dict):
+        return None, {}
+
+    parent_version_id_value = metadata.get("parent_version_id")
+    if not parent_version_id_value:
+        return None, {}
+
+    parent_version_id = UUID(str(parent_version_id_value))
+    iteration_parameters: dict[str, object] = {
+        "iteration": True,
+        "parent_version_id": str(parent_version_id),
+    }
+    change_request = metadata.get("change_request")
+    if isinstance(change_request, str) and change_request.strip():
+        iteration_parameters["change_request"] = change_request
+
+    parameter_overrides = metadata.get("parameter_overrides")
+    if isinstance(parameter_overrides, dict):
+        iteration_parameters["parameter_overrides"] = {
+            str(key): value for key, value in parameter_overrides.items()
+        }
+
+    return parent_version_id, iteration_parameters
+
+
+def _image_request_from_prompt_plan(
+    prompt_plan: PromptPlan,
+    *,
+    input_artifact_ids: list[str],
+    provider_name: str | None = None,
+) -> ImageGenerationRequest:
+    request = ImageGenerationRequest.from_prompt_plan(prompt_plan)
+    return ImageGenerationRequest(
+        concept_label=request.concept_label,
+        estimated_cost=request.estimated_cost,
+        input_artifact_ids=input_artifact_ids,
+        model=request.model,
+        parameters=request.parameters,
+        prompt_payload=request.prompt_payload,
+        prompt_text=request.prompt_text,
+        provider=provider_name or request.provider,
+    )
+
+
+def _preview_spec_from_prompt_payload(prompt_payload: dict[str, object]) -> dict[str, object]:
+    preview_spec = prompt_payload.get("preview_spec")
+    return dict(preview_spec) if isinstance(preview_spec, dict) else {}
+
+
+def _preview_spec_summary(preview_spec: dict[str, object]) -> dict[str, object]:
+    return {
+        "overlay_layer_count": len(_json_list(preview_spec.get("overlay_layers"))),
+        "safe_zone_count": len(_json_list(preview_spec.get("safe_zones"))),
+        "warning_count": len(_json_list(preview_spec.get("warnings"))),
+    }
+
+
+def _input_artifact_ids(
+    reference_asset_ids: list[str],
+    *,
+    preview_spec: dict[str, object],
+) -> list[str]:
+    artifact_ids = list(reference_asset_ids)
+    sources = preview_spec.get("sources")
+    if isinstance(sources, dict):
+        for value in _json_list(sources.get("overlay_logo_asset_ids")):
+            asset_id = str(value)
+            if asset_id and asset_id not in artifact_ids:
+                artifact_ids.append(asset_id)
+    return artifact_ids
+
+
+def _json_list(value: object) -> list[object]:
+    return list(value) if isinstance(value, list) else []
+
+
+async def _require_confirmed_reference_rights(
+    session: AsyncSession,
+    workspace_id: UUID,
+    reference_asset_ids: list[str],
+) -> None:
+    for asset_id_text in reference_asset_ids:
+        asset = await assets.require_confirmed_rights(session, UUID(asset_id_text))
+        if asset.workspace_id != workspace_id:
+            raise PermissionError(f"Asset does not belong to workspace: {asset.id}")
+
+
+def _provider_secrets(settings: WorkerSettings) -> list[str]:
+    secrets = [
+        settings.ai_provider_openai_api_key,
+        settings.ai_provider_fal_api_key,
+        settings.ai_provider_bfl_api_key,
+    ]
+    return [secret.get_secret_value() for secret in secrets if secret is not None]

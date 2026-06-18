@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from decimal import Decimal
 from functools import lru_cache
 from typing import Annotated, Any, Literal
 
@@ -9,12 +10,12 @@ from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 RuntimeMode = Literal["local", "development", "test", "staging", "production"]
 
-LOCAL_DATABASE_URL = "postgresql+asyncpg://caragent:caragent@localhost:5432/caragent"
+LOCAL_DATABASE_URL = "postgresql+asyncpg://caragent:caragent_local_password@localhost:5432/caragent"
 LOCAL_REDIS_URL = "redis://localhost:6379/0"
 LOCAL_S3_ENDPOINT_URL = "http://localhost:9000"
-LOCAL_S3_ACCESS_KEY_ID = "caragent-local"
-LOCAL_S3_SECRET_ACCESS_KEY = "caragent-local-secret"
-LOCAL_S3_BUCKET = "caragent-artifacts"
+LOCAL_S3_ACCESS_KEY_ID = "caragent_minio"
+LOCAL_S3_SECRET_ACCESS_KEY = "caragent_minio_local_password"  # noqa: S105
+LOCAL_S3_BUCKET = "caragent-local"
 LOCAL_CORS_ORIGINS = ["http://localhost:3000", "http://127.0.0.1:3000"]
 
 
@@ -34,7 +35,10 @@ class ApiSettings(BaseSettings):
     database_url: str = Field(default=LOCAL_DATABASE_URL, validation_alias="DATABASE_URL")
     redis_url: str = Field(default=LOCAL_REDIS_URL, validation_alias="REDIS_URL")
     s3_endpoint_url: str = Field(default=LOCAL_S3_ENDPOINT_URL, validation_alias="S3_ENDPOINT_URL")
-    s3_access_key_id: str = Field(default=LOCAL_S3_ACCESS_KEY_ID, validation_alias="S3_ACCESS_KEY_ID")
+    s3_access_key_id: str = Field(
+        default=LOCAL_S3_ACCESS_KEY_ID,
+        validation_alias="S3_ACCESS_KEY_ID",
+    )
     s3_secret_access_key: SecretStr = Field(
         default=SecretStr(LOCAL_S3_SECRET_ACCESS_KEY),
         validation_alias="S3_SECRET_ACCESS_KEY",
@@ -49,6 +53,21 @@ class ApiSettings(BaseSettings):
     ai_provider_calls_enabled: bool = Field(
         default=False,
         validation_alias="AI_PROVIDER_CALLS_ENABLED",
+    )
+    ai_hosted_daily_call_limit: int | None = Field(
+        default=None,
+        gt=0,
+        validation_alias="AI_HOSTED_DAILY_CALL_LIMIT",
+    )
+    ai_hosted_rate_limit_per_minute: int | None = Field(
+        default=None,
+        gt=0,
+        validation_alias="AI_HOSTED_RATE_LIMIT_PER_MINUTE",
+    )
+    ai_max_estimated_cost_per_job: Decimal | None = Field(
+        default=None,
+        gt=0,
+        validation_alias="AI_MAX_ESTIMATED_COST_PER_JOB",
     )
     ai_provider_openai_api_key: SecretStr | None = Field(
         default=None,

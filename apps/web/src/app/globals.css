@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 :root {
-  --background: #F8FAFC;
+  --background: #F7F8FB;
   --foreground: #111827;
   --card: #FFFFFF;
   --card-foreground: #111827;
@@ -11,8 +11,8 @@
   --primary-foreground: #FFFFFF;
   --secondary: #FFFFFF;
   --secondary-foreground: #4B5563;
-  --muted: #F3F4F6;
-  --muted-foreground: #9CA3AF;
+  --muted: #F1F5F9;
+  --muted-foreground: #6B7280;
   --accent: #6D5DF6;
   --accent-foreground: #FFFFFF;
   --destructive: #DC2626;
@@ -56,13 +56,13 @@
 
 html {
   min-height: 100%;
-  background: #F8FAFC;
+  background: #F7F8FB;
 }
 
 body {
   min-height: 100vh;
   margin: 0;
-  background: #F8FAFC;
+  background: #F7F8FB;
   color: #111827;
   font-family: system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
   font-size: 14px;

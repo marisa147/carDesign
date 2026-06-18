@@ -1,0 +1,504 @@
+from __future__ import annotations
+
+import asyncio
+import re
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
+from uuid import UUID, uuid4
+
+from caragent_core.database import session_scope
+from caragent_core.enums import DesignVersionStatus, JobStatus
+from caragent_core.models import DesignVersion, GenerationJob, metadata
+from caragent_core.services import jobs
+from fastapi.testclient import TestClient
+from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker
+
+from caragent_api.config import ApiSettings
+from caragent_api.main import create_app
+from caragent_api.queue import QueuedGenerationTask
+
+
+@dataclass
+class FakeQueueClient:
+    enqueued: list[dict[str, Any]]
+    revoked: list[str | None]
+
+    def __init__(self) -> None:
+        self.enqueued = []
+        self.revoked = []
+
+    async def enqueue_generation_job(self, job_id: UUID) -> QueuedGenerationTask:
+        task_id = f"task-{len(self.enqueued) + 1}"
+        payload = {
+            "args": [str(job_id)],
+            "job_id": str(job_id),
+            "kwargs": {},
+            "task_id": task_id,
+            "task_name": "caragent_worker.generate_2d_concept_job",
+        }
+        self.enqueued.append(payload)
+        return QueuedGenerationTask(
+            job_id=job_id,
+            task_id=task_id,
+            task_name="caragent_worker.generate_2d_concept_job",
+        )
+
+    async def inspect_generation_queue(self) -> dict[str, Any]:
+        return {
+            "active_tasks": 0,
+            "active_workers": 0,
+            "detail": "not inspected in generation tests",
+            "generation_queue": "caragent.default",
+            "registered_tasks": [],
+            "reserved_tasks": 0,
+            "status": "unavailable",
+        }
+
+    async def revoke_generation_task(self, task_id: str | None) -> dict[str, Any]:
+        self.revoked.append(task_id)
+        return {
+            "detail": None if task_id else "No Celery task id is available for this job.",
+            "status": "revoked" if task_id else "not_available",
+            "task_id": task_id,
+        }
+
+
+def create_generation_client(tmp_path: Path) -> tuple[TestClient, Any, FakeQueueClient]:
+    database_path = tmp_path / "generation-api.db"
+    settings = ApiSettings(database_url=f"sqlite+aiosqlite:///{database_path.as_posix()}")
+    app = create_app(settings)
+    fake_queue = FakeQueueClient()
+    app.state.queue_client = fake_queue
+    asyncio.run(create_schema(app.state.database_engine))
+    return TestClient(app), app, fake_queue
+
+
+async def create_schema(engine: AsyncEngine) -> None:
+    async with engine.begin() as connection:
+        await connection.run_sync(metadata.create_all)
+
+
+def test_create_and_update_structured_generation_brief(tmp_path: Path) -> None:
+    client, _app, _queue = create_generation_client(tmp_path)
+    workspace_id = client.post("/workspaces", json={"title": "Generation"}).json()["id"]
+
+    created = client.post(
+        f"/workspaces/{workspace_id}/generation/briefs",
+        json={
+            "character_focus": "large heroine portrait across door and rear quarter",
+            "character_theme": "Sakura heroine",
+            "color_harmony": "white base with teal accents and silver separators",
+            "coverage": "full side coverage",
+            "original_request": (
+                "White RX-7 with Sakura heroine, teal accents, and MOON DRIVE text."
+            ),
+            "overlay_logo_asset_ids": [],
+            "palette": ["white", "teal"],
+            "racing_cues": ["number panel", "tow arrow"],
+            "reference_asset_ids": [],
+            "style": "clean racing itasha",
+            "supporting_graphics": ["teal ribbon", "sakura petals"],
+            "text": ["MOON DRIVE"],
+            "typography_intent": "bold readable door lettering",
+            "vehicle_template_id": "mazda-rx7",
+            "view": "rear",
+        },
+    )
+
+    assert created.status_code == 201
+    payload = created.json()["payload"]
+    assert payload["character_focus"] == "large heroine portrait across door and rear quarter"
+    assert payload["character_theme"] == "Sakura heroine"
+    assert payload["color_harmony"] == "white base with teal accents and silver separators"
+    assert payload["overlay_logo_asset_ids"] == []
+    assert payload["racing_cues"] == ["number panel", "tow arrow"]
+    assert payload["supporting_graphics"] == ["teal ribbon", "sakura petals"]
+    assert payload["typography_intent"] == "bold readable door lettering"
+    assert payload["vehicle_template_id"] == "generic-side-coupe"
+    assert payload["view"] == "side"
+    assert "Unsupported vehicle template" in " ".join(payload["warnings"])
+    assert "Unsupported view" in " ".join(payload["warnings"])
+
+    updated = client.patch(
+        f"/generation/briefs/{created.json()['id']}",
+        json={
+            "character_focus": "rear quarter chibi plus door typography",
+            "color_harmony": "teal dominant with white negative space",
+            "coverage": "rear quarter emphasis",
+            "overlay_logo_asset_ids": ["11111111-1111-1111-1111-111111111111"],
+            "palette": ["white", "teal", "silver"],
+            "racing_cues": ["side skirt stripe"],
+            "supporting_graphics": ["speed line"],
+            "text": ["MOON DRIVE", "SAKURA"],
+            "typography_intent": "stacked block type",
+        },
+    )
+
+    assert updated.status_code == 200
+    assert updated.json()["id"] == created.json()["id"]
+    assert updated.json()["payload"]["coverage"] == "rear quarter emphasis"
+    assert updated.json()["payload"]["character_focus"] == "rear quarter chibi plus door typography"
+    assert updated.json()["payload"]["color_harmony"] == "teal dominant with white negative space"
+    assert updated.json()["payload"]["overlay_logo_asset_ids"] == [
+        "11111111-1111-1111-1111-111111111111",
+    ]
+    assert updated.json()["payload"]["palette"] == ["white", "teal", "silver"]
+    assert updated.json()["payload"]["racing_cues"] == ["side skirt stripe"]
+    assert updated.json()["payload"]["supporting_graphics"] == ["speed line"]
+    assert updated.json()["payload"]["text"] == ["MOON DRIVE", "SAKURA"]
+    assert updated.json()["payload"]["typography_intent"] == "stacked block type"
+
+
+def test_update_generation_brief_recomputes_quality_warnings(tmp_path: Path) -> None:
+    client, _app, _queue = create_generation_client(tmp_path)
+    workspace_id = client.post("/workspaces", json={"title": "Generation"}).json()["id"]
+    brief_id = create_brief(client, workspace_id)
+
+    updated = client.patch(
+        f"/generation/briefs/{brief_id}",
+        json={"text": ["MOON DRIVE SUPER LONG LETTERING"]},
+    )
+
+    assert updated.status_code == 200
+    assert any(
+        "Text may be hard to read" in warning
+        for warning in updated.json()["payload"]["warnings"]
+    )
+
+
+def test_submit_generation_job_enqueues_worker_task_and_reuses_idempotency(
+    tmp_path: Path,
+) -> None:
+    client, _app, queue = create_generation_client(tmp_path)
+    workspace_id = client.post("/workspaces", json={"title": "Generation"}).json()["id"]
+    brief_id = create_brief(client, workspace_id)
+
+    first = client.post(
+        f"/workspaces/{workspace_id}/generation/jobs",
+        json={
+            "brief_id": brief_id,
+            "idempotency_key": "submit-001",
+            "requested_by": "local-user",
+        },
+    )
+    duplicate = client.post(
+        f"/workspaces/{workspace_id}/generation/jobs",
+        json={
+            "brief_id": brief_id,
+            "idempotency_key": "submit-001",
+            "requested_by": "local-user",
+        },
+    )
+
+    assert first.status_code == 201
+    assert duplicate.status_code == 201
+    assert first.json()["job"]["operation"] == "generate_2d_concept"
+    assert first.json()["job"]["status"] == "queued"
+    assert first.json()["job"]["metadata"]["queue"] == {
+        "task_id": "task-1",
+        "task_name": "caragent_worker.generate_2d_concept_job",
+        "queue": "caragent.default",
+    }
+    assert first.json()["idempotent_reused"] is False
+    assert duplicate.json()["job"]["id"] == first.json()["job"]["id"]
+    assert duplicate.json()["idempotent_reused"] is True
+    assert len(queue.enqueued) == 1
+    assert queue.enqueued[0]["job_id"] == first.json()["job"]["id"]
+    assert "secret" not in str(queue.enqueued[0]).lower()
+
+
+def test_cancel_generation_job_marks_canceled_and_revokes_queue_task(
+    tmp_path: Path,
+) -> None:
+    client, _app, queue = create_generation_client(tmp_path)
+    workspace_id = client.post("/workspaces", json={"title": "Generation"}).json()["id"]
+    brief_id = create_brief(client, workspace_id)
+    submitted = client.post(
+        f"/workspaces/{workspace_id}/generation/jobs",
+        json={
+            "brief_id": brief_id,
+            "idempotency_key": "cancel-001",
+            "requested_by": "local-user",
+        },
+    ).json()
+    job_id = submitted["job"]["id"]
+
+    canceled = client.post(
+        f"/jobs/{job_id}/cancel",
+        json={"reason": "user_request", "requested_by": "local-user"},
+    )
+    fetched = client.get(f"/jobs/{job_id}")
+
+    assert canceled.status_code == 200
+    assert canceled.json()["job"]["status"] == "canceled"
+    assert canceled.json()["job"]["latest_error"] is None
+    assert canceled.json()["queue_revoke"] == {
+        "detail": None,
+        "status": "revoked",
+        "task_id": "task-1",
+    }
+    assert fetched.json()["metadata"]["operations"] == {
+        "failure_category": "canceled",
+        "reason": "user_request",
+        "requested_by": "local-user",
+    }
+    assert queue.revoked == ["task-1"]
+
+
+def test_cancel_generation_job_rejects_terminal_status(tmp_path: Path) -> None:
+    client, app, queue = create_generation_client(tmp_path)
+    workspace_id = client.post("/workspaces", json={"title": "Generation"}).json()["id"]
+    brief_id = create_brief(client, workspace_id)
+    submitted = client.post(
+        f"/workspaces/{workspace_id}/generation/jobs",
+        json={"brief_id": brief_id, "idempotency_key": "cancel-terminal-001"},
+    ).json()
+    job_id = submitted["job"]["id"]
+    asyncio.run(mark_job_succeeded(app.state.session_factory, UUID(job_id)))
+
+    canceled = client.post(
+        f"/jobs/{job_id}/cancel",
+        json={"reason": "user_request", "requested_by": "local-user"},
+    )
+
+    assert canceled.status_code == 422
+    assert queue.revoked == []
+
+
+def test_generation_routes_reject_missing_brief_or_request_data(tmp_path: Path) -> None:
+    client, _app, queue = create_generation_client(tmp_path)
+    workspace_id = client.post("/workspaces", json={"title": "Generation"}).json()["id"]
+
+    missing_request = client.post(
+        f"/workspaces/{workspace_id}/generation/briefs",
+        json={"character_theme": "Sakura"},
+    )
+    missing_brief = client.post(
+        f"/workspaces/{workspace_id}/generation/jobs",
+        json={"idempotency_key": "submit-001"},
+    )
+
+    assert missing_request.status_code == 422
+    assert missing_brief.status_code == 422
+    assert queue.enqueued == []
+
+
+def test_retry_failed_generation_creates_new_job_without_overwriting_failed_job(
+    tmp_path: Path,
+) -> None:
+    client, app, queue = create_generation_client(tmp_path)
+    workspace_id = client.post("/workspaces", json={"title": "Generation"}).json()["id"]
+    brief_id = create_brief(client, workspace_id)
+    failed = client.post(
+        f"/workspaces/{workspace_id}/generation/jobs",
+        json={"brief_id": brief_id, "idempotency_key": "failed-001"},
+    ).json()["job"]
+    asyncio.run(mark_job_failed(app.state.session_factory, UUID(failed["id"])))
+
+    retry = client.post(
+        f"/jobs/{failed['id']}/retry",
+        json={"idempotency_key": "retry-001", "requested_by": "local-user"},
+    )
+    original = client.get(f"/jobs/{failed['id']}")
+
+    assert retry.status_code == 201
+    assert retry.json()["job"]["id"] != failed["id"]
+    assert retry.json()["job"]["brief_id"] == brief_id
+    assert retry.json()["job"]["operation"] == "generate_2d_concept"
+    assert retry.json()["job"]["status"] == "queued"
+    assert retry.json()["retry_of_job_id"] == failed["id"]
+    assert original.json()["status"] == "failed"
+    assert len(queue.enqueued) == 2
+    assert queue.enqueued[-1]["job_id"] == retry.json()["job"]["id"]
+
+
+def test_submit_iteration_job_records_parent_metadata_without_overwriting_parent(
+    tmp_path: Path,
+) -> None:
+    client, app, queue = create_generation_client(tmp_path)
+    workspace_id = client.post("/workspaces", json={"title": "Generation"}).json()["id"]
+    brief_id = create_brief(client, workspace_id)
+    parent_version_id = asyncio.run(
+        create_parent_version(app.state.session_factory, workspace_id, brief_id),
+    )
+
+    first = client.post(
+        f"/workspaces/{workspace_id}/versions/{parent_version_id}/iterations",
+        json={
+            "brief_id": brief_id,
+            "change_request": "Increase pink accents and keep the door text.",
+            "idempotency_key": "iterate-001",
+            "parameter_overrides": {"palette": ["white", "pink"]},
+            "requested_by": "local-user",
+        },
+    )
+    duplicate = client.post(
+        f"/workspaces/{workspace_id}/versions/{parent_version_id}/iterations",
+        json={
+            "brief_id": brief_id,
+            "change_request": "Increase pink accents and keep the door text.",
+            "idempotency_key": "iterate-001",
+            "parameter_overrides": {"palette": ["white", "pink"]},
+            "requested_by": "local-user",
+        },
+    )
+
+    assert first.status_code == 201
+    assert duplicate.status_code == 201
+    assert first.json()["job"]["operation"] == "generate_2d_concept"
+    assert first.json()["job"]["brief_id"] == brief_id
+    assert first.json()["idempotent_reused"] is False
+    assert duplicate.json()["job"]["id"] == first.json()["job"]["id"]
+    assert duplicate.json()["idempotent_reused"] is True
+    assert len(queue.enqueued) == 1
+    assert queue.enqueued[0]["job_id"] == first.json()["job"]["id"]
+
+    stored_job = asyncio.run(read_job(app.state.session_factory, UUID(first.json()["job"]["id"])))
+    parent = asyncio.run(read_version(app.state.session_factory, parent_version_id))
+    assert stored_job.metadata_json == {
+        "change_request": "Increase pink accents and keep the door text.",
+        "iteration": True,
+        "parameter_overrides": {"palette": ["white", "pink"]},
+        "parent_version_id": str(parent_version_id),
+        "queue": {
+            "queue": "caragent.default",
+            "task_id": "task-1",
+            "task_name": "caragent_worker.generate_2d_concept_job",
+        },
+        "source": "generation-iteration-api",
+    }
+    assert parent.parent_version_id is None
+    assert parent.lineage_depth == 0
+    assert parent.parameters == {"concept_label": "parent_preview"}
+
+
+def test_submit_iteration_job_rejects_missing_or_wrong_workspace_parent_version(
+    tmp_path: Path,
+) -> None:
+    client, app, queue = create_generation_client(tmp_path)
+    first_workspace_id = client.post("/workspaces", json={"title": "First"}).json()["id"]
+    second_workspace_id = client.post("/workspaces", json={"title": "Second"}).json()["id"]
+    first_brief_id = create_brief(client, first_workspace_id)
+    second_brief_id = create_brief(client, second_workspace_id)
+    parent_version_id = asyncio.run(
+        create_parent_version(app.state.session_factory, first_workspace_id, first_brief_id),
+    )
+
+    missing_parent = client.post(
+        f"/workspaces/{first_workspace_id}/versions/{uuid4()}/iterations",
+        json={
+            "brief_id": first_brief_id,
+            "change_request": "Try a cleaner side stripe.",
+            "idempotency_key": "iterate-missing",
+        },
+    )
+    wrong_workspace_parent = client.post(
+        f"/workspaces/{second_workspace_id}/versions/{parent_version_id}/iterations",
+        json={
+            "brief_id": second_brief_id,
+            "change_request": "Try a cleaner side stripe.",
+            "idempotency_key": "iterate-wrong-workspace",
+        },
+    )
+
+    assert missing_parent.status_code == 422
+    assert wrong_workspace_parent.status_code == 422
+    assert queue.enqueued == []
+
+
+def test_api_generation_boundary_does_not_import_worker_or_provider_code() -> None:
+    forbidden = (
+        re.compile(r"^\s*import\s+caragent_worker\b", re.MULTILINE),
+        re.compile(r"^\s*from\s+caragent_worker\b", re.MULTILINE),
+        re.compile(r"^\s*from\s+caragent_worker\.providers\b", re.MULTILINE),
+        re.compile(r"\bopenai\b", re.IGNORECASE),
+        re.compile(r"\bfal_client\b"),
+    )
+    violations = [
+        f"{source_file}: {pattern.pattern}"
+        for source_file in Path("src/caragent_api").rglob("*.py")
+        for pattern in forbidden
+        if pattern.search(source_file.read_text(encoding="utf-8"))
+    ]
+
+    assert violations == []
+
+
+def create_brief(client: TestClient, workspace_id: str) -> str:
+    response = client.post(
+        f"/workspaces/{workspace_id}/generation/briefs",
+        json={
+            "character_theme": "Sakura heroine",
+            "original_request": "White coupe with Sakura heroine and MOON DRIVE text.",
+            "palette": ["white", "teal"],
+            "text": ["MOON DRIVE"],
+        },
+    )
+    assert response.status_code == 201
+    return str(response.json()["id"])
+
+
+async def mark_job_failed(
+    session_factory: async_sessionmaker[Any],
+    job_id: UUID,
+) -> None:
+    async with session_scope(session_factory) as session:
+        await jobs.transition_job_status(
+            session,
+            job_id,
+            latest_error="forced failure",
+            message="Forced failed state.",
+            source="test",
+            status=JobStatus.FAILED.value,
+        )
+
+
+async def mark_job_succeeded(
+    session_factory: async_sessionmaker[Any],
+    job_id: UUID,
+) -> None:
+    async with session_scope(session_factory) as session:
+        await jobs.transition_job_status(
+            session,
+            job_id,
+            message="Forced succeeded state.",
+            source="test",
+            status=JobStatus.SUCCEEDED.value,
+        )
+
+
+async def create_parent_version(
+    session_factory: async_sessionmaker[Any],
+    workspace_id: str,
+    brief_id: str,
+) -> UUID:
+    async with session_scope(session_factory) as session:
+        version = await jobs.create_design_version(
+            session,
+            UUID(workspace_id),
+            brief_id=UUID(brief_id),
+            parameters={"concept_label": "parent_preview"},
+            status=DesignVersionStatus.GENERATED.value,
+            summary="Parent concept.",
+            title="Parent concept",
+        )
+        return version.id
+
+
+async def read_job(
+    session_factory: async_sessionmaker[Any],
+    job_id: UUID,
+) -> GenerationJob:
+    async with session_scope(session_factory) as session:
+        return await jobs.get_job(session, job_id)
+
+
+async def read_version(
+    session_factory: async_sessionmaker[Any],
+    version_id: UUID,
+) -> DesignVersion:
+    async with session_scope(session_factory) as session:
+        version = await session.get(DesignVersion, version_id)
+        assert version is not None
+        return version

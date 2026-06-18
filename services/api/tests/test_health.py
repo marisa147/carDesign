@@ -6,10 +6,8 @@ import pytest
 from fastapi.testclient import TestClient
 from pydantic import SecretStr
 
-from caragent_api.config import ApiSettings
-from caragent_api.config import get_settings
+from caragent_api.config import ApiSettings, get_settings
 from caragent_api.main import create_app
-
 
 HEALTH_DEPENDENCIES = {"database", "redis", "object_storage", "worker", "contracts"}
 
@@ -45,9 +43,7 @@ def test_health_marks_configured_local_services_without_live_success() -> None:
         "minio-secret-value",
     }
     settings = ApiSettings(
-        database_url=(
-            "postgresql+asyncpg://caragent:db-secret-password@localhost:5432/caragent"
-        ),
+        database_url=("postgresql+asyncpg://caragent:db-secret-password@localhost:5432/caragent"),
         redis_url="redis://:redis-secret-password@localhost:6379/0",
         s3_endpoint_url="http://localhost:9000",
         s3_access_key_id="caragent-local",

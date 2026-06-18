@@ -7,7 +7,6 @@ from pydantic import ValidationError
 
 from caragent_api.config import ApiSettings
 
-
 ENV_KEYS = (
     "DATABASE_URL",
     "REDIS_URL",

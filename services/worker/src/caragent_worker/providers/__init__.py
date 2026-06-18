@@ -1,0 +1,64 @@
+from __future__ import annotations
+
+import httpx
+
+from caragent_worker.config import WorkerSettings
+from caragent_worker.providers.base import (
+    ImageGenerationRequest,
+    ImageGenerationResult,
+    ImageProvider,
+    ImageProviderConfigurationError,
+    ImageProviderError,
+    ImageProviderTimeoutError,
+)
+from caragent_worker.providers.bfl import BflImageProvider
+from caragent_worker.providers.local import LocalDeterministicImageProvider
+
+__all__ = [
+    "BflImageProvider",
+    "ImageGenerationRequest",
+    "ImageGenerationResult",
+    "ImageProvider",
+    "ImageProviderConfigurationError",
+    "ImageProviderError",
+    "ImageProviderTimeoutError",
+    "LocalDeterministicImageProvider",
+    "select_image_provider",
+]
+
+LOCAL_PROVIDER_NAMES = {"disabled", "local", "local-deterministic"}
+BFL_PROVIDER_NAMES = {"bfl", "black-forest-labs"}
+
+
+def select_image_provider(
+    settings: WorkerSettings,
+    *,
+    client: httpx.AsyncClient | None = None,
+    provider_name: str | None = None,
+) -> ImageProvider:
+    selected_name = (provider_name or settings.ai_provider_default).strip().lower()
+
+    if provider_name is None and not settings.ai_provider_calls_enabled:
+        return _local_provider(settings)
+    if selected_name in LOCAL_PROVIDER_NAMES:
+        return _local_provider(settings)
+    if selected_name in BFL_PROVIDER_NAMES:
+        return BflImageProvider(
+            api_key=settings.ai_provider_bfl_api_key,
+            base_url=settings.ai_provider_bfl_base_url,
+            client=client,
+            max_poll_attempts=settings.ai_generation_max_poll_attempts,
+            poll_interval_seconds=settings.ai_generation_poll_interval_seconds,
+            result_path=settings.ai_provider_bfl_result_path,
+            submit_path=settings.ai_provider_bfl_submit_path,
+            timeout_seconds=settings.ai_generation_timeout_seconds,
+        )
+
+    raise ImageProviderConfigurationError(f"Unsupported image provider: {selected_name}")
+
+
+def _local_provider(settings: WorkerSettings) -> LocalDeterministicImageProvider:
+    return LocalDeterministicImageProvider(
+        height=settings.ai_local_image_height,
+        width=settings.ai_local_image_width,
+    )

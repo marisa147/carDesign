@@ -7,7 +7,7 @@ settings = get_settings()
 celery_app = Celery(
     "caragent_worker",
     broker=settings.redis_url,
-    include=["caragent_worker.tasks.health"],
+    include=["caragent_worker.tasks.health", "caragent_worker.tasks.jobs"],
 )
 
 celery_app.conf.update(
