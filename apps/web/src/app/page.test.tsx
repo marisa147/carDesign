@@ -1190,6 +1190,39 @@ describe("Phase 4 workbench shell", () => {
     expect(document.body.textContent).not.toMatch(/api[_-]?key|secret|[A-Z]:\\/i);
   });
 
+  it("renders non-retryable targeted edit failures without retry controls", async () => {
+    localStorage.setItem("caragent.workbench.workspaceId", "workspace-1");
+    localStorage.setItem("caragent.workbench.briefId", "brief-1");
+    const failedJob = {
+      ...failedJobFixture,
+      latest_error: "target not found",
+      metadata: {
+        operations: {
+          blocked_reason: "target not found",
+          edit_route: "deterministic_recomposition",
+          failure_category: "targeted_edit_invalid",
+          provider: "deterministic-recomposition",
+          retry_eligible: false,
+          stage: "recomposition_validation",
+          target: { id: "missing-layer", type: "overlay_layer" },
+        },
+      },
+    } satisfies GenerationJobResponse;
+    const fetchMock = mockResumeWithGenerationState({ job: failedJob });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<Home />);
+
+    expect(await screen.findByText("失败")).toBeVisible();
+    expect(screen.getByText("失败分类 targeted_edit_invalid")).toBeVisible();
+    expect(screen.getByText("Route deterministic_recomposition")).toBeVisible();
+    expect(screen.getByText("目标 overlay_layer:missing-layer")).toBeVisible();
+    expect(screen.getAllByText("target not found").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText("不可重试")).toBeVisible();
+    expect(screen.queryByRole("button", { name: "重试局部编辑" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "重试生成" })).not.toBeInTheDocument();
+  });
+
   it("renders failed progress and retries generation jobs", async () => {
     const user = userEvent.setup();
     localStorage.setItem("caragent.workbench.workspaceId", "workspace-1");

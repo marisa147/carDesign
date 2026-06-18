@@ -10,7 +10,7 @@ from uuid import UUID, uuid4
 
 import pytest
 from caragent_core.database import session_scope
-from caragent_core.enums import DesignVersionStatus, JobStatus
+from caragent_core.enums import ArtifactKind, DesignVersionStatus, JobStatus
 from caragent_core.models import DesignVersion, GenerationJob, metadata
 from caragent_core.services import jobs
 from fastapi.testclient import TestClient
@@ -457,6 +457,113 @@ def test_retry_failed_generation_creates_new_job_without_overwriting_failed_job(
     assert queue.enqueued[-1]["job_id"] == retry.json()["job"]["id"]
 
 
+def test_retry_targeted_iteration_preserves_edit_intent_and_provider_intent(
+    tmp_path: Path,
+) -> None:
+    client, app, queue = create_generation_client(tmp_path)
+    workspace_id = client.post("/workspaces", json={"title": "Retry targeted"}).json()["id"]
+    brief_id = create_brief(client, workspace_id)
+    parent_version_id, parent_artifact_id = asyncio.run(
+        create_parent_version_with_artifact(
+            app.state.session_factory,
+            workspace_id,
+            brief_id,
+        ),
+    )
+    edit_intent = targeted_edit_intent_payload(mask_artifact_id=parent_artifact_id)
+
+    failed = client.post(
+        f"/workspaces/{workspace_id}/versions/{parent_version_id}/iterations",
+        json={
+            "brief_id": brief_id,
+            "change_request": "Move the selected door text.",
+            "edit_intent": edit_intent,
+            "idempotency_key": "targeted-retry-source",
+            "provider": "local-deterministic",
+            "provider_parameters": {"quality": "concept"},
+        },
+    ).json()["job"]
+    asyncio.run(
+        mark_job_failed(
+            app.state.session_factory,
+            UUID(failed["id"]),
+            metadata={
+                "failure_category": "provider",
+                "retry_eligible": True,
+                "retry_route": "deterministic_recomposition",
+            },
+        ),
+    )
+
+    retry = client.post(
+        f"/jobs/{failed['id']}/retry",
+        json={"idempotency_key": "targeted-retry-001", "requested_by": "local-user"},
+    )
+
+    assert retry.status_code == 201
+    retry_job = retry.json()["job"]
+    assert retry_job["provider"] == "local-deterministic"
+    assert retry_job["model"] == "local-concept-v1"
+    assert retry_job["metadata"]["retry_of_job_id"] == failed["id"]
+    assert retry_job["metadata"]["parent_version_id"] == str(parent_version_id)
+    assert retry_job["metadata"]["edit_intent"] == edit_intent | {
+        "parent_version_id": str(parent_version_id),
+    }
+    assert retry_job["metadata"]["provider_intent"] == {
+        "model": "local-concept-v1",
+        "parameters": {"quality": "concept"},
+        "provider": "local-deterministic",
+    }
+    assert retry.json()["retry_of_job_id"] == failed["id"]
+    assert len(queue.enqueued) == 2
+    assert queue.enqueued[-1]["job_id"] == retry_job["id"]
+
+
+def test_retry_targeted_iteration_rejects_non_retryable_failure(
+    tmp_path: Path,
+) -> None:
+    client, app, queue = create_generation_client(tmp_path)
+    workspace_id = client.post("/workspaces", json={"title": "Retry blocked"}).json()["id"]
+    brief_id = create_brief(client, workspace_id)
+    parent_version_id, parent_artifact_id = asyncio.run(
+        create_parent_version_with_artifact(
+            app.state.session_factory,
+            workspace_id,
+            brief_id,
+        ),
+    )
+    failed = client.post(
+        f"/workspaces/{workspace_id}/versions/{parent_version_id}/iterations",
+        json={
+            "brief_id": brief_id,
+            "change_request": "Move a missing layer.",
+            "edit_intent": targeted_edit_intent_payload(mask_artifact_id=parent_artifact_id),
+            "idempotency_key": "targeted-retry-blocked",
+        },
+    ).json()["job"]
+    asyncio.run(
+        mark_job_failed(
+            app.state.session_factory,
+            UUID(failed["id"]),
+            metadata={
+                "blocked_reason": "target not found",
+                "failure_category": "targeted_edit_invalid",
+                "retry_eligible": False,
+                "retry_route": "deterministic_recomposition",
+            },
+        ),
+    )
+
+    retry = client.post(
+        f"/jobs/{failed['id']}/retry",
+        json={"idempotency_key": "targeted-retry-blocked-again"},
+    )
+
+    assert retry.status_code == 422
+    assert "target not found" in retry.json()["detail"]
+    assert len(queue.enqueued) == 1
+
+
 def test_submit_iteration_job_records_parent_metadata_without_overwriting_parent(
     tmp_path: Path,
 ) -> None:
@@ -820,12 +927,15 @@ def hosted_api_settings(tmp_path: Path, **overrides: Any) -> ApiSettings:
 async def mark_job_failed(
     session_factory: async_sessionmaker[Any],
     job_id: UUID,
+    *,
+    metadata: dict[str, object] | None = None,
 ) -> None:
     async with session_scope(session_factory) as session:
         await jobs.transition_job_status(
             session,
             job_id,
             latest_error="forced failure",
+            metadata=metadata,
             message="Forced failed state.",
             source="test",
             status=JobStatus.FAILED.value,
@@ -862,6 +972,37 @@ async def create_parent_version(
             title="Parent concept",
         )
         return version.id
+
+
+async def create_parent_version_with_artifact(
+    session_factory: async_sessionmaker[Any],
+    workspace_id: str,
+    brief_id: str,
+) -> tuple[UUID, UUID]:
+    async with session_scope(session_factory) as session:
+        version = await jobs.create_design_version(
+            session,
+            UUID(workspace_id),
+            brief_id=UUID(brief_id),
+            parameters={"concept_label": "parent_preview"},
+            status=DesignVersionStatus.GENERATED.value,
+            summary="Parent concept.",
+            title="Parent concept",
+        )
+        artifact = await jobs.create_artifact(
+            session,
+            UUID(workspace_id),
+            byte_size=len(b"parent-preview"),
+            content_type="image/png",
+            height=768,
+            job_id=None,
+            kind=ArtifactKind.GENERATED_IMAGE.value,
+            metadata={"concept_label": "parent_preview"},
+            object_key=f"workspaces/{workspace_id}/generated/{version.id}/parent.png",
+            version_id=version.id,
+            width=1536,
+        )
+        return version.id, artifact.id
 
 
 async def read_job(

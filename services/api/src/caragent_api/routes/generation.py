@@ -10,7 +10,7 @@ from caragent_core.generation import (
     create_generation_brief,
     refresh_generation_brief_warnings,
 )
-from caragent_core.models import DesignBrief, GenerationJob
+from caragent_core.models import Artifact, DesignBrief, GenerationJob
 from caragent_core.provider_capabilities import (
     BFL_ALIASES,
     BFL_PROVIDER,
@@ -277,13 +277,19 @@ async def retry_generation_job(
     if failed_job.brief_id is None:
         raise generation_validation_failed(ValueError("Failed job has no design brief to retry"))
 
+    retry_metadata = await _retry_metadata_from_failed_job(session, failed_job)
+    provider_intent = _provider_intent_from_metadata(retry_metadata)
     result = await jobs.create_job(
         session,
         failed_job.workspace_id,
         brief_id=failed_job.brief_id,
         idempotency_key=payload.idempotency_key,
-        metadata={"retry_of_job_id": str(failed_job.id)},
+        metadata=retry_metadata,
+        model=provider_intent.model if provider_intent is not None else failed_job.model,
         operation=failed_job.operation,
+        provider=(
+            provider_intent.provider if provider_intent is not None else failed_job.provider
+        ),
         requested_by=payload.requested_by,
     )
 
@@ -384,6 +390,92 @@ def _bfl_provider_intent(
 def _requested_model(value: str | None, *, default: str) -> str:
     model = (value or "").strip()
     return model or default
+
+
+async def _retry_metadata_from_failed_job(
+    session: AsyncSession,
+    failed_job: GenerationJob,
+) -> dict[str, Any]:
+    source_metadata = failed_job.metadata_json if isinstance(failed_job.metadata_json, dict) else {}
+    operations = source_metadata.get("operations")
+    if isinstance(operations, dict) and operations.get("retry_eligible") is False:
+        blocked_reason = operations.get("blocked_reason")
+        reason = str(blocked_reason) if blocked_reason else "Failed job is not retryable."
+        raise generation_validation_failed(ValueError(reason))
+
+    retry_metadata: dict[str, Any] = {
+        key: value
+        for key, value in source_metadata.items()
+        if key not in {"operations", "queue", "retry_of_job_id"}
+    }
+    retry_metadata["retry_of_job_id"] = str(failed_job.id)
+    retry_metadata["source"] = "generation-retry-api"
+
+    edit_intent = retry_metadata.get("edit_intent")
+    if isinstance(edit_intent, dict):
+        await _validate_targeted_retry_prerequisites(session, failed_job, edit_intent)
+    return retry_metadata
+
+
+async def _validate_targeted_retry_prerequisites(
+    session: AsyncSession,
+    failed_job: GenerationJob,
+    edit_intent: dict[str, Any],
+) -> None:
+    parent_version_id = edit_intent.get("parent_version_id") or (
+        failed_job.metadata_json.get("parent_version_id")
+        if isinstance(failed_job.metadata_json, dict)
+        else None
+    )
+    if not parent_version_id:
+        raise generation_validation_failed(
+            ValueError("Targeted edit retry requires a parent version."),
+        )
+    try:
+        parent_uuid = UUID(str(parent_version_id))
+    except ValueError as error:
+        raise generation_validation_failed(
+            ValueError("Targeted edit retry parent version is invalid."),
+        ) from error
+    await jobs.get_workspace_version(
+        session,
+        failed_job.workspace_id,
+        parent_uuid,
+    )
+
+    mask = edit_intent.get("mask")
+    mask_artifact_id = mask.get("artifact_id") if isinstance(mask, dict) else None
+    if not mask_artifact_id:
+        raise generation_validation_failed(
+            ValueError("Targeted edit retry requires a mask artifact."),
+        )
+    try:
+        mask_uuid = UUID(str(mask_artifact_id))
+    except ValueError as error:
+        raise generation_validation_failed(
+            ValueError("Targeted edit retry mask artifact is invalid."),
+        ) from error
+    mask_artifact = await session.get(Artifact, mask_uuid)
+    if mask_artifact is None or mask_artifact.workspace_id != failed_job.workspace_id:
+        raise generation_validation_failed(
+            ValueError("Targeted edit retry mask artifact is no longer available."),
+        )
+
+
+def _provider_intent_from_metadata(metadata: dict[str, Any]) -> ProviderIntent | None:
+    raw_intent = metadata.get("provider_intent")
+    if not isinstance(raw_intent, dict):
+        return None
+    provider = raw_intent.get("provider")
+    model = raw_intent.get("model")
+    parameters = raw_intent.get("parameters")
+    if not isinstance(provider, str) or not isinstance(model, str):
+        return None
+    return ProviderIntent(
+        model=model,
+        parameters=dict(parameters) if isinstance(parameters, dict) else {},
+        provider=provider,
+    )
 
 
 def _validate_provider_mask_route(

@@ -178,6 +178,7 @@ async def _run_generate_2d_concept_job(
     storage: ObjectStorage,
     provider: ImageProvider | None = None,
 ) -> Generate2DConceptResult:
+    job: GenerationJob | None = None
     model_run_id: UUID | None = None
     failure_stage = "worker_start"
     failure_provider: str | None = None
@@ -248,6 +249,7 @@ async def _run_generate_2d_concept_job(
         if canceled_result is not None:
             return canceled_result
 
+        failure_stage = "targeted_edit_intent"
         edit_intent = _job_edit_intent(job)
         provider_mask_edit_intent: EditIntent | None = None
         if edit_intent is not None:
@@ -647,6 +649,14 @@ async def _run_generate_2d_concept_job(
             "stage": failure_stage,
             "worker_version": __version__,
         }
+        if job is not None:
+            failure_metadata.update(
+                _targeted_edit_failure_metadata(
+                    job,
+                    failure_category=failure_category,
+                    sanitized_error=sanitized_error,
+                ),
+            )
         if model_run_id is not None:
             await jobs.fail_model_run(
                 session,
@@ -950,8 +960,18 @@ def _classify_generation_failure(exc: Exception, *, stage: str) -> FailureCatego
     if isinstance(exc, ImageProviderTimeoutError):
         return FailureCategory.TIMEOUT
     if isinstance(exc, DeterministicRecompositionError):
-        return FailureCategory.UNKNOWN
+        message = str(exc).lower()
+        if "target" in message or "parent" in message or "previewspec" in message:
+            return FailureCategory.TARGETED_EDIT_INVALID
+        return FailureCategory.TARGETED_EDIT_CONFLICT
     if isinstance(exc, ImageProviderConfigurationError):
+        if stage in {"provider_mask_preflight", "targeted_edit_intent"}:
+            message = str(exc).lower()
+            if "does not support" in message or "disabled" in message:
+                return FailureCategory.TARGETED_EDIT_UNSUPPORTED
+            return FailureCategory.TARGETED_EDIT_INVALID
+        if stage == "targeted_regeneration_flag":
+            return FailureCategory.TARGETED_EDIT_UNSUPPORTED
         return FailureCategory.PROVIDER_CONFIGURATION
     if isinstance(exc, ImageProviderError):
         return FailureCategory.PROVIDER
@@ -960,6 +980,42 @@ def _classify_generation_failure(exc: Exception, *, stage: str) -> FailureCatego
     if stage == "storage_put" or isinstance(exc, OSError):
         return FailureCategory.STORAGE
     return FailureCategory.UNKNOWN
+
+
+def _targeted_edit_failure_metadata(
+    job: GenerationJob,
+    *,
+    failure_category: FailureCategory,
+    sanitized_error: str,
+) -> dict[str, object]:
+    try:
+        edit_intent = _job_edit_intent(job)
+    except ImageProviderConfigurationError:
+        return {
+            "blocked_reason": sanitized_error,
+            "retry_eligible": False,
+            "retry_route": None,
+        }
+    if edit_intent is None:
+        return {}
+
+    retry_eligible = _is_targeted_edit_retry_eligible(failure_category)
+    metadata: dict[str, object] = {
+        **_edit_intent_metadata(edit_intent),
+        "blocked_reason": None if retry_eligible else sanitized_error,
+        "edit_intent": edit_intent.model_dump(mode="json"),
+        "retry_eligible": retry_eligible,
+        "retry_route": edit_intent.route_preference,
+    }
+    return metadata
+
+
+def _is_targeted_edit_retry_eligible(failure_category: FailureCategory) -> bool:
+    return failure_category in {
+        FailureCategory.PROVIDER,
+        FailureCategory.STORAGE,
+        FailureCategory.TIMEOUT,
+    }
 
 
 def _provider_failure_metadata(exc: Exception) -> dict[str, object]:

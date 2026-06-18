@@ -302,6 +302,19 @@ def test_generation_worker_rejects_invalid_recomposition_without_partial_child(
     assert len(state.versions) == 1
     assert len(state.artifacts) == 1
     assert state.model_runs == []
+    assert_failure_metadata(
+        state,
+        category="targeted_edit_invalid",
+        error=state.job.latest_error or "",
+        model="preview-spec-recomposer-v1",
+        provider="deterministic-recomposition",
+        stage="recomposition_validation",
+    )
+    operations = state.job.metadata_json["operations"]
+    assert operations["retry_eligible"] is False
+    assert operations["retry_route"] == "deterministic_recomposition"
+    assert operations["blocked_reason"] == state.job.latest_error
+    assert operations["target"] == {"id": "missing-layer", "type": "overlay_layer"}
 
 
 def test_generation_worker_blocks_unsupported_provider_mask_route_before_call(
@@ -348,12 +361,79 @@ def test_generation_worker_blocks_unsupported_provider_mask_route_before_call(
     assert state.model_runs[0].parameters["edit_route"] == "provider_masked_generation"
     assert_failure_metadata(
         state,
-        category="provider_configuration",
+        category="targeted_edit_unsupported",
         error=state.job.latest_error or "",
         model="flux-2-pro-preview",
         provider="bfl",
         stage="provider_mask_preflight",
     )
+    assert state.job.metadata_json["operations"]["retry_eligible"] is False
+    assert state.job.metadata_json["operations"]["retry_route"] == "provider_masked_generation"
+    assert state.job.metadata_json["operations"]["blocked_reason"] == state.job.latest_error
+
+
+def test_generation_worker_marks_provider_mask_provider_failure_retryable(
+    tmp_path: Path,
+    monkeypatch: object,
+) -> None:
+    provider = RaisingProvider(ImageProviderError("bfl-secret failed upstream"))
+    seeded = seed_generation_job(
+        tmp_path,
+        iteration_parent=True,
+        model="flux-2-pro-preview",
+        provider="bfl",
+        provider_parameters={"output_format": "png"},
+        targeted_edit_instruction="Repaint the selected door text.",
+        targeted_edit_route_preference="provider_masked_generation",
+    )
+
+    def allow_provider_mask_route(_provider_name: str, *, settings: WorkerSettings) -> None:
+        return None
+
+    monkeypatch.setattr(
+        generation_tasks,
+        "_require_provider_mask_capability",
+        allow_provider_mask_route,
+    )
+
+    result = asyncio.run(
+        run_generate_2d_concept_job(
+            seeded.database_url,
+            seeded.job_id,
+            provider=provider,
+            settings=WorkerSettings(
+                ai_hosted_daily_call_limit=10,
+                ai_hosted_rate_limit_per_minute=10,
+                ai_max_estimated_cost_per_job="1.0000",
+                ai_provider_bfl_api_key="bfl-secret",
+                ai_provider_calls_enabled=True,
+                ai_provider_default="disabled",
+                v2_hosted_provider_rollout_enabled=True,
+                v2_targeted_regeneration_enabled=True,
+            ),
+            storage=InMemoryObjectStorage(),
+        ),
+    )
+    state = asyncio.run(read_generation_state(seeded.session_factory, seeded.job_id))
+
+    assert result["status"] == "failed"
+    assert "[redacted]" in (state.job.latest_error or "")
+    assert len(state.versions) == 1
+    assert len(state.artifacts) == 1
+    assert_failure_metadata(
+        state,
+        category="provider",
+        error="[redacted] failed upstream",
+        model="flux-2-pro-preview",
+        provider="bfl",
+        stage="provider_generate",
+    )
+    operations = state.job.metadata_json["operations"]
+    assert operations["retry_eligible"] is True
+    assert operations["retry_route"] == "provider_masked_generation"
+    assert operations["blocked_reason"] is None
+    assert operations["edit_intent"]["route_preference"] == "provider_masked_generation"
+    assert "bfl-secret" not in str(operations)
 
 
 def test_generation_worker_passes_mask_metadata_to_allowed_mock_provider(

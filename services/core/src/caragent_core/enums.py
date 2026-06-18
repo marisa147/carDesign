@@ -45,6 +45,9 @@ class JobStatus(StrEnum):
 class FailureCategory(StrEnum):
     PROVIDER = "provider"
     PROVIDER_CONFIGURATION = "provider_configuration"
+    TARGETED_EDIT_CONFLICT = "targeted_edit_conflict"
+    TARGETED_EDIT_INVALID = "targeted_edit_invalid"
+    TARGETED_EDIT_UNSUPPORTED = "targeted_edit_unsupported"
     VALIDATION_RIGHTS = "validation_rights"
     STORAGE = "storage"
     QUEUE_WORKER = "queue_worker"

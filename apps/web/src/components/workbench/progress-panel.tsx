@@ -59,7 +59,13 @@ export function ProgressPanel({
   const failureCategory = getMetadataString(operationsMetadata, "failure_category");
   const failureStage = getMetadataString(operationsMetadata, "stage");
   const failureProvider = getMetadataString(operationsMetadata, "provider");
+  const blockedReason = getMetadataString(operationsMetadata, "blocked_reason");
+  const editRoute = getMetadataString(operationsMetadata, "edit_route");
+  const retryEligible = getMetadataBoolean(operationsMetadata, "retry_eligible");
+  const targetSummary = getTargetSummary(operationsMetadata);
   const canCancel = job.status === "queued" || job.status === "running";
+  const canRetry = job.status === "failed" && retryEligible !== false;
+  const retryLabel = editRoute ? "重试局部编辑" : "重试生成";
 
   return (
     <div aria-live="polite" className="grid gap-3 text-sm">
@@ -91,6 +97,18 @@ export function ProgressPanel({
           ) : null}
           {failureProvider ? (
             <span className="text-secondary-foreground">Provider {failureProvider}</span>
+          ) : null}
+          {editRoute ? (
+            <span className="text-secondary-foreground">Route {editRoute}</span>
+          ) : null}
+          {targetSummary ? (
+            <span className="text-secondary-foreground">目标 {targetSummary}</span>
+          ) : null}
+          {blockedReason ? (
+            <span className="text-secondary-foreground">{blockedReason}</span>
+          ) : null}
+          {retryEligible === false ? (
+            <span className="text-secondary-foreground">不可重试</span>
           ) : null}
         </div>
       ) : null}
@@ -132,14 +150,14 @@ export function ProgressPanel({
             取消生成
           </Button>
         ) : null}
-        {job.status === "failed" ? (
+        {canRetry ? (
           <Button disabled={isRetrying} onClick={onRetry} type="button" variant="outline">
             {isRetrying ? (
               <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
             ) : (
               <RotateCcw aria-hidden="true" className="h-4 w-4" />
             )}
-            重试生成
+            {retryLabel}
           </Button>
         ) : null}
       </div>
@@ -260,6 +278,25 @@ function getMetadataString(
   }
 
   return sanitizeDiagnosticText(trimmedValue);
+}
+
+function getMetadataBoolean(
+  metadata: Record<string, unknown> | null,
+  key: string,
+): boolean | null {
+  const value = metadata?.[key];
+  return typeof value === "boolean" ? value : null;
+}
+
+function getTargetSummary(metadata: Record<string, unknown> | null): string | null {
+  const target = asRecord(metadata?.target);
+  const targetType = getMetadataString(target, "type");
+  const targetId = getMetadataString(target, "id");
+  if (!targetType || !targetId) {
+    return null;
+  }
+
+  return `${targetType}:${targetId}`;
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {
