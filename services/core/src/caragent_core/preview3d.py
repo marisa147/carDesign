@@ -4,8 +4,9 @@ from collections.abc import Mapping
 from typing import Literal
 from uuid import UUID
 
-from caragent_core.generation.templates import SUPPORTED_TEMPLATE_ID, SUPPORTED_VIEW
 from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+from caragent_core.generation.templates import SUPPORTED_TEMPLATE_ID, SUPPORTED_VIEW
 
 PREVIEW_3D_SCHEMA_VERSION = 1
 GENERIC_SIDE_COUPE_LIGHTWEIGHT_SHELL_ID = "generic-side-coupe-lightweight-v1"
@@ -220,7 +221,9 @@ def build_preview_3d_spec(
                 "version_id": version_id,
                 "workspace_id": workspace_id,
             },
-            "warnings": [warning.model_dump(mode="json") for warning in default_preview_3d_warnings()],
+            "warnings": [
+                warning.model_dump(mode="json") for warning in default_preview_3d_warnings()
+            ],
         },
     )
 
