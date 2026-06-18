@@ -35,11 +35,13 @@ Completion evidence: `.planning/phases/10-targeted-regeneration-and-masked-editi
 
 ### Reference Guidance
 
-- [ ] **V2-REF-01**: User can mark uploaded assets as character reference, style reference, vehicle reference, logo reference, palette reference, or inspiration only.
-- [ ] **V2-REF-02**: System enforces rights and source metadata before a reference asset can be used for generation.
-- [ ] **V2-REF-03**: Provider request builder includes only reference types supported by the selected provider and model.
-- [ ] **V2-REF-04**: User sees a clear warning when a requested reference role is unsupported instead of silent failure.
-- [ ] **V2-REF-05**: Generated artifacts store exact reference assets, reference roles, provider parameters, and a rights metadata snapshot.
+- [x] **V2-REF-01**: User can mark uploaded assets as character reference, style reference, vehicle reference, logo reference, palette reference, or inspiration only.
+- [x] **V2-REF-02**: System enforces rights and source metadata before a reference asset can be used for generation.
+- [x] **V2-REF-03**: Provider request builder includes only reference types supported by the selected provider and model.
+- [x] **V2-REF-04**: User sees a clear warning when a requested reference role is unsupported instead of silent failure.
+- [x] **V2-REF-05**: Generated artifacts store exact reference assets, reference roles, provider parameters, and a rights metadata snapshot.
+
+Completion evidence: `.planning/phases/11-reference-guided-generation-mvp/11-VERIFICATION.md`, `.planning/phases/11-reference-guided-generation-mvp/11-HUMAN-UAT.md`, and `.planning/phases/11-reference-guided-generation-mvp/11-MILESTONE-NOTES.md`. Hosted reference-image smoke is documented as manual-only and skipped in the agent run because real credentials, cost approval, and verified provider reference-image support were not provided.
 
 ### Lightweight 3D Preview
 
@@ -112,11 +114,11 @@ Completion evidence: `.planning/phases/10-targeted-regeneration-and-masked-editi
 | V2-EDIT-03 | Phase 10 | Completed |
 | V2-EDIT-04 | Phase 10 | Completed |
 | V2-EDIT-05 | Phase 10 | Completed |
-| V2-REF-01 | Phase 11 | Pending |
-| V2-REF-02 | Phase 11 | Pending |
-| V2-REF-03 | Phase 11 | Pending |
-| V2-REF-04 | Phase 11 | Pending |
-| V2-REF-05 | Phase 11 | Pending |
+| V2-REF-01 | Phase 11 | Completed |
+| V2-REF-02 | Phase 11 | Completed |
+| V2-REF-03 | Phase 11 | Completed |
+| V2-REF-04 | Phase 11 | Completed |
+| V2-REF-05 | Phase 11 | Completed |
 | V2-3D-01 | Phase 12 | Pending |
 | V2-3D-02 | Phase 12 | Pending |
 | V2-3D-03 | Phase 12 | Pending |
@@ -141,4 +143,4 @@ Completion evidence: `.planning/phases/10-targeted-regeneration-and-masked-editi
 
 ---
 *Requirements defined: 2026-06-18*
-*Last updated: 2026-06-18 after v2.0 milestone start*
+*Last updated: 2026-06-18 after Phase 11 closure*

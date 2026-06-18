@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: V2 MVP
 status: executing
-stopped_at: Phase 11 Plan 06 complete; ready to execute 11-07-PLAN.md
-last_updated: "2026-06-18T15:13:29Z"
-last_activity: "2026-06-18 -- Completed Phase 11 Plan 06 reference workbench UX, diagnostics, and child iteration reuse"
+stopped_at: Phase 11 complete; ready to plan Phase 12
+last_updated: "2026-06-18T15:28:37Z"
+last_activity: "2026-06-18 -- Completed Phase 11 Plan 07 smoke, docs, rights-gate validation, and UAT checklist"
 progress:
   total_phases: 7
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 48
-  completed_plans: 26
-  percent: 54
+  completed_plans: 27
+  percent: 56
 ---
 
 # Project State
@@ -21,17 +21,17 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-18)
 
 **Core value:** 用户能用自然语言快速得到一套可预览、可迭代、可导出的高质量痛车设计方案。
-**Current focus:** Phase 11 — Reference-Guided Generation MVP
+**Current focus:** Phase 12 — Lightweight 3D Preview MVP
 
 ## Current Position
 
-Milestone: v2.0 V2 MVP — PHASE 11 IN PROGRESS
-Phase: 11 (Reference-Guided Generation MVP) — IN PROGRESS
-Plan: 11-07-PLAN.md — Phase 11 smoke, docs, rights-gate tests, and Browser UAT
-Status: Ready for Phase 11 Plan 07
-Last activity: 2026-06-18 -- Completed Phase 11 Plan 06 reference workbench UX, diagnostics, and child iteration reuse
+Milestone: v2.0 V2 MVP — PHASE 12 READY
+Phase: 12 (Lightweight 3D Preview MVP) — READY FOR PLANNING
+Plan: Phase 12 planning not generated yet
+Status: Ready to plan Phase 12
+Last activity: 2026-06-18 -- Completed Phase 11 Plan 07 smoke, docs, rights-gate validation, and UAT checklist
 
-Progress: [#####-----] 54%
+Progress: [######----] 56%
 
 ## Milestone Archives
 
@@ -51,7 +51,7 @@ v2.0 MVP is scoped to the following phase sequence:
 | Phase 8 | V1 Closure And V2 Readiness Gate | 5/5 | V2-READY-01..04 |
 | Phase 9 | Hosted Provider Rollout MVP | 7/7 | V2-PROVIDER-01..05 |
 | Phase 10 | Targeted Regeneration And Masked Editing MVP | 8/8 | V2-EDIT-01..05 |
-| Phase 11 | Reference-Guided Generation MVP | 6/7 in progress | V2-REF-01..05 |
+| Phase 11 | Reference-Guided Generation MVP | 7/7 complete | V2-REF-01..05 |
 | Phase 12 | Lightweight 3D Preview MVP | 0/8 | V2-3D-01..05 |
 | Phase 13 | Enhanced Concept Handoff Package MVP | 0/7 | V2-HANDOFF-01..05 |
 | Phase 14 | V2 MVP Hardening, Docs, Smoke, And UAT | 0/6 | V2-REL-01..05 |
@@ -106,6 +106,7 @@ Recent decisions affecting v2.0:
 - [Phase 11 Plan 04]: Worker/provider requests now carry reference usage metadata, local deterministic records prompt-only reference trace, and BFL reference-image usage fails closed before provider execution.
 - [Phase 11 Plan 05]: Reference trace metadata now snapshots roles and rights/source evidence across model runs, artifacts, versions, job metadata/events, and concept export manifests.
 - [Phase 11 Plan 06]: Workbench reference UX now shows pre-submit provider role limitations, progress/reference trace diagnostics, generated-version trace evidence, and child iteration reference reuse.
+- [Phase 11 Plan 07]: Phase 11 focused validation, provider-off smoke dry run, contracts check, aggregate validation, docs, UAT checklist, and milestone notes now close V2-REF-01..05.
 
 ### Pending Todos
 
@@ -117,7 +118,7 @@ None.
 - Hosted provider quality, pricing, moderation, account access, quota behavior, and commercial terms must remain guarded before hosted generation rollout.
 - Hosted provider calls must stay feature-flagged and quota guarded to avoid accidental cost spikes.
 - 3D preview must keep non-production labels and avoid implying verified wrap-shop UV accuracy.
-- Reference usage must preserve rights/source metadata gates and snapshots.
+- Hosted reference-image input remains manual-only until provider/model support, credentials, cost approval, and quota guards are verified.
 - Contract drift must be checked in each phase because v2.0 extends the v1.0 schema surface.
 
 ## Deferred Items
@@ -135,8 +136,8 @@ Items acknowledged and deferred beyond v2.0 MVP:
 
 ## Session Continuity
 
-Last session: 2026-06-18T15:13:29Z
-Stopped at: Phase 11 Plan 06 complete; ready to execute 11-07-PLAN.md
+Last session: 2026-06-18T15:28:37Z
+Stopped at: Phase 11 complete; ready to plan Phase 12
 Resume files:
 
 - `.planning/PROJECT.md`
@@ -185,6 +186,9 @@ Resume files:
 - `.planning/phases/11-reference-guided-generation-mvp/11-06-PLAN.md`
 - `.planning/phases/11-reference-guided-generation-mvp/11-06-SUMMARY.md`
 - `.planning/phases/11-reference-guided-generation-mvp/11-07-PLAN.md`
+- `.planning/phases/11-reference-guided-generation-mvp/11-VERIFICATION.md`
+- `.planning/phases/11-reference-guided-generation-mvp/11-HUMAN-UAT.md`
+- `.planning/phases/11-reference-guided-generation-mvp/11-MILESTONE-NOTES.md`
 
-Next recommended command: `$gsd-execute-phase 11 --auto --plan 11-07 --no-transition`
+Next recommended command: `$gsd-plan-phase 12 --auto`
 Alternative: `$gsd-progress --next`
