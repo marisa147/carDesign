@@ -11,6 +11,15 @@ from caragent_core.enums import ReferenceRole
 REFERENCE_SCHEMA_VERSION = 1
 DEFAULT_LEGACY_REFERENCE_ROLE = ReferenceRole.INSPIRATION
 BFL_REFERENCE_UNSUPPORTED_PROVIDERS = {"bfl", "black-forest-labs"}
+REFERENCE_TRACE_METADATA_KEYS = (
+    "included_reference_asset_ids",
+    "omitted_reference_asset_ids",
+    "reference_roles",
+    "reference_usage",
+    "reference_warning_count",
+    "rights_snapshot",
+    "unsupported_reference_roles",
+)
 
 
 class ReferenceAssignment(BaseModel):
@@ -164,6 +173,26 @@ def plan_reference_usage(
     )
 
 
+def build_reference_trace_metadata(
+    snapshot: ReferenceUsageSnapshot,
+    *,
+    included_reference_asset_ids: list[str],
+    omitted_reference_asset_ids: list[str],
+    reference_warning_count: int,
+    unsupported_reference_roles: list[str],
+) -> dict[str, object]:
+    dumped_snapshot = snapshot.model_dump(mode="json")
+    return {
+        "included_reference_asset_ids": list(included_reference_asset_ids),
+        "omitted_reference_asset_ids": list(omitted_reference_asset_ids),
+        "reference_roles": _reference_roles(dumped_snapshot["items"]),
+        "reference_usage": dumped_snapshot,
+        "reference_warning_count": reference_warning_count,
+        "rights_snapshot": _rights_snapshot(dumped_snapshot["items"]),
+        "unsupported_reference_roles": list(unsupported_reference_roles),
+    }
+
+
 def _append_unique_assignment(
     assignments: list[ReferenceAssignment],
     seen: set[tuple[str, ReferenceRole]],
@@ -187,7 +216,37 @@ def _unsupported_roles_for_provider(provider: str) -> set[ReferenceRole]:
     return set()
 
 
+def _reference_roles(items: list[object]) -> dict[str, list[str]]:
+    roles: dict[str, list[str]] = {}
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        if item.get("enabled") is False:
+            continue
+        role = str(item.get("role") or "").strip()
+        asset_id = str(item.get("asset_id") or "").strip()
+        if not role or not asset_id:
+            continue
+        roles.setdefault(role, [])
+        if asset_id not in roles[role]:
+            roles[role].append(asset_id)
+    return roles
+
+
+def _rights_snapshot(items: list[object]) -> dict[str, object]:
+    snapshots: dict[str, object] = {}
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        asset_id = str(item.get("asset_id") or "").strip()
+        rights = item.get("rights")
+        if asset_id and isinstance(rights, dict):
+            snapshots[asset_id] = dict(rights)
+    return snapshots
+
+
 __all__ = [
+    "REFERENCE_TRACE_METADATA_KEYS",
     "ReferenceAssignment",
     "ReferenceUsagePlan",
     "ReferenceRightsSnapshot",
@@ -195,6 +254,7 @@ __all__ = [
     "ReferenceUsageItem",
     "ReferenceUsageSnapshot",
     "ReferenceWarning",
+    "build_reference_trace_metadata",
     "plan_reference_usage",
     "normalize_reference_assignments",
 ]

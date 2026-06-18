@@ -491,6 +491,7 @@ export function WorkbenchApp() {
         format: exportFormat,
         manifest: {
           disclaimer: manifestDisclaimer,
+          ...referenceTraceManifest(selectedVersion.parameters),
           source: "web-workbench",
           source_artifact_object_key: selectedArtifact.object_key,
           version_id: selectedVersion.id,
@@ -872,4 +873,24 @@ function referenceAssignmentSignature(assignments: ReferenceUsageDraft[]): strin
     .map((assignment) => `${assignment.assetId}:${assignment.role}:${assignment.enabled}`)
     .sort()
     .join(",");
+}
+
+const referenceTraceKeys = [
+  "included_reference_asset_ids",
+  "omitted_reference_asset_ids",
+  "reference_roles",
+  "reference_usage",
+  "reference_warning_count",
+  "rights_snapshot",
+  "unsupported_reference_roles",
+] as const;
+
+function referenceTraceManifest(parameters: Record<string, unknown>): Record<string, unknown> {
+  const trace: Record<string, unknown> = {};
+  for (const key of referenceTraceKeys) {
+    if (key in parameters) {
+      trace[key] = parameters[key];
+    }
+  }
+  return trace;
 }

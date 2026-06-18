@@ -220,7 +220,12 @@ def test_generation_worker_passes_reference_usage_to_provider_request(
     assert request.prompt_payload["reference_warning_count"] == 0
     assert request.prompt_payload["included_reference_asset_ids"] == [reference_id]
     assert state.model_runs[0].input_artifact_ids == [reference_id]
-    assert state.model_runs[0].prompt_payload["reference_usage"] == request.reference_usage
+    assert state.model_runs[0].prompt_payload["reference_usage"]["items"][0]["asset_id"] == (
+        reference_id
+    )
+    assert state.model_runs[0].prompt_payload["reference_usage"]["items"][0]["rights"][
+        "rights_status"
+    ] == "confirmed"
 
 
 def test_generation_worker_persists_reference_trace_across_durable_records(

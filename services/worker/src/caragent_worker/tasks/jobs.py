@@ -27,6 +27,7 @@ from caragent_core.generation import (
 )
 from caragent_core.models import (
     Artifact,
+    Asset,
     DesignBrief,
     DesignVersion,
     GenerationJob,
@@ -37,6 +38,12 @@ from caragent_core.provider_capabilities import (
     BFL_PROVIDER,
     LOCAL_PROVIDER,
     PROVIDER_MASKED_GENERATION_ROUTE,
+)
+from caragent_core.references import (
+    ReferenceRightsSnapshot,
+    ReferenceUsageItem,
+    ReferenceUsageSnapshot,
+    build_reference_trace_metadata,
 )
 from caragent_core.services import assets, jobs
 from caragent_core.storage import FileObjectStorage, ObjectStorage, build_object_key
@@ -279,6 +286,7 @@ async def _run_generate_2d_concept_job(
         provider_result: ImageGenerationResult | None = None
         model_run = None
         attempt_metadata: dict[str, object] = {}
+        reference_rights_snapshots: dict[str, ReferenceRightsSnapshot] = {}
         total_attempts = 0
         primary_attempts = settings.ai_generation_max_attempts
 
@@ -314,11 +322,23 @@ async def _run_generate_2d_concept_job(
             model_run_id = model_run.id
             try:
                 failure_stage = "rights_check"
-                await _require_confirmed_reference_rights(
+                reference_rights_snapshots = await _require_confirmed_reference_rights(
                     session,
                     job.workspace_id,
                     input_artifact_ids,
                 )
+                reference_metadata = _reference_usage_metadata(
+                    request,
+                    rights_snapshots=reference_rights_snapshots,
+                )
+                model_run.parameters = {
+                    **(model_run.parameters or {}),
+                    **reference_metadata,
+                }
+                model_run.prompt_payload = {
+                    **(model_run.prompt_payload or {}),
+                    **reference_metadata,
+                }
                 canceled_result = await _return_if_canceled(
                     session,
                     job_id,
@@ -422,7 +442,10 @@ async def _run_generate_2d_concept_job(
                     provider_name=settings.ai_provider_fallback_name,
                 )
                 fallback_edit_route_metadata = _edit_route_metadata(fallback_request)
-                fallback_reference_metadata = _reference_usage_metadata(fallback_request)
+                fallback_reference_metadata = _reference_usage_metadata(
+                    fallback_request,
+                    rights_snapshots=reference_rights_snapshots,
+                )
                 fallback_metadata = {
                     "fallback_from_provider": request.provider,
                     "fallback_reason": sanitized_attempt_error,
@@ -528,7 +551,11 @@ async def _run_generate_2d_concept_job(
         if provider_result is None or request is None or model_run is None:
             raise RuntimeError("Generation provider did not produce a result")
 
-        provider_trace_metadata = _provider_trace_metadata(request, provider_result)
+        provider_trace_metadata = _provider_trace_metadata(
+            request,
+            provider_result,
+            rights_snapshots=reference_rights_snapshots,
+        )
         artifact_metadata = {
             **provider_result.metadata,
             **provider_trace_metadata,
@@ -1566,6 +1593,8 @@ def _edit_intent_metadata(edit_intent: EditIntent) -> dict[str, object]:
 def _provider_trace_metadata(
     request: ImageGenerationRequest,
     result: ImageGenerationResult,
+    *,
+    rights_snapshots: dict[str, ReferenceRightsSnapshot] | None = None,
 ) -> dict[str, object]:
     metadata: dict[str, object] = {
         "actual_cost": _decimal_metadata(result.actual_cost),
@@ -1575,7 +1604,7 @@ def _provider_trace_metadata(
         "provider_parameters": dict(request.parameters),
     }
     metadata.update(_edit_route_metadata(request))
-    metadata.update(_reference_usage_metadata(request))
+    metadata.update(_reference_usage_metadata(request, rights_snapshots=rights_snapshots))
     return metadata
 
 
@@ -1585,21 +1614,67 @@ def _edit_route_metadata(request: ImageGenerationRequest) -> dict[str, object]:
     return _mask_edit_metadata(request.mask_edit)
 
 
-def _reference_usage_metadata(request: ImageGenerationRequest) -> dict[str, object]:
+def _reference_usage_metadata(
+    request: ImageGenerationRequest,
+    *,
+    rights_snapshots: dict[str, ReferenceRightsSnapshot] | None = None,
+) -> dict[str, object]:
     metadata: dict[str, object] = {}
-    if request.reference_usage is not None:
+    included_reference_asset_ids = _text_list(
+        request.prompt_payload.get("included_reference_asset_ids"),
+    )
+    omitted_reference_asset_ids = _text_list(
+        request.prompt_payload.get("omitted_reference_asset_ids"),
+    )
+    unsupported_reference_roles = _text_list(
+        request.prompt_payload.get("unsupported_reference_roles"),
+    )
+    reference_warning_count = _int_value(
+        request.prompt_payload.get("reference_warning_count"),
+    )
+    if rights_snapshots is not None:
+        snapshot = _reference_usage_snapshot(request, rights_snapshots=rights_snapshots)
+        metadata.update(
+            build_reference_trace_metadata(
+                snapshot,
+                included_reference_asset_ids=included_reference_asset_ids,
+                omitted_reference_asset_ids=omitted_reference_asset_ids,
+                reference_warning_count=reference_warning_count,
+                unsupported_reference_roles=unsupported_reference_roles,
+            ),
+        )
+    elif request.reference_usage is not None:
         metadata["reference_usage"] = dict(request.reference_usage)
 
-    for key in (
-        "included_reference_asset_ids",
-        "omitted_reference_asset_ids",
-        "reference_warning_count",
-        "reference_warnings",
-        "unsupported_reference_roles",
-    ):
-        if key in request.prompt_payload:
-            metadata[key] = request.prompt_payload[key]
+    metadata["included_reference_asset_ids"] = included_reference_asset_ids
+    metadata["omitted_reference_asset_ids"] = omitted_reference_asset_ids
+    metadata["reference_warning_count"] = reference_warning_count
+    if "reference_warnings" in request.prompt_payload:
+        metadata["reference_warnings"] = request.prompt_payload["reference_warnings"]
+    metadata["unsupported_reference_roles"] = unsupported_reference_roles
     return metadata
+
+
+def _reference_usage_snapshot(
+    request: ImageGenerationRequest,
+    *,
+    rights_snapshots: dict[str, ReferenceRightsSnapshot],
+) -> ReferenceUsageSnapshot:
+    raw_usage = request.reference_usage if isinstance(request.reference_usage, dict) else {}
+    items: list[ReferenceUsageItem] = []
+    for item in _json_list(raw_usage.get("requested")):
+        if not isinstance(item, dict):
+            continue
+        asset_id = UUID(str(item.get("asset_id")))
+        items.append(
+            ReferenceUsageItem(
+                asset_id=asset_id,
+                enabled=item.get("enabled") is not False,
+                rights=rights_snapshots.get(str(asset_id)),
+                role=str(item.get("role") or "inspiration"),
+            ),
+        )
+    return ReferenceUsageSnapshot(items=items)
 
 
 def _reference_roles_from_metadata(metadata: dict[str, object]) -> list[str]:
@@ -1674,15 +1749,41 @@ def _json_list(value: object) -> list[object]:
     return list(value) if isinstance(value, list) else []
 
 
+def _text_list(value: object) -> list[str]:
+    return [str(item) for item in value] if isinstance(value, list) else []
+
+
+def _int_value(value: object) -> int:
+    return value if isinstance(value, int) else 0
+
+
 async def _require_confirmed_reference_rights(
     session: AsyncSession,
     workspace_id: UUID,
     reference_asset_ids: list[str],
-) -> None:
+) -> dict[str, ReferenceRightsSnapshot]:
+    snapshots: dict[str, ReferenceRightsSnapshot] = {}
     for asset_id_text in reference_asset_ids:
         asset = await assets.require_confirmed_rights(session, UUID(asset_id_text))
         if asset.workspace_id != workspace_id:
             raise PermissionError(f"Asset does not belong to workspace: {asset.id}")
+        snapshots[str(asset.id)] = _reference_rights_snapshot(asset)
+    return snapshots
+
+
+def _reference_rights_snapshot(asset: Asset) -> ReferenceRightsSnapshot:
+    return ReferenceRightsSnapshot(
+        asset_id=asset.id,
+        checksum_sha256=asset.checksum_sha256,
+        content_type=asset.content_type,
+        object_key=asset.object_key,
+        original_filename=asset.original_filename,
+        rights_confirmed_at=asset.rights_confirmed_at,
+        rights_notes=asset.rights_notes,
+        rights_status=asset.rights_status,
+        source_label=asset.source_label,
+        source_url=asset.source_url,
+    )
 
 
 def _provider_secrets(settings: WorkerSettings) -> list[str]:

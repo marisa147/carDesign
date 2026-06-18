@@ -27,6 +27,7 @@ from caragent_core.models import (
     ModelRun,
     utc_now,
 )
+from caragent_core.references import REFERENCE_TRACE_METADATA_KEYS
 from caragent_core.repositories import jobs as job_repository
 from caragent_core.services import workspaces
 
@@ -574,6 +575,7 @@ async def record_export(
         "parent_version_id": (
             str(version.parent_version_id) if version.parent_version_id is not None else None
         ),
+        **_reference_trace_from_parameters(version.parameters),
         "source_artifact_id": str(artifact.id) if artifact is not None else None,
         "source_artifact_object_key": artifact.object_key if artifact is not None else None,
         "version_id": str(version_id),
@@ -591,6 +593,14 @@ async def record_export(
     session.add(export)
     await session.flush()
     return export
+
+
+def _reference_trace_from_parameters(parameters: JsonObject) -> JsonObject:
+    return {
+        key: parameters[key]
+        for key in REFERENCE_TRACE_METADATA_KEYS
+        if key in parameters
+    }
 
 
 async def list_workspace_versions(session: AsyncSession, workspace_id: UUID) -> list[DesignVersion]:
