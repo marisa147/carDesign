@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+from dataclasses import dataclass
 from datetime import timedelta
 from decimal import Decimal
 from pathlib import Path
@@ -23,7 +24,7 @@ from caragent_core.generation import (
     PromptProviderSettings,
     build_prompt_plan,
 )
-from caragent_core.models import DesignBrief, ModelRun, utc_now
+from caragent_core.models import DesignBrief, GenerationJob, ModelRun, utc_now
 from caragent_core.services import assets, jobs
 from caragent_core.storage import FileObjectStorage, ObjectStorage, build_object_key
 from sqlalchemy import func, select
@@ -52,6 +53,15 @@ HOSTED_GUARD_REQUIRED_MESSAGE = (
     "Hosted calls require daily, per-minute, and per-job cost limits."
 )
 LOCAL_PROVIDER_NAMES = {"disabled", "local", "local-deterministic"}
+BFL_PROVIDER_NAMES = {"bfl", "black-forest-labs"}
+
+
+@dataclass(frozen=True, slots=True)
+class JobProviderIntent:
+    provider: str
+    model: str
+    parameters: dict[str, object]
+    estimated_cost: Decimal | None = None
 
 
 class LocalSimulationResult(TypedDict):
@@ -180,9 +190,16 @@ async def _run_generate_2d_concept_job(
         failure_stage = "prompt_plan"
         parent_version_id, iteration_parameters = _generation_iteration_context(job.metadata_json)
         brief_payload = GenerationBriefPayload.model_validate(brief.payload)
+        job_provider_intent = _job_provider_intent(job)
+        if job_provider_intent is not None:
+            failure_provider = job_provider_intent.provider
+            failure_model = job_provider_intent.model
         prompt_plan = build_prompt_plan(
             brief_payload,
-            provider_settings=_prompt_provider_settings(settings),
+            provider_settings=_prompt_provider_settings(
+                settings,
+                job_provider_intent=job_provider_intent,
+            ),
         )
         failure_provider = prompt_plan.provider
         failure_model = prompt_plan.model
@@ -685,6 +702,15 @@ async def _enforce_hosted_preflight(
 ) -> None:
     if _is_local_provider(request.provider):
         return
+    if not settings.v2_hosted_provider_rollout_enabled:
+        raise ImageProviderConfigurationError("V2_HOSTED_PROVIDER_ROLLOUT_ENABLED is disabled.")
+    if not settings.ai_provider_calls_enabled:
+        raise ImageProviderConfigurationError("AI_PROVIDER_CALLS_ENABLED is disabled.")
+    if _is_bfl_provider(request.provider) and not (
+        settings.ai_provider_bfl_api_key
+        and settings.ai_provider_bfl_api_key.get_secret_value()
+    ):
+        raise ImageProviderConfigurationError("AI_PROVIDER_BFL_API_KEY is missing.")
     if (
         settings.ai_hosted_daily_call_limit is None
         or settings.ai_hosted_rate_limit_per_minute is None
@@ -740,6 +766,10 @@ def _is_local_provider(provider_name: str) -> bool:
     return provider_name.strip().lower() in LOCAL_PROVIDER_NAMES
 
 
+def _is_bfl_provider(provider_name: str) -> bool:
+    return provider_name.strip().lower() in BFL_PROVIDER_NAMES
+
+
 async def _return_if_canceled(
     session: AsyncSession,
     job_id: UUID,
@@ -786,7 +816,26 @@ async def _return_if_canceled(
     }
 
 
-def _prompt_provider_settings(settings: WorkerSettings) -> PromptProviderSettings:
+def _prompt_provider_settings(
+    settings: WorkerSettings,
+    *,
+    job_provider_intent: JobProviderIntent | None = None,
+) -> PromptProviderSettings:
+    if job_provider_intent is not None:
+        if (
+            job_provider_intent.provider not in LOCAL_PROVIDER_NAMES
+            and job_provider_intent.provider not in BFL_PROVIDER_NAMES
+        ):
+            raise ImageProviderConfigurationError(
+                f"Unsupported image provider: {job_provider_intent.provider}",
+            )
+        return PromptProviderSettings(
+            estimated_cost=job_provider_intent.estimated_cost,
+            model=job_provider_intent.model,
+            parameters=job_provider_intent.parameters,
+            provider=job_provider_intent.provider,
+        )
+
     provider = (
         settings.ai_provider_default
         if settings.ai_provider_calls_enabled and settings.ai_provider_default != "disabled"
@@ -801,6 +850,42 @@ def _prompt_provider_settings(settings: WorkerSettings) -> PromptProviderSetting
         },
         provider=provider,
     )
+
+
+def _job_provider_intent(job: GenerationJob) -> JobProviderIntent | None:
+    metadata = job.metadata_json if isinstance(job.metadata_json, dict) else {}
+    raw_intent = metadata.get("provider_intent")
+    intent = raw_intent if isinstance(raw_intent, dict) else {}
+    provider = _optional_text(intent.get("provider")) or _optional_text(job.provider)
+    model = _optional_text(intent.get("model")) or _optional_text(job.model)
+    parameters = intent.get("parameters")
+
+    if provider is None and model is None and not isinstance(parameters, dict):
+        return None
+    if provider is None:
+        raise ImageProviderConfigurationError("Provider intent is missing provider.")
+    if model is None:
+        raise ImageProviderConfigurationError("Provider intent is missing model.")
+
+    normalized_provider = provider.strip().lower()
+    if normalized_provider == "local":
+        normalized_provider = "local-deterministic"
+
+    return JobProviderIntent(
+        estimated_cost=job.estimated_cost,
+        model=model.strip(),
+        parameters={
+            str(key): value
+            for key, value in (parameters if isinstance(parameters, dict) else {}).items()
+        },
+        provider=normalized_provider,
+    )
+
+
+def _optional_text(value: object) -> str | None:
+    if isinstance(value, str) and value.strip():
+        return value.strip()
+    return None
 
 
 def _generation_iteration_context(metadata: object) -> tuple[UUID | None, dict[str, object]]:
