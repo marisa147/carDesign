@@ -12,6 +12,7 @@ PREVIEW_3D_SCHEMA_VERSION = 1
 GENERIC_SIDE_COUPE_LIGHTWEIGHT_SHELL_ID = "generic-side-coupe-lightweight-v1"
 DEFAULT_PREVIEW_3D_CAMERA_PRESET_ID = "front-left-default"
 SIDE_DECAL_MATERIAL_SLOT = "side-decal-plane"
+REQUIRED_PREVIEW_3D_WARNING_IDS = ("non_production_preview", "uv_not_verified")
 
 
 class Preview3DVector3(BaseModel):
@@ -166,6 +167,10 @@ def default_preview_3d_warnings() -> list[Preview3DWarning]:
     ]
 
 
+def required_preview_3d_warning_ids() -> list[str]:
+    return list(REQUIRED_PREVIEW_3D_WARNING_IDS)
+
+
 def registered_preview_3d_shells() -> list[Preview3DShell]:
     return [shell.model_copy(deep=True) for shell in _SHELL_REGISTRY.values()]
 
@@ -278,6 +283,7 @@ __all__ = [
     "GENERIC_SIDE_COUPE_LIGHTWEIGHT_SHELL",
     "GENERIC_SIDE_COUPE_LIGHTWEIGHT_SHELL_ID",
     "PREVIEW_3D_SCHEMA_VERSION",
+    "REQUIRED_PREVIEW_3D_WARNING_IDS",
     "Preview3DCameraPreset",
     "Preview3DCompatibility",
     "Preview3DMaterialPlan",
@@ -292,5 +298,6 @@ __all__ = [
     "build_preview_3d_spec",
     "default_preview_3d_warnings",
     "registered_preview_3d_shells",
+    "required_preview_3d_warning_ids",
     "resolve_preview_3d_shell",
 ]

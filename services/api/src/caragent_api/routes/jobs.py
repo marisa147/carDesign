@@ -8,7 +8,10 @@ from uuid import UUID, uuid4
 
 from caragent_core.enums import ArtifactKind
 from caragent_core.models import Artifact
-from caragent_core.preview3d import Preview3DScreenshotArtifactMetadata
+from caragent_core.preview3d import (
+    Preview3DScreenshotArtifactMetadata,
+    required_preview_3d_warning_ids,
+)
 from caragent_core.services import jobs, workspaces
 from caragent_core.storage import ObjectStorage, build_object_key, validate_upload
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -391,11 +394,6 @@ def _validate_screenshot_upload(
 def _preview_3d_screenshot_metadata(
     payload: Preview3DScreenshotCreateRequest,
 ) -> Preview3DScreenshotArtifactMetadata:
-    warning_ids = [
-        warning.id
-        for warning in payload.preview_3d.warnings
-        if warning.id in {"non_production_preview", "uv_not_verified"}
-    ]
     return Preview3DScreenshotArtifactMetadata.model_validate(
         {
             "preview_3d_screenshot": {
@@ -403,7 +401,7 @@ def _preview_3d_screenshot_metadata(
                 "preview_3d": payload.preview_3d.model_dump(mode="json"),
                 "shell_id": payload.preview_3d.compatibility.shell_id,
                 "source_artifact_id": payload.preview_3d.source.artifact_id,
-                "warning_ids": warning_ids,
+                "warning_ids": required_preview_3d_warning_ids(),
             },
         },
     )

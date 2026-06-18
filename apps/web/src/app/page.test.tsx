@@ -809,6 +809,9 @@ describe("Phase 4 workbench shell", () => {
 
     await user.click(screen.getByRole("button", { name: "3D 预览" }));
 
+    expect(
+      screen.getByRole("region", { name: "概念 3D 预览，非生产贴膜参考" }),
+    ).toBeVisible();
     expect(screen.getByText("概念 3D 预览")).toBeVisible();
     expect(screen.getByText("非生产贴膜参考")).toBeVisible();
     expect(screen.getByRole("button", { name: "向左旋转" })).toBeVisible();
@@ -865,6 +868,9 @@ describe("Phase 4 workbench shell", () => {
     expect(await screen.findByText("2D 概念预览")).toBeVisible();
     await user.click(screen.getByRole("button", { name: "3D 预览" }));
 
+    expect(
+      screen.getByRole("region", { name: "概念 3D 预览，非生产贴膜参考" }),
+    ).toBeVisible();
     expect(screen.getByText("概念 3D 预览")).toBeVisible();
     expect(screen.getByText("非生产贴膜参考")).toBeVisible();
     expect(screen.getByText(PREVIEW_3D_FALLBACK_MESSAGE)).toBeVisible();

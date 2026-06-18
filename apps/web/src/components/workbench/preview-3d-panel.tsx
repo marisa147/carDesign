@@ -34,7 +34,7 @@ export function Preview3DPanel({ artifact, version }: Preview3DPanelProps) {
   const compatibility = buildPreview3DCompatibility({ artifact, version });
 
   return (
-    <div className="grid gap-3">
+    <section aria-label="概念 3D 预览，非生产贴膜参考" className="grid gap-3">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <h3 className="text-lg font-semibold">概念 3D 预览</h3>
@@ -164,6 +164,6 @@ export function Preview3DPanel({ artifact, version }: Preview3DPanelProps) {
           {captureStatus}
         </p>
       ) : null}
-    </div>
+    </section>
   );
 }
