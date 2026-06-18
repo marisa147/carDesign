@@ -66,6 +66,41 @@ def test_local_provider_mirrors_preview_spec_metadata_and_overlay_output() -> No
     assert result.image_bytes != changed.image_bytes
 
 
+def test_local_provider_records_prompt_only_reference_usage_metadata() -> None:
+    reference_id = "11111111-1111-1111-1111-111111111111"
+    reference_usage = {
+        "requested": [
+            {
+                "asset_id": reference_id,
+                "enabled": True,
+                "role": "character",
+                "schema_version": 1,
+            },
+        ],
+        "schema_version": 1,
+    }
+    base_request = build_image_request()
+    request = replace(
+        base_request,
+        input_artifact_ids=[reference_id],
+        prompt_payload={
+            **base_request.prompt_payload,
+            "reference_warning_count": 0,
+            "reference_warnings": [],
+        },
+        reference_usage=reference_usage,
+    )
+    provider = LocalDeterministicImageProvider(width=320, height=160)
+
+    result = asyncio.run(provider.generate(request))
+
+    assert result.metadata["external_calls"] is False
+    assert result.metadata["input_artifact_ids"] == [reference_id]
+    assert result.metadata["reference_usage"] == reference_usage
+    assert result.metadata["reference_warning_count"] == 0
+    assert result.metadata["reference_warnings"] == []
+
+
 @pytest.mark.parametrize(
     ("instruction", "target_id", "expected"),
     [
@@ -191,6 +226,78 @@ def test_bfl_provider_rejects_mask_edit_metadata_before_submit() -> None:
         asyncio.run(client.aclose())
 
     assert submitted_paths == []
+
+
+def test_bfl_provider_does_not_submit_unverified_reference_payload_fields() -> None:
+    reference_id = "11111111-1111-1111-1111-111111111111"
+    request = replace(
+        build_bfl_image_request(),
+        input_artifact_ids=[reference_id],
+        reference_usage={
+            "requested": [
+                {
+                    "asset_id": reference_id,
+                    "enabled": True,
+                    "role": "character",
+                    "schema_version": 1,
+                },
+            ],
+            "schema_version": 1,
+        },
+    )
+    submitted_payloads: list[dict[str, object]] = []
+
+    def handler(http_request: httpx.Request) -> httpx.Response:
+        if http_request.url.path == "/v1/flux-2-pro-preview":
+            payload = json.loads(http_request.content)
+            submitted_payloads.append(payload)
+            return httpx.Response(
+                200,
+                json={
+                    "id": "bfl-reference-guard",
+                    "polling_url": "https://api.test/v1/get_result?id=bfl-reference-guard",
+                },
+            )
+        if http_request.url.path == "/v1/get_result":
+            return httpx.Response(
+                200,
+                json={
+                    "id": "bfl-reference-guard",
+                    "result": {"sample": "https://delivery.test/result.png"},
+                    "status": "Ready",
+                },
+            )
+        if http_request.url.host == "delivery.test":
+            return httpx.Response(
+                200,
+                content=ONE_BY_ONE_PNG,
+                headers={"content-type": "image/png"},
+            )
+        return httpx.Response(404, text="unexpected request")
+
+    client = httpx.AsyncClient(
+        base_url="https://api.test",
+        transport=httpx.MockTransport(handler),
+    )
+    provider = BflImageProvider(
+        api_key="bfl-secret",
+        client=client,
+        max_poll_attempts=1,
+        poll_interval_seconds=0,
+    )
+
+    try:
+        result = asyncio.run(provider.generate(request))
+    finally:
+        asyncio.run(client.aclose())
+
+    assert result.provider == "bfl"
+    assert submitted_payloads == [{"output_format": "png", "prompt": request.prompt_text}]
+    rendered_payload = json.dumps(submitted_payloads[0], sort_keys=True)
+    assert reference_id not in rendered_payload
+    assert "reference_usage" not in rendered_payload
+    assert "input_artifact_ids" not in rendered_payload
+    assert "prompt_payload" not in rendered_payload
 
 
 def test_bfl_provider_submits_polls_and_downloads_result_bytes() -> None:

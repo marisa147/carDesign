@@ -230,6 +230,38 @@ def test_worker_settings_expose_safe_provider_capabilities(
     assert "bfl-secret" not in json.dumps(capabilities, sort_keys=True)
 
 
+def test_reference_guidance_flag_does_not_enable_hosted_reference_inputs(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    clear_worker_env(monkeypatch)
+    monkeypatch.setenv("AI_PROVIDER_DEFAULT", "bfl")
+    monkeypatch.setenv("AI_PROVIDER_MODEL", "flux-2-pro-preview")
+    monkeypatch.setenv("AI_PROVIDER_CALLS_ENABLED", "true")
+    monkeypatch.setenv("AI_PROVIDER_BFL_API_KEY", "bfl-secret")
+    monkeypatch.setenv("V2_HOSTED_PROVIDER_ROLLOUT_ENABLED", "true")
+    monkeypatch.setenv("V2_REFERENCE_GUIDANCE_ENABLED", "true")
+    monkeypatch.setenv("AI_HOSTED_DAILY_CALL_LIMIT", "10")
+    monkeypatch.setenv("AI_HOSTED_RATE_LIMIT_PER_MINUTE", "2")
+    monkeypatch.setenv("AI_MAX_ESTIMATED_COST_PER_JOB", "0.2500")
+
+    settings = WorkerSettings()
+    capabilities = settings.provider_capability_map()
+
+    assert settings.v2_reference_guidance_enabled is True
+    assert capabilities["bfl"]["enabled"] is True
+    assert capabilities["bfl"]["supports"]["reference_image_inputs"] is False
+    assert capabilities["bfl"]["supports"]["references"] is False
+    assert capabilities["bfl"]["reference_input"]["accepted"] is False
+    assert capabilities["bfl"]["reference_input"]["unsupported_roles"] == [
+        "character",
+        "style",
+        "vehicle",
+        "logo",
+        "palette",
+        "inspiration",
+    ]
+
+
 def test_worker_settings_block_hosted_capability_without_secrets_or_guards() -> None:
     settings = WorkerSettings(ai_provider_default="bfl")
 

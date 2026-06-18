@@ -46,6 +46,7 @@ class SeededGenerationJob:
     session_factory: async_sessionmaker[AsyncSession]
     job_id: UUID
     parent_version_id: UUID | None = None
+    reference_asset_ids: tuple[UUID, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -176,6 +177,49 @@ def test_generation_worker_creates_child_version_from_iteration_metadata(
     assert state.model_runs[0].parameters["parent_version_id"] == str(parent.id)
     assert state.model_runs[0].parameters["change_request"] == "Make the side stripe bolder."
     assert state.model_runs[0].parameters["parameter_overrides"] == {"coverage": "door focus"}
+
+
+def test_generation_worker_passes_reference_usage_to_provider_request(
+    tmp_path: Path,
+) -> None:
+    provider = RecordingSuccessProvider()
+    seeded = seed_generation_job(
+        tmp_path,
+        include_confirmed_reference_asset=True,
+        reference_role="character",
+    )
+    reference_id = str(seeded.reference_asset_ids[0])
+
+    result = asyncio.run(
+        run_generate_2d_concept_job(
+            seeded.database_url,
+            seeded.job_id,
+            provider=provider,
+            settings=WorkerSettings(),
+            storage=InMemoryObjectStorage(),
+        ),
+    )
+    state = asyncio.run(read_generation_state(seeded.session_factory, seeded.job_id))
+
+    assert result["status"] == "succeeded"
+    assert len(provider.requests) == 1
+    request = provider.requests[0]
+    assert request.input_artifact_ids == [reference_id]
+    assert request.reference_usage == {
+        "requested": [
+            {
+                "asset_id": reference_id,
+                "enabled": True,
+                "role": "character",
+                "schema_version": 1,
+            },
+        ],
+        "schema_version": 1,
+    }
+    assert request.prompt_payload["reference_warning_count"] == 0
+    assert request.prompt_payload["included_reference_asset_ids"] == [reference_id]
+    assert state.model_runs[0].input_artifact_ids == [reference_id]
+    assert state.model_runs[0].prompt_payload["reference_usage"] == request.reference_usage
 
 
 def test_generation_worker_recomposes_safe_targeted_edit_without_provider_call(
@@ -1163,6 +1207,95 @@ def test_generation_worker_blocks_missing_logo_rights_before_provider_execution(
     )
 
 
+def test_generation_worker_requires_structured_reference_rights_before_provider_call(
+    tmp_path: Path,
+) -> None:
+    provider = RecordingSuccessProvider()
+    seeded = seed_generation_job(
+        tmp_path,
+        include_missing_structured_reference_asset=True,
+        reference_role="character",
+    )
+
+    result = asyncio.run(
+        run_generate_2d_concept_job(
+            seeded.database_url,
+            seeded.job_id,
+            provider=provider,
+            settings=WorkerSettings(),
+            storage=InMemoryObjectStorage(),
+        ),
+    )
+    state = asyncio.run(read_generation_state(seeded.session_factory, seeded.job_id))
+
+    assert result["status"] == "failed"
+    assert provider.requests == []
+    assert "Asset rights are not confirmed" in (state.job.latest_error or "")
+    assert state.model_runs[0].status == ModelRunStatus.FAILED.value
+    assert_failure_metadata(
+        state,
+        category="validation_rights",
+        error=state.job.latest_error or "",
+        stage="rights_check",
+    )
+
+
+def test_generation_worker_blocks_bfl_reference_roles_before_provider_call(
+    tmp_path: Path,
+) -> None:
+    provider = RecordingSuccessProvider()
+    seeded = seed_generation_job(
+        tmp_path,
+        include_confirmed_reference_asset=True,
+        model="flux-2-pro-preview",
+        provider="bfl",
+        provider_parameters={"output_format": "png"},
+        reference_role="character",
+    )
+
+    result = asyncio.run(
+        run_generate_2d_concept_job(
+            seeded.database_url,
+            seeded.job_id,
+            provider=provider,
+            settings=WorkerSettings(
+                ai_hosted_daily_call_limit=10,
+                ai_hosted_rate_limit_per_minute=10,
+                ai_max_estimated_cost_per_job="1.0000",
+                ai_provider_bfl_api_key="bfl-secret",
+                ai_provider_calls_enabled=True,
+                ai_provider_default="disabled",
+                v2_hosted_provider_rollout_enabled=True,
+                v2_reference_guidance_enabled=True,
+            ),
+            storage=InMemoryObjectStorage(),
+        ),
+    )
+    state = asyncio.run(read_generation_state(seeded.session_factory, seeded.job_id))
+
+    assert result["status"] == "failed"
+    assert provider.requests == []
+    assert "Reference image input is not verified" in (state.job.latest_error or "")
+    assert_failure_metadata(
+        state,
+        category="provider_configuration",
+        error=state.job.latest_error or "",
+        model="flux-2-pro-preview",
+        provider="bfl",
+        stage="reference_capability_preflight",
+    )
+    operations = state.job.metadata_json["operations"]
+    assert operations["reference_warning_count"] == 1
+    assert operations["unsupported_reference_roles"] == ["character"]
+    assert operations["reference_warnings"] == [
+        {
+            "asset_id": str(seeded.reference_asset_ids[0]),
+            "reason": "unsupported_by_provider",
+            "role": "character",
+        },
+    ]
+
+
 def test_generation_worker_skips_already_canceled_job_before_provider(
     tmp_path: Path,
 ) -> None:
@@ -1435,12 +1568,15 @@ def assert_failure_metadata(
 def seed_generation_job(
     tmp_path: Path,
     *,
+    include_confirmed_reference_asset: bool = False,
     include_missing_logo_rights_asset: bool = False,
     include_missing_rights_asset: bool = False,
+    include_missing_structured_reference_asset: bool = False,
     iteration_parent: bool = False,
     model: str | None = None,
     provider: str | None = None,
     provider_parameters: dict[str, object] | None = None,
+    reference_role: str = "inspiration",
     targeted_edit_instruction: str | None = None,
     targeted_edit_route_preference: str = "deterministic_recomposition",
     targeted_edit_target_id: str = "text-1",
@@ -1448,16 +1584,19 @@ def seed_generation_job(
     database_url = f"sqlite+aiosqlite:///{(tmp_path / 'generation.db').as_posix()}"
     engine = create_engine(database_url)
     session_factory = create_session_factory(engine)
-    job_id, parent_version_id = asyncio.run(
+    job_id, parent_version_id, reference_asset_ids = asyncio.run(
         seed_database(
             engine,
             session_factory,
+            include_confirmed_reference_asset=include_confirmed_reference_asset,
             include_missing_logo_rights_asset=include_missing_logo_rights_asset,
             include_missing_rights_asset=include_missing_rights_asset,
+            include_missing_structured_reference_asset=include_missing_structured_reference_asset,
             iteration_parent=iteration_parent,
             model=model,
             provider=provider,
             provider_parameters=provider_parameters,
+            reference_role=reference_role,
             targeted_edit_instruction=targeted_edit_instruction,
             targeted_edit_route_preference=targeted_edit_route_preference,
             targeted_edit_target_id=targeted_edit_target_id,
@@ -1468,6 +1607,7 @@ def seed_generation_job(
         database_url=database_url,
         job_id=job_id,
         parent_version_id=parent_version_id,
+        reference_asset_ids=reference_asset_ids,
         session_factory=session_factory,
     )
 
@@ -1476,16 +1616,19 @@ async def seed_database(
     engine: AsyncEngine,
     session_factory: async_sessionmaker[AsyncSession],
     *,
+    include_confirmed_reference_asset: bool,
     include_missing_logo_rights_asset: bool,
     include_missing_rights_asset: bool,
+    include_missing_structured_reference_asset: bool,
     iteration_parent: bool,
     model: str | None,
     provider: str | None,
     provider_parameters: dict[str, object] | None,
+    reference_role: str,
     targeted_edit_instruction: str | None,
     targeted_edit_route_preference: str,
     targeted_edit_target_id: str,
-) -> tuple[UUID, UUID | None]:
+) -> tuple[UUID, UUID | None, tuple[UUID, ...]]:
     async with engine.begin() as connection:
         await connection.run_sync(metadata.create_all)
 
@@ -1493,6 +1636,8 @@ async def seed_database(
         workspace = await workspaces.create_workspace(session, title="Generation")
         overlay_logo_asset_ids: list[str] = []
         reference_asset_ids: list[str] = []
+        reference_asset_uuids: list[UUID] = []
+        reference_usage: list[dict[str, object]] = []
         if include_missing_rights_asset:
             asset = await assets.create_asset(
                 session,
@@ -1504,6 +1649,33 @@ async def seed_database(
                 kind=AssetKind.REFERENCE.value,
             )
             reference_asset_ids.append(str(asset.id))
+            reference_asset_uuids.append(asset.id)
+        if include_confirmed_reference_asset or include_missing_structured_reference_asset:
+            asset = await assets.create_asset(
+                session,
+                InMemoryObjectStorage(),
+                workspace.id,
+                byte_content=b"\x89PNG\r\n\x1a\nstructured-reference",
+                content_type="image/png",
+                filename="structured-reference.png",
+                kind=AssetKind.REFERENCE.value,
+            )
+            if include_confirmed_reference_asset:
+                await assets.update_asset_rights(
+                    session,
+                    asset.id,
+                    rights_status="confirmed",
+                    source_label="licensed reference pack",
+                )
+            reference_asset_uuids.append(asset.id)
+            reference_usage.append(
+                {
+                    "asset_id": str(asset.id),
+                    "enabled": True,
+                    "role": reference_role,
+                    "schema_version": 1,
+                },
+            )
         if include_missing_logo_rights_asset:
             logo_asset = await assets.create_asset(
                 session,
@@ -1522,6 +1694,7 @@ async def seed_database(
             overlay_logo_asset_ids=overlay_logo_asset_ids,
             palette=["white", "teal"],
             reference_asset_ids=reference_asset_ids,
+            reference_usage=reference_usage,
             text=["MOON DRIVE"],
         ).model_dump(mode="json")
         brief = await workspaces.create_design_brief(
@@ -1598,7 +1771,7 @@ async def seed_database(
             operation="generate_2d_concept",
             provider=provider,
         )
-        return created.job.id, parent_version_id
+        return created.job.id, parent_version_id, tuple(reference_asset_uuids)
 
 
 def targeted_edit_intent_metadata(
