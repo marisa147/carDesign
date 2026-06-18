@@ -165,7 +165,7 @@ v2.0 MVP is successful when:
 - [x] 11-03-PLAN.md — Prompt planner/reference planner integration and unsupported-capability warnings.
 - [x] 11-04-PLAN.md — Hosted/local provider reference handling and deterministic fallback behavior.
 - [x] 11-05-PLAN.md — Reference trace persistence in model runs, artifacts, versions, and exports.
-- [ ] 11-06-PLAN.md — Reference-guided generation UX, failure states, and reuse in child iterations.
+- [x] 11-06-PLAN.md — Reference-guided generation UX, failure states, and reuse in child iterations.
 - [ ] 11-07-PLAN.md — Phase 11 smoke, docs, rights-gate tests, and Browser UAT.
 
 **UI hint:** yes
@@ -332,7 +332,7 @@ A single end-to-end V2 MVP UAT should prove:
 | 8. V1 Closure And V2 Readiness Gate | 5/5 | Complete | 2026-06-18 |
 | 9. Hosted Provider Rollout MVP | 7/7 | Complete | 2026-06-18 |
 | 10. Targeted Regeneration And Masked Editing MVP | 8/8 | Complete | 2026-06-18 |
-| 11. Reference-Guided Generation MVP | 5/7 | In progress | - |
+| 11. Reference-Guided Generation MVP | 6/7 | In progress | - |
 | 12. Lightweight 3D Preview MVP | 0/8 | Not started | - |
 | 13. Enhanced Concept Handoff Package MVP | 0/7 | Not started | - |
 | 14. V2 MVP Hardening, Docs, Smoke, And UAT | 0/6 | Not started | - |

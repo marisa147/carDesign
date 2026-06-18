@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: V2 MVP
 status: executing
-stopped_at: Phase 11 Plan 05 complete; ready to execute 11-06-PLAN.md
-last_updated: "2026-06-18T14:52:28Z"
-last_activity: "2026-06-18 -- Completed Phase 11 Plan 05 reference trace persistence"
+stopped_at: Phase 11 Plan 06 complete; ready to execute 11-07-PLAN.md
+last_updated: "2026-06-18T15:13:29Z"
+last_activity: "2026-06-18 -- Completed Phase 11 Plan 06 reference workbench UX, diagnostics, and child iteration reuse"
 progress:
   total_phases: 7
   completed_phases: 3
   total_plans: 48
-  completed_plans: 25
-  percent: 52
+  completed_plans: 26
+  percent: 54
 ---
 
 # Project State
@@ -27,11 +27,11 @@ See: .planning/PROJECT.md (updated 2026-06-18)
 
 Milestone: v2.0 V2 MVP — PHASE 11 IN PROGRESS
 Phase: 11 (Reference-Guided Generation MVP) — IN PROGRESS
-Plan: 11-06-PLAN.md — Reference-guided generation UX, failure states, and reuse in child iterations
-Status: Executing Phase 11
-Last activity: 2026-06-18 -- Completed Phase 11 Plan 05 reference trace persistence
+Plan: 11-07-PLAN.md — Phase 11 smoke, docs, rights-gate tests, and Browser UAT
+Status: Ready for Phase 11 Plan 07
+Last activity: 2026-06-18 -- Completed Phase 11 Plan 06 reference workbench UX, diagnostics, and child iteration reuse
 
-Progress: [#####-----] 52%
+Progress: [#####-----] 54%
 
 ## Milestone Archives
 
@@ -51,7 +51,7 @@ v2.0 MVP is scoped to the following phase sequence:
 | Phase 8 | V1 Closure And V2 Readiness Gate | 5/5 | V2-READY-01..04 |
 | Phase 9 | Hosted Provider Rollout MVP | 7/7 | V2-PROVIDER-01..05 |
 | Phase 10 | Targeted Regeneration And Masked Editing MVP | 8/8 | V2-EDIT-01..05 |
-| Phase 11 | Reference-Guided Generation MVP | 5/7 in progress | V2-REF-01..05 |
+| Phase 11 | Reference-Guided Generation MVP | 6/7 in progress | V2-REF-01..05 |
 | Phase 12 | Lightweight 3D Preview MVP | 0/8 | V2-3D-01..05 |
 | Phase 13 | Enhanced Concept Handoff Package MVP | 0/7 | V2-HANDOFF-01..05 |
 | Phase 14 | V2 MVP Hardening, Docs, Smoke, And UAT | 0/6 | V2-REL-01..05 |
@@ -105,6 +105,7 @@ Recent decisions affecting v2.0:
 - [Phase 11 Plan 03]: Prompt planning now normalizes structured/legacy references, records included and omitted ids, and surfaces provider-unsupported reference roles as deterministic warnings.
 - [Phase 11 Plan 04]: Worker/provider requests now carry reference usage metadata, local deterministic records prompt-only reference trace, and BFL reference-image usage fails closed before provider execution.
 - [Phase 11 Plan 05]: Reference trace metadata now snapshots roles and rights/source evidence across model runs, artifacts, versions, job metadata/events, and concept export manifests.
+- [Phase 11 Plan 06]: Workbench reference UX now shows pre-submit provider role limitations, progress/reference trace diagnostics, generated-version trace evidence, and child iteration reference reuse.
 
 ### Pending Todos
 
@@ -134,8 +135,8 @@ Items acknowledged and deferred beyond v2.0 MVP:
 
 ## Session Continuity
 
-Last session: 2026-06-18T14:52:28Z
-Stopped at: Phase 11 Plan 05 complete; ready to execute 11-06-PLAN.md
+Last session: 2026-06-18T15:13:29Z
+Stopped at: Phase 11 Plan 06 complete; ready to execute 11-07-PLAN.md
 Resume files:
 
 - `.planning/PROJECT.md`
@@ -182,7 +183,8 @@ Resume files:
 - `.planning/phases/11-reference-guided-generation-mvp/11-05-PLAN.md`
 - `.planning/phases/11-reference-guided-generation-mvp/11-05-SUMMARY.md`
 - `.planning/phases/11-reference-guided-generation-mvp/11-06-PLAN.md`
+- `.planning/phases/11-reference-guided-generation-mvp/11-06-SUMMARY.md`
 - `.planning/phases/11-reference-guided-generation-mvp/11-07-PLAN.md`
 
-Next recommended command: `$gsd-execute-phase 11 --auto --plan 11-06 --no-transition`
+Next recommended command: `$gsd-execute-phase 11 --auto --plan 11-07 --no-transition`
 Alternative: `$gsd-progress --next`
