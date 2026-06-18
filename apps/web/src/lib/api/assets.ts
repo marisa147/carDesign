@@ -16,6 +16,28 @@ export interface AssetApiOptions {
   signal?: AbortSignal;
 }
 
+export interface ReferenceEligibility {
+  canUseForGeneration: boolean;
+  label: "可用于生成" | "需确认权利";
+  warning: "引用素材需要权利确认" | null;
+}
+
+export function getReferenceEligibility(asset: AssetResponse): ReferenceEligibility {
+  if (asset.rights_status === "confirmed") {
+    return {
+      canUseForGeneration: true,
+      label: "可用于生成",
+      warning: null,
+    };
+  }
+
+  return {
+    canUseForGeneration: false,
+    label: "需确认权利",
+    warning: "引用素材需要权利确认",
+  };
+}
+
 export async function uploadWorkspaceAsset(
   workspaceId: string,
   payload: BodyUploadAssetWorkspacesWorkspaceIdAssetsPost,

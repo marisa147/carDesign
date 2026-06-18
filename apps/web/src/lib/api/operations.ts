@@ -26,7 +26,17 @@ export interface WorkbenchProviderOption {
   label: string;
   maxCostLabel: string;
   model: string;
+  referenceInput: WorkbenchReferenceInput;
   statusLabel: string;
+}
+
+export interface WorkbenchReferenceInput {
+  accepted: boolean;
+  blockedReason: string | null;
+  promptGuidanceRoles: string[];
+  supportLabel: string;
+  supportedRoles: string[];
+  unsupportedRoles: string[];
 }
 
 export interface WorkbenchRecentFailure {
@@ -152,6 +162,7 @@ function buildLocalProviderOption(
     label: "本地概念",
     maxCostLabel: "0 cost",
     model,
+    referenceInput: normalizeReferenceInput(capability),
     statusLabel: "可用",
   };
 }
@@ -194,7 +205,33 @@ function buildBflProviderOption({
     label: "BFL 托管",
     maxCostLabel,
     model,
+    referenceInput: normalizeReferenceInput(capability),
     statusLabel: status ? (enabled ? "可用" : "暂不可用") : "未刷新",
+  };
+}
+
+function normalizeReferenceInput(
+  capability: Record<string, unknown> | undefined,
+): WorkbenchReferenceInput {
+  const referenceInput = asRecord(capability?.reference_input);
+  const accepted = Boolean(referenceInput?.accepted);
+  const promptGuidanceRoles = readStringArray(referenceInput, "prompt_guidance_roles");
+  const supportedRoles = readStringArray(referenceInput, "supported_roles");
+  const unsupportedRoles = readStringArray(referenceInput, "unsupported_roles");
+  const blockedReason = readString(referenceInput, "blocked_reason") || null;
+  const supportLabel = accepted
+    ? "accepted"
+    : promptGuidanceRoles.length > 0
+      ? "prompt-only"
+      : "unsupported";
+
+  return {
+    accepted,
+    blockedReason,
+    promptGuidanceRoles,
+    supportLabel,
+    supportedRoles,
+    unsupportedRoles,
   };
 }
 

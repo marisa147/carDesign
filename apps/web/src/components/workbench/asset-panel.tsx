@@ -1,32 +1,41 @@
 "use client";
 
-import type { AssetResponse, AssetRightsUpdateRequest } from "@caragent/contracts";
+import type { AssetResponse, AssetRightsUpdateRequest, ReferenceRole } from "@caragent/contracts";
 import { AlertTriangle, CheckCircle2, Loader2, Upload } from "lucide-react";
 import { useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { getReferenceEligibility } from "@/lib/api/assets";
+import {
+  DEFAULT_REFERENCE_ROLE,
+  REFERENCE_ROLE_OPTIONS,
+  type ReferenceUsageDraft,
+} from "@/lib/api/generation";
 
 interface AssetPanelProps {
   assets: AssetResponse[];
   isLoading: boolean;
-  onReferenceChange: (assetId: string, selected: boolean) => void;
+  onReferenceAssignmentChange: (
+    assetId: string,
+    changes: { enabled?: boolean; role?: ReferenceRole },
+  ) => void;
   onRightsUpdate: (
     assetId: string,
     payload: AssetRightsUpdateRequest,
   ) => Promise<AssetResponse>;
   onUpload: (payload: { file: File; kind: string }) => Promise<AssetResponse>;
-  selectedReferenceAssetIds: string[];
+  referenceAssignments: ReferenceUsageDraft[];
   workspaceId: string | null;
 }
 
 export function AssetPanel({
   assets,
   isLoading,
-  onReferenceChange,
+  onReferenceAssignmentChange,
   onRightsUpdate,
   onUpload,
-  selectedReferenceAssetIds,
+  referenceAssignments,
   workspaceId,
 }: AssetPanelProps) {
   const [file, setFile] = useState<File | null>(null);
@@ -117,9 +126,11 @@ export function AssetPanel({
           {assets.map((asset) => (
             <AssetListItem
               asset={asset}
-              isSelected={selectedReferenceAssetIds.includes(asset.id)}
+              assignment={referenceAssignments.find(
+                (referenceAssignment) => referenceAssignment.assetId === asset.id,
+              )}
               key={`${asset.id}-${asset.updated_at}`}
-              onReferenceChange={onReferenceChange}
+              onReferenceAssignmentChange={onReferenceAssignmentChange}
               onRightsUpdate={onRightsUpdate}
             />
           ))}
@@ -130,14 +141,17 @@ export function AssetPanel({
 }
 
 function AssetListItem({
+  assignment,
   asset,
-  isSelected,
-  onReferenceChange,
+  onReferenceAssignmentChange,
   onRightsUpdate,
 }: {
+  assignment: ReferenceUsageDraft | undefined;
   asset: AssetResponse;
-  isSelected: boolean;
-  onReferenceChange: (assetId: string, selected: boolean) => void;
+  onReferenceAssignmentChange: (
+    assetId: string,
+    changes: { enabled?: boolean; role?: ReferenceRole },
+  ) => void;
   onRightsUpdate: (
     assetId: string,
     payload: AssetRightsUpdateRequest,
@@ -147,6 +161,9 @@ function AssetListItem({
   const [rightsNotes, setRightsNotes] = useState(asset.rights_notes ?? "");
   const [saveState, setSaveState] = useState<"idle" | "saving" | "error">("idle");
   const isConfirmed = asset.rights_status === "confirmed";
+  const eligibility = getReferenceEligibility(asset);
+  const selectedRole = assignment?.role ?? DEFAULT_REFERENCE_ROLE;
+  const isSelected = Boolean(assignment?.enabled);
 
   const handleRightsSave = async () => {
     setSaveState("saving");
@@ -178,14 +195,46 @@ function AssetListItem({
       <label className="flex items-center gap-2 text-sm">
         <input
           checked={isSelected}
-          disabled={!isConfirmed}
+          disabled={!eligibility.canUseForGeneration}
           onChange={(event) => {
-            onReferenceChange(asset.id, event.target.checked);
+            onReferenceAssignmentChange(asset.id, { enabled: event.target.checked });
           }}
           type="checkbox"
         />
         用于生成 {asset.original_filename}
       </label>
+      <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+        <div>
+          <label
+            className="text-xs font-medium text-secondary-foreground"
+            htmlFor={`reference-role-${asset.id}`}
+          >
+            引用角色 {asset.original_filename}
+          </label>
+          <select
+            className="mt-1 h-9 w-full rounded-md border border-input bg-background px-3 text-sm outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-ring"
+            id={`reference-role-${asset.id}`}
+            onChange={(event) => {
+              onReferenceAssignmentChange(asset.id, {
+                role: event.target.value as ReferenceRole,
+              });
+            }}
+            value={selectedRole}
+          >
+            {REFERENCE_ROLE_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Badge variant={eligibility.canUseForGeneration ? "primary" : "warning"}>
+            {eligibility.label}
+          </Badge>
+          {eligibility.warning ? <Badge variant="warning">{eligibility.warning}</Badge> : null}
+        </div>
+      </div>
 
       <div className="grid gap-2">
         <label className="text-xs font-medium text-secondary-foreground" htmlFor={`source-${asset.id}`}>

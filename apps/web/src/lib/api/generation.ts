@@ -22,6 +22,8 @@ import {
   type GenerationJobSubmissionRequest,
   type GenerationJobSubmissionResponse,
   type JobEventResponse,
+  type ReferenceAssignment,
+  type ReferenceRole,
 } from "@caragent/contracts";
 
 import { publicEnv } from "@/lib/config/public-env";
@@ -47,6 +49,43 @@ export interface ProviderIntentSelection {
   id: string;
   model?: string | null;
   providerParameters?: Record<string, unknown>;
+}
+
+export const REFERENCE_ROLE_OPTIONS: {
+  label: string;
+  value: ReferenceRole;
+}[] = [
+  { label: "角色", value: "character" },
+  { label: "风格", value: "style" },
+  { label: "车辆", value: "vehicle" },
+  { label: "Logo", value: "logo" },
+  { label: "配色", value: "palette" },
+  { label: "仅灵感", value: "inspiration" },
+];
+
+export const DEFAULT_REFERENCE_ROLE: ReferenceRole = "inspiration";
+
+export interface ReferenceUsageDraft {
+  assetId: string;
+  enabled: boolean;
+  role: ReferenceRole;
+}
+
+export function buildReferenceUsagePayload(
+  assignments: ReferenceUsageDraft[],
+): Pick<GenerationBriefUpdateRequest, "reference_asset_ids" | "reference_usage"> {
+  const referenceUsage: ReferenceAssignment[] = assignments.map((assignment) => ({
+    asset_id: assignment.assetId,
+    enabled: assignment.enabled,
+    role: assignment.role,
+  }));
+
+  return {
+    reference_asset_ids: referenceUsage
+      .filter((assignment) => assignment.enabled !== false)
+      .map((assignment) => assignment.asset_id),
+    reference_usage: referenceUsage,
+  };
 }
 
 export async function createGenerationBrief(

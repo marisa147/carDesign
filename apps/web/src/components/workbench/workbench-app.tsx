@@ -16,6 +16,7 @@ import type {
   GenerationJobResponse,
   MessageResponse,
   OperationsProviderStatusResponse,
+  ReferenceRole,
   WorkspaceResponse,
 } from "@caragent/contracts";
 
@@ -44,12 +45,14 @@ import {
   uploadWorkspaceAsset,
 } from "@/lib/api/assets";
 import {
+  DEFAULT_REFERENCE_ROLE,
   buildProviderIntentPayload,
   createGenerationBrief,
   loadGenerationState,
   retryGenerationJob,
   updateGenerationBrief,
   type GenerationState,
+  type ReferenceUsageDraft,
 } from "@/lib/api/generation";
 import {
   createConceptExport,
@@ -98,7 +101,7 @@ export function WorkbenchApp() {
   const [operationsStatus, setOperationsStatus] =
     useState<OperationsProviderStatusResponse | null>(null);
   const [selectedProviderId, setSelectedProviderId] = useState(LOCAL_PROVIDER_ID);
-  const [selectedReferenceAssetIds, setSelectedReferenceAssetIds] = useState<string[]>([]);
+  const [referenceAssignments, setReferenceAssignments] = useState<ReferenceUsageDraft[]>([]);
   const [isCancelingGeneration, setIsCancelingGeneration] = useState(false);
   const [isLoadingGeneration, setIsLoadingGeneration] = useState(false);
   const [isRetryingGeneration, setIsRetryingGeneration] = useState(false);
@@ -135,6 +138,9 @@ export function WorkbenchApp() {
     getProviderOption(providerStatus, effectiveProviderId) ??
     getProviderOption(providerStatus, LOCAL_PROVIDER_ID) ??
     providerStatus.options[0];
+  const selectedReferenceAssetIds = referenceAssignments
+    .filter((assignment) => assignment.enabled)
+    .map((assignment) => assignment.assetId);
 
   useEffect(() => {
     const storedWorkspaceId = readStoredId(WORKBENCH_WORKSPACE_ID_KEY);
@@ -178,7 +184,7 @@ export function WorkbenchApp() {
         setAssets(nextAssets);
         setJobs(nextJobs);
         setGenerationState(nextGenerationState);
-        setSelectedReferenceAssetIds(readBriefReferenceAssetIds(nextBrief));
+        setReferenceAssignments(readBriefReferenceAssignments(nextBrief));
         queryClient.setQueryData(
           workbenchQueryKeys.workspace(nextWorkspace.id),
           nextWorkspace,
@@ -257,7 +263,7 @@ export function WorkbenchApp() {
         title: "Workbench brief",
       });
       setCurrentBrief(nextBrief);
-      setSelectedReferenceAssetIds(readBriefReferenceAssetIds(nextBrief));
+      setReferenceAssignments(readBriefReferenceAssignments(nextBrief));
       writeStoredId(WORKBENCH_BRIEF_ID_KEY, nextBrief.id);
       queryClient.setQueryData<WorkbenchBrief[]>(
         workbenchQueryKeys.briefs(activeWorkspace.id),
@@ -278,7 +284,7 @@ export function WorkbenchApp() {
 
     const nextBrief = await updateGenerationBrief(currentBrief.id, payload);
     setCurrentBrief(nextBrief);
-    setSelectedReferenceAssetIds(readBriefReferenceAssetIds(nextBrief));
+    setReferenceAssignments(readBriefReferenceAssignments(nextBrief));
     writeStoredId(WORKBENCH_BRIEF_ID_KEY, nextBrief.id);
     queryClient.setQueryData<WorkbenchBrief[]>(
       workbenchQueryKeys.briefs(nextBrief.workspace_id),
@@ -524,13 +530,22 @@ export function WorkbenchApp() {
     return nextAsset;
   };
 
-  const handleReferenceSelectionChange = (assetId: string, selected: boolean) => {
-    setSelectedReferenceAssetIds((existing) => {
-      if (selected) {
-        return Array.from(new Set([...existing, assetId]));
-      }
+  const handleReferenceAssignmentChange = (
+    assetId: string,
+    changes: { enabled?: boolean; role?: ReferenceRole },
+  ) => {
+    setReferenceAssignments((existing) => {
+      const current = existing.find((assignment) => assignment.assetId === assetId);
+      const nextAssignment: ReferenceUsageDraft = {
+        assetId,
+        enabled: changes.enabled ?? current?.enabled ?? false,
+        role: changes.role ?? current?.role ?? DEFAULT_REFERENCE_ROLE,
+      };
 
-      return existing.filter((existingAssetId) => existingAssetId !== assetId);
+      return [
+        nextAssignment,
+        ...existing.filter((assignment) => assignment.assetId !== assetId),
+      ];
     });
   };
 
@@ -540,10 +555,10 @@ export function WorkbenchApp() {
         <AssetPanel
           assets={assets}
           isLoading={isLoadingSession}
-          onReferenceChange={handleReferenceSelectionChange}
+          onReferenceAssignmentChange={handleReferenceAssignmentChange}
           onRightsUpdate={handleAssetRightsUpdate}
           onUpload={handleAssetUpload}
-          selectedReferenceAssetIds={selectedReferenceAssetIds}
+          referenceAssignments={referenceAssignments}
           workspaceId={workspace?.id ?? null}
         />
       }
@@ -629,12 +644,16 @@ export function WorkbenchApp() {
       }
       parameters={
         <ParameterPanel
+          assets={assets}
           currentBrief={currentBrief}
           isLoading={isLoadingSession}
-          key={`${currentBrief?.id ?? "empty-brief"}:${selectedReferenceAssetIds.join(",")}`}
+          key={`${currentBrief?.id ?? "empty-brief"}:${referenceAssignmentSignature(
+            referenceAssignments,
+          )}`}
           onSave={handleParameterSave}
           onProviderChange={setSelectedProviderId}
           providerStatus={providerStatus}
+          referenceAssignments={referenceAssignments}
           selectedReferenceAssetIds={selectedReferenceAssetIds}
           selectedProviderId={selectedProviderOption?.id ?? LOCAL_PROVIDER_ID}
         />
@@ -821,11 +840,36 @@ function buildTargetedEditIntent({
   };
 }
 
-function readBriefReferenceAssetIds(brief: WorkbenchBrief | null): string[] {
+function readBriefReferenceAssignments(brief: WorkbenchBrief | null): ReferenceUsageDraft[] {
+  const usage = brief?.payload.reference_usage;
+  if (Array.isArray(usage) && usage.length > 0) {
+    return usage
+      .filter(
+        (item): item is { asset_id: string; enabled?: boolean; role: ReferenceRole } =>
+          typeof item?.asset_id === "string" && typeof item?.role === "string",
+      )
+      .map((item) => ({
+        assetId: item.asset_id,
+        enabled: item.enabled !== false,
+        role: item.role,
+      }));
+  }
+
   const value = brief?.payload.reference_asset_ids;
   if (!Array.isArray(value)) {
     return [];
   }
 
-  return value.filter((item): item is string => typeof item === "string");
+  return value.filter((item): item is string => typeof item === "string").map((assetId) => ({
+    assetId,
+    enabled: true,
+    role: DEFAULT_REFERENCE_ROLE,
+  }));
+}
+
+function referenceAssignmentSignature(assignments: ReferenceUsageDraft[]): string {
+  return assignments
+    .map((assignment) => `${assignment.assetId}:${assignment.role}:${assignment.enabled}`)
+    .sort()
+    .join(",");
 }

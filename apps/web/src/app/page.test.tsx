@@ -943,6 +943,13 @@ describe("Phase 4 workbench shell", () => {
     const patchInit = fetchMock.mock.calls[7]?.[1] as RequestInit;
     expect(JSON.parse(String(patchInit.body))).toEqual({
       reference_asset_ids: ["asset-1"],
+      reference_usage: [
+        {
+          asset_id: "asset-1",
+          enabled: true,
+          role: "inspiration",
+        },
+      ],
     });
   });
 

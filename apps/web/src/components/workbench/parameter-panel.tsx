@@ -1,9 +1,12 @@
 "use client";
 
 import type {
+  AssetResponse,
   GenerationBriefPayload,
   GenerationBriefResponse,
   GenerationBriefUpdateRequest,
+  ReferenceAssignment,
+  ReferenceRole,
 } from "@caragent/contracts";
 import {
   AlertTriangle,
@@ -20,6 +23,12 @@ import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { WorkbenchBrief } from "@/components/workbench/chat-panel";
+import { getReferenceEligibility } from "@/lib/api/assets";
+import {
+  REFERENCE_ROLE_OPTIONS,
+  buildReferenceUsagePayload,
+  type ReferenceUsageDraft,
+} from "@/lib/api/generation";
 import {
   BFL_PROVIDER_ID,
   LOCAL_PROVIDER_ID,
@@ -28,11 +37,13 @@ import {
 } from "@/lib/api/operations";
 
 interface ParameterPanelProps {
+  assets: AssetResponse[];
   currentBrief: WorkbenchBrief | null;
   isLoading: boolean;
   onSave: (payload: GenerationBriefUpdateRequest) => Promise<GenerationBriefResponse>;
   onProviderChange: (providerId: string) => void;
   providerStatus: WorkbenchProviderStatus;
+  referenceAssignments: ReferenceUsageDraft[];
   selectedReferenceAssetIds: string[];
   selectedProviderId: string;
 }
@@ -69,11 +80,13 @@ type ArrayUpdateKey =
   | "text";
 
 export function ParameterPanel({
+  assets,
   currentBrief,
   isLoading,
   onSave,
   onProviderChange,
   providerStatus,
+  referenceAssignments,
   selectedReferenceAssetIds,
   selectedProviderId,
 }: ParameterPanelProps) {
@@ -100,7 +113,7 @@ export function ParameterPanel({
   }
 
   const payload = readPayload(currentBrief);
-  const updatePayload = buildUpdatePayload(payload, draft);
+  const updatePayload = buildUpdatePayload(payload, draft, referenceAssignments);
   const isDirty = Object.keys(updatePayload).length > 0;
   const canSave = isDirty && saveState !== "saving" && !isLoading;
 
@@ -130,6 +143,15 @@ export function ParameterPanel({
         onProviderChange={onProviderChange}
         providerStatus={providerStatus}
         selectedProviderId={selectedProviderId}
+      />
+      <ReferenceSummary
+        assets={assets}
+        referenceAssignments={referenceAssignments}
+        selectedProvider={
+          providerStatus.options.find((option) => option.id === selectedProviderId) ??
+          providerStatus.options.find((option) => option.id === LOCAL_PROVIDER_ID) ??
+          providerStatus.options[0]
+        }
       />
 
       <TextInput
@@ -354,6 +376,83 @@ function ProviderButton({
   );
 }
 
+function ReferenceSummary({
+  assets,
+  referenceAssignments,
+  selectedProvider,
+}: {
+  assets: AssetResponse[];
+  referenceAssignments: ReferenceUsageDraft[];
+  selectedProvider: WorkbenchProviderOption | undefined;
+}) {
+  if (referenceAssignments.length === 0) {
+    return null;
+  }
+
+  const assetsById = new Map(assets.map((asset) => [asset.id, asset]));
+  const enabledAssignments = referenceAssignments.filter((assignment) => assignment.enabled);
+  const ineligibleAssignments = enabledAssignments.filter((assignment) => {
+    const asset = assetsById.get(assignment.assetId);
+    return asset ? !getReferenceEligibility(asset).canUseForGeneration : true;
+  });
+  const unsupportedAssignments = enabledAssignments.filter((assignment) =>
+    selectedProvider?.referenceInput.unsupportedRoles.includes(assignment.role),
+  );
+  const roleCounts = enabledAssignments.reduce<Record<string, number>>((counts, assignment) => {
+    counts[assignment.role] = (counts[assignment.role] ?? 0) + 1;
+    return counts;
+  }, {});
+
+  return (
+    <section className="grid gap-2 rounded-md border border-border bg-card p-3">
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="text-sm font-semibold">引用素材</h3>
+        <Badge variant="muted">{enabledAssignments.length} 个启用</Badge>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {Object.entries(roleCounts).map(([role, count]) => (
+          <Badge key={role} variant="muted">
+            {referenceRoleLabel(role as ReferenceRole)} {count}
+          </Badge>
+        ))}
+      </div>
+      {selectedProvider ? (
+        <InfoRow label="引用支持" value={formatReferenceSupport(selectedProvider)} />
+      ) : null}
+      {selectedProvider?.referenceInput.supportLabel === "prompt-only" &&
+      enabledAssignments.length > 0 ? (
+        <p className="text-xs text-secondary-foreground">
+          当前供应商只会把引用作为提示上下文记录，不会发送图片引用。
+        </p>
+      ) : null}
+      {unsupportedAssignments.length > 0 ? (
+        <ReferenceWarning
+          title="引用受限"
+          detail={`供应商不支持 ${formatAssignmentRoles(unsupportedAssignments)}`}
+        />
+      ) : null}
+      {ineligibleAssignments.length > 0 ? (
+        <ReferenceWarning
+          title="引用素材需要权利确认"
+          detail={ineligibleAssignments.map((assignment) => assignment.assetId).join(", ")}
+        />
+      ) : null}
+    </section>
+  );
+}
+
+function ReferenceWarning({ detail, title }: { detail: string; title: string }) {
+  return (
+    <div className="grid gap-1 rounded-md border border-warning/30 bg-warning/10 p-2 text-xs text-warning">
+      <div className="flex items-center gap-1 font-medium">
+        <ShieldAlert aria-hidden="true" className="h-4 w-4" />
+        {title}
+      </div>
+      <span>{detail}</span>
+    </div>
+  );
+}
+
 function TextInput({
   id,
   label,
@@ -506,6 +605,7 @@ function createDraft(
 function buildUpdatePayload(
   payload: Partial<GenerationBriefPayload>,
   draft: ParameterDraft,
+  referenceAssignments: ReferenceUsageDraft[] = [],
 ): GenerationBriefUpdateRequest {
   const updatePayload: GenerationBriefUpdateRequest = {};
   addChangedString(
@@ -560,8 +660,34 @@ function buildUpdatePayload(
     readStringArray(payload, "supporting_graphics"),
     draft.supportingGraphicsText,
   );
+  addReferenceUsageUpdate(updatePayload, payload, referenceAssignments);
 
   return updatePayload;
+}
+
+function addReferenceUsageUpdate(
+  updatePayload: GenerationBriefUpdateRequest,
+  payload: Partial<GenerationBriefPayload>,
+  referenceAssignments: ReferenceUsageDraft[],
+) {
+  if (referenceAssignments.length === 0) {
+    return;
+  }
+
+  const referencePayload = buildReferenceUsagePayload(referenceAssignments);
+  const previousReferenceUsage = Array.isArray(payload.reference_usage)
+    ? payload.reference_usage
+    : [];
+  const previousReferenceIds = readStringArray(payload, "reference_asset_ids");
+
+  if (
+    referenceUsageSignature(previousReferenceUsage) !==
+      referenceUsageSignature(referencePayload.reference_usage ?? []) ||
+    previousReferenceIds.join("\n") !== referencePayload.reference_asset_ids?.join("\n")
+  ) {
+    updatePayload.reference_asset_ids = referencePayload.reference_asset_ids;
+    updatePayload.reference_usage = referencePayload.reference_usage;
+  }
 }
 
 function addChangedString(
@@ -622,6 +748,37 @@ function formatCanvas(payload: Record<string, unknown>): string {
   }
 
   return "-";
+}
+
+function formatAssignmentRoles(assignments: ReferenceUsageDraft[]): string {
+  return Array.from(new Set(assignments.map((assignment) => referenceRoleLabel(assignment.role))))
+    .filter(Boolean)
+    .join(", ");
+}
+
+function formatReferenceSupport(provider: WorkbenchProviderOption): string {
+  if (provider.referenceInput.accepted) {
+    return "accepted";
+  }
+  if (provider.referenceInput.promptGuidanceRoles.length > 0) {
+    return "prompt-only";
+  }
+
+  return "unsupported";
+}
+
+function referenceRoleLabel(role: ReferenceRole): string {
+  return REFERENCE_ROLE_OPTIONS.find((option) => option.value === role)?.label ?? role;
+}
+
+function referenceUsageSignature(assignments: ReferenceAssignment[]): string {
+  return assignments
+    .map((assignment) => {
+      const enabled = assignment.enabled !== false;
+      return `${assignment.asset_id}:${assignment.role}:${enabled}`;
+    })
+    .sort()
+    .join("|");
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
