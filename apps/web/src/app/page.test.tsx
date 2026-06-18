@@ -49,6 +49,10 @@ import {
   GENERIC_SIDE_COUPE_LIGHTWEIGHT_SHELL_ID,
   PREVIEW_3D_FALLBACK_MESSAGE,
 } from "@/lib/preview3d/spec";
+import {
+  PREVIEW_3D_UV_WARNING_TEXT,
+  buildPreview3DMaterialPlan,
+} from "@/lib/preview3d/materials";
 import { useWorkbenchStore } from "@/lib/workbench/store";
 
 import Home from "./page";
@@ -740,6 +744,35 @@ describe("Phase 4 workbench shell", () => {
     });
   });
 
+  it("maps PreviewSpec layers into bounded 3D material plan entries", () => {
+    const materialPlan = buildPreview3DMaterialPlan({
+      artifact: artifactFixture,
+      previewSpec: previewSpecFixture,
+    });
+
+    expect(materialPlan.source).toMatchObject({
+      artifactId: "artifact-1",
+      artifactObjectKey: artifactFixture.object_key,
+    });
+    expect(materialPlan.safeZones[0]).toMatchObject({
+      id: "door-main",
+      slot: "side-decal-plane",
+    });
+    expect(materialPlan.safeZones[0]?.bounds.x).toBeGreaterThanOrEqual(0);
+    expect(materialPlan.safeZones[0]?.bounds.y).toBeGreaterThanOrEqual(0);
+    expect(materialPlan.safeZones[0]?.bounds.width).toBeLessThanOrEqual(1);
+    expect(materialPlan.safeZones[0]?.bounds.height).toBeLessThanOrEqual(1);
+    expect(materialPlan.overlays[0]).toMatchObject({
+      id: "text-1",
+      label: "MOON DRIVE",
+      slot: "side-decal-plane",
+      zoneId: "door-main",
+    });
+    expect(materialPlan.warningIds).toContain("uv_not_verified");
+    expect(materialPlan.warnings).toContain(PREVIEW_3D_UV_WARNING_TEXT);
+    expect(JSON.stringify(materialPlan).toLowerCase()).not.toContain("base64");
+  });
+
   it("opens concept 3D preview controls for the selected generated version", async () => {
     const user = userEvent.setup();
     localStorage.setItem("caragent.workbench.workspaceId", "workspace-1");
@@ -784,6 +817,10 @@ describe("Phase 4 workbench shell", () => {
     expect(screen.getByRole("button", { name: "放大 3D" })).toBeVisible();
     expect(screen.getByRole("button", { name: "重置相机" })).toBeVisible();
     expect(screen.getByRole("button", { name: "截图" })).toBeVisible();
+    expect(screen.getByText(PREVIEW_3D_UV_WARNING_TEXT)).toBeVisible();
+    expect(screen.getByText("MOON DRIVE")).toBeVisible();
+    expect(screen.getAllByText("door-main").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText(/artifact-1/)).toBeVisible();
     expect(screen.getByRole("button", { name: "版本 1" })).toHaveAttribute(
       "aria-pressed",
       "true",
