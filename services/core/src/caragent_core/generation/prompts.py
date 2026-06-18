@@ -6,6 +6,7 @@ from typing import Any
 from pydantic import BaseModel, Field, field_validator
 
 from caragent_core.generation.briefs import GenerationBriefPayload
+from caragent_core.references import ReferenceUsagePlan, plan_reference_usage
 
 DEFAULT_PROVIDER = "local-deterministic"
 DEFAULT_MODEL = "local-concept-v1"
@@ -50,8 +51,13 @@ def build_prompt_plan(
 ) -> PromptPlan:
     settings = provider_settings or PromptProviderSettings()
     parameters = dict(settings.parameters)
-    input_artifact_ids = list(brief.reference_asset_ids)
-    prompt_text = _build_prompt_text(brief)
+    reference_plan = plan_reference_usage(
+        provider=settings.provider,
+        reference_asset_ids=brief.reference_asset_ids,
+        reference_usage=brief.reference_usage,
+    )
+    input_artifact_ids = list(reference_plan.included_reference_asset_ids)
+    prompt_text = _build_prompt_text(brief, reference_plan)
 
     prompt_payload: JsonObject = {
         "brief": {
@@ -71,6 +77,7 @@ def build_prompt_plan(
         "model": settings.model,
         "original_request": brief.original_request,
         "parameters": parameters,
+        **reference_plan.prompt_payload_fields(),
         "provider": settings.provider,
         "vehicle_template": {
             "canvas_height": brief.canvas_height,
@@ -79,7 +86,7 @@ def build_prompt_plan(
             "label": brief.vehicle_template_label,
             "view": brief.view,
         },
-        "preview_spec": _build_preview_spec(brief),
+        "preview_spec": _build_preview_spec(brief, input_artifact_ids),
         "warnings": list(brief.warnings),
     }
 
@@ -95,7 +102,10 @@ def build_prompt_plan(
     )
 
 
-def _build_prompt_text(brief: GenerationBriefPayload) -> str:
+def _build_prompt_text(
+    brief: GenerationBriefPayload,
+    reference_plan: ReferenceUsagePlan,
+) -> str:
     character_focus = brief.character_focus or "designer-selected character placement"
     color_harmony = brief.color_harmony or "balanced with selected palette"
     palette = _join_values(brief.palette, fallback="designer-selected palette")
@@ -107,9 +117,10 @@ def _build_prompt_text(brief: GenerationBriefPayload) -> str:
     text = _join_values(brief.text, fallback="no fixed text requested")
     typography = brief.typography_intent or "designer-selected typography"
     references = _join_values(
-        brief.reference_asset_ids,
+        reference_plan.included_reference_asset_ids,
         fallback="no reference assets supplied",
     )
+    reference_roles = _build_reference_role_prompt_text(reference_plan)
     warnings = _join_values(brief.warnings, fallback="no template warnings")
 
     return "\n".join(
@@ -131,6 +142,7 @@ def _build_prompt_text(brief: GenerationBriefPayload) -> str:
             f"Typography intent: {typography}.",
             f"Coverage: {brief.coverage}.",
             f"Reference asset ids: {references}.",
+            f"Reference roles: {reference_roles}.",
             f"Template/view notes: {warnings}.",
             "Output is a concept preview only, not an installer-ready production wrap.",
         ],
@@ -141,14 +153,30 @@ def _join_values(values: list[str], *, fallback: str) -> str:
     return ", ".join(values) if values else fallback
 
 
-def _build_preview_spec(brief: GenerationBriefPayload) -> JsonObject:
+def _build_reference_role_prompt_text(reference_plan: ReferenceUsagePlan) -> str:
+    requested = reference_plan.reference_usage.get("requested")
+    if not isinstance(requested, list):
+        return "no reference roles supplied"
+
+    role_parts = [
+        f"{item['role']} reference {item['asset_id']}"
+        for item in requested
+        if isinstance(item, dict) and item.get("enabled") is not False
+    ]
+    return _join_values(role_parts, fallback="no enabled reference roles")
+
+
+def _build_preview_spec(
+    brief: GenerationBriefPayload,
+    included_reference_asset_ids: list[str],
+) -> JsonObject:
     return {
         "canvas": {"height": brief.canvas_height, "width": brief.canvas_width},
         "overlay_layers": _build_overlay_layers(brief),
         "safe_zones": [dict(zone) for zone in brief.safe_zones],
         "sources": {
             "overlay_logo_asset_ids": list(brief.overlay_logo_asset_ids),
-            "reference_asset_ids": list(brief.reference_asset_ids),
+            "reference_asset_ids": list(included_reference_asset_ids),
         },
         "template": {
             "id": brief.vehicle_template_id,

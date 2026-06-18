@@ -19,6 +19,7 @@ from caragent_core.provider_capabilities import (
     PROVIDER_MASKED_GENERATION_ROUTE,
     normalize_provider_name,
 )
+from caragent_core.references import plan_reference_usage
 from caragent_core.services import jobs, workspaces
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -169,6 +170,12 @@ async def submit_generation_job(
     metadata: dict[str, Any] = {"source": "generation-api"}
     if provider_intent is not None:
         metadata["provider_intent"] = provider_intent.metadata
+    reference_metadata = _reference_usage_metadata(
+        brief,
+        provider_intent.provider if provider_intent is not None else LOCAL_PROVIDER,
+    )
+    if reference_metadata is not None:
+        metadata["reference_usage"] = reference_metadata
     try:
         result = await jobs.create_job(
             session,
@@ -477,6 +484,21 @@ def _provider_intent_from_metadata(metadata: dict[str, Any]) -> ProviderIntent |
         parameters=dict(parameters) if isinstance(parameters, dict) else {},
         provider=provider,
     )
+
+
+def _reference_usage_metadata(
+    brief: DesignBrief,
+    provider: str,
+) -> dict[str, Any] | None:
+    brief_payload = GenerationBriefPayload.model_validate(brief.payload)
+    reference_plan = plan_reference_usage(
+        provider=provider,
+        reference_asset_ids=brief_payload.reference_asset_ids,
+        reference_usage=brief_payload.reference_usage,
+    )
+    if reference_plan.reference_warning_count == 0:
+        return None
+    return reference_plan.warning_metadata()
 
 
 def _validate_provider_mask_route(
