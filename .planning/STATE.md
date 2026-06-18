@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: V2 MVP
 status: executing
-stopped_at: Completed Phase 12 Plan 02; ready to execute 12-03
-last_updated: "2026-06-18T16:18:00Z"
-last_activity: "2026-06-18 -- Completed Phase 12 Plan 02 shell registry, compatibility resolver, and web helper layer"
+stopped_at: Completed Phase 12 Plan 03; ready to execute 12-04
+last_updated: "2026-06-18T16:43:00Z"
+last_activity: "2026-06-18 -- Completed Phase 12 Plan 03 3D preview mode, client-only viewer scaffold, and camera controls"
 progress:
   total_phases: 7
   completed_phases: 4
   total_plans: 48
-  completed_plans: 29
-  percent: 60
+  completed_plans: 30
+  percent: 63
 ---
 
 # Project State
@@ -27,11 +27,11 @@ See: .planning/PROJECT.md (updated 2026-06-18)
 
 Milestone: v2.0 V2 MVP — PHASE 12 IN PROGRESS
 Phase: 12 (Lightweight 3D Preview MVP) — IN PROGRESS
-Plan: 12-03-PLAN.md — Frontend 3D preview viewer scaffold with camera controls and fallback states
-Status: Ready to execute Phase 12 Plan 03
-Last activity: 2026-06-18 -- Completed Phase 12 Plan 02 shell registry, compatibility resolver, and web helper layer
+Plan: 12-04-PLAN.md — Texture/material mapping from PreviewSpec to lightweight preview shell
+Status: Ready to execute Phase 12 Plan 04
+Last activity: 2026-06-18 -- Completed Phase 12 Plan 03 3D preview mode, client-only viewer scaffold, and camera controls
 
-Progress: [######----] 60%
+Progress: [######----] 63%
 
 ## Milestone Archives
 
@@ -52,7 +52,7 @@ v2.0 MVP is scoped to the following phase sequence:
 | Phase 9 | Hosted Provider Rollout MVP | 7/7 | V2-PROVIDER-01..05 |
 | Phase 10 | Targeted Regeneration And Masked Editing MVP | 8/8 | V2-EDIT-01..05 |
 | Phase 11 | Reference-Guided Generation MVP | 7/7 complete | V2-REF-01..05 |
-| Phase 12 | Lightweight 3D Preview MVP | 2/8 in progress | V2-3D-01..05 |
+| Phase 12 | Lightweight 3D Preview MVP | 3/8 in progress | V2-3D-01..05 |
 | Phase 13 | Enhanced Concept Handoff Package MVP | 0/7 | V2-HANDOFF-01..05 |
 | Phase 14 | V2 MVP Hardening, Docs, Smoke, And UAT | 0/6 | V2-REL-01..05 |
 
@@ -110,6 +110,7 @@ Recent decisions affecting v2.0:
 - [Phase 12 Planning]: Lightweight 3D preview is planned around a typed `Preview3DSpec`, one `generic-side-coupe` shell fixture, client-only Three.js viewer, screenshot artifact persistence, explicit 2D fallback, browser canvas-pixel evidence, and persistent non-production labels.
 - [Phase 12 Plan 01]: Core `Preview3DSpec`, screenshot metadata, `preview_3d_screenshot` artifact kind, optional typed API response fields, and generated OpenAPI/TypeScript contracts are in place.
 - [Phase 12 Plan 02]: `generic-side-coupe-lightweight-v1` is registered for the `generic-side-coupe` side PreviewSpec, unsupported templates produce explicit 2D fallback specs, and frontend compatibility helpers are pure/testable before Three.js rendering.
+- [Phase 12 Plan 03]: The workbench now has a 2D/3D preview mode switch, local 3D camera state, client-only dynamic Three.js viewer scaffold, no-WebGL fallback, and persistent non-production 3D labels.
 
 ### Pending Todos
 
@@ -139,8 +140,8 @@ Items acknowledged and deferred beyond v2.0 MVP:
 
 ## Session Continuity
 
-Last session: 2026-06-18T16:18:00Z
-Stopped at: Completed Phase 12 Plan 02; ready to execute 12-03
+Last session: 2026-06-18T16:43:00Z
+Stopped at: Completed Phase 12 Plan 03; ready to execute 12-04
 Resume files:
 
 - `.planning/PROJECT.md`
@@ -202,6 +203,8 @@ Resume files:
 - `.planning/phases/12-lightweight-3d-preview-mvp/12-02-PLAN.md`
 - `.planning/phases/12-lightweight-3d-preview-mvp/12-02-SUMMARY.md`
 - `.planning/phases/12-lightweight-3d-preview-mvp/12-03-PLAN.md`
+- `.planning/phases/12-lightweight-3d-preview-mvp/12-03-SUMMARY.md`
+- `.planning/phases/12-lightweight-3d-preview-mvp/12-04-PLAN.md`
 
 Next recommended command: `$gsd-execute-phase 12 --auto`
 Alternative: `$gsd-progress --next`
