@@ -294,6 +294,7 @@ def test_operations_provider_status_lists_recent_classified_failures(
                     "failure_category": "provider",
                     "model": "flux-pro",
                     "provider": "bfl",
+                    "provider_status": "request_moderated",
                     "stage": "provider_generate",
                 },
                 source="worker-generation",
@@ -314,6 +315,7 @@ def test_operations_provider_status_lists_recent_classified_failures(
         "message": "Provider timeout",
         "model": "flux-pro",
         "provider": "bfl",
+        "provider_status": "request_moderated",
         "stage": "provider_generate",
         "status": "failed",
     }

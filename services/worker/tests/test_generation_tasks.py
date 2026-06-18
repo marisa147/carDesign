@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 from dataclasses import dataclass
+from decimal import Decimal
 from pathlib import Path
 from uuid import UUID
 
@@ -314,8 +315,15 @@ def test_generation_worker_falls_back_to_local_provider_after_hosted_failure(
         state.job.metadata_json["operations"],
     ):
         assert output_metadata["fallback_from_provider"] == "bfl"
+        assert output_metadata["fallback_to_provider"] == "local-deterministic"
         assert output_metadata["fallback_reason"] == "hosted upstream failed"
         assert output_metadata["provider_attempt_count"] == 2
+    assert any(
+        event.message == "Fallback provider started."
+        and event.metadata_json["fallback_from_provider"] == "bfl"
+        and event.metadata_json["fallback_to_provider"] == "local-deterministic"
+        for event in state.events
+    )
 
 
 def test_generation_worker_blocks_hosted_call_when_quota_guards_are_missing(
@@ -396,6 +404,65 @@ def test_generation_worker_uses_persisted_hosted_intent_over_process_default(
     assert state.model_runs[0].model == "flux-2-pro-preview"
     assert state.model_runs[0].parameters["provider_route"] == "bfl"
     assert state.artifacts[0].metadata_json["external_calls"] is True
+
+
+def test_generation_worker_persists_hosted_trace_and_actual_cost(
+    tmp_path: Path,
+) -> None:
+    provider = CostedProvider(actual_cost=Decimal("0.0300"))
+    seeded = seed_generation_job(
+        tmp_path,
+        provider="bfl",
+        model="flux-2-pro-preview",
+        provider_parameters={"output_format": "png"},
+    )
+
+    result = asyncio.run(
+        run_generate_2d_concept_job(
+            seeded.database_url,
+            seeded.job_id,
+            provider=provider,
+            settings=WorkerSettings(
+                ai_hosted_daily_call_limit=10,
+                ai_hosted_rate_limit_per_minute=10,
+                ai_max_estimated_cost_per_job="1.0000",
+                ai_provider_bfl_api_key="bfl-secret",
+                ai_provider_calls_enabled=True,
+                ai_provider_default="disabled",
+                v2_hosted_provider_rollout_enabled=True,
+            ),
+            storage=InMemoryObjectStorage(),
+        ),
+    )
+    state = asyncio.run(read_generation_state(seeded.session_factory, seeded.job_id))
+
+    assert result["status"] == "succeeded"
+    assert state.job.provider == "bfl"
+    assert state.job.model == "flux-2-pro-preview"
+    assert state.job.estimated_cost is None
+    assert state.job.actual_cost == Decimal("0.0300")
+
+    model_run = state.model_runs[0]
+    assert model_run.provider == "bfl"
+    assert model_run.model == "flux-2-pro-preview"
+    assert model_run.actual_cost == Decimal("0.0300")
+    assert model_run.estimated_cost is None
+    assert model_run.parameters["output_format"] == "png"
+    assert model_run.prompt_payload["provider"] == "bfl"
+    assert model_run.prompt_payload["model"] == "flux-2-pro-preview"
+    assert model_run.input_artifact_ids == []
+
+    artifact_metadata = state.artifacts[0].metadata_json
+    assert artifact_metadata["provider"] == "bfl"
+    assert artifact_metadata["model"] == "flux-2-pro-preview"
+    assert artifact_metadata["actual_cost"] == "0.0300"
+    assert artifact_metadata["provider_status"] == "ready"
+    assert "signed-secret" not in str(artifact_metadata)
+
+    version_parameters = state.versions[0].parameters
+    assert version_parameters["provider"] == "bfl"
+    assert version_parameters["model"] == "flux-2-pro-preview"
+    assert version_parameters["actual_cost"] == "0.0300"
 
 
 def test_generation_worker_rechecks_hosted_preflight_for_persisted_intent(
@@ -916,6 +983,24 @@ class RecordingSuccessProvider:
     async def generate(self, request: ImageGenerationRequest) -> ImageGenerationResult:
         self.requests.append(request)
         return provider_result_from_request(request, external_calls=True)
+
+
+class CostedProvider:
+    def __init__(self, *, actual_cost: Decimal | None) -> None:
+        self.actual_cost = actual_cost
+
+    async def generate(self, request: ImageGenerationRequest) -> ImageGenerationResult:
+        return ImageGenerationResult(
+            actual_cost=self.actual_cost,
+            content_type="image/png",
+            estimated_cost=request.estimated_cost,
+            height=1,
+            image_bytes=b"\x89PNG\r\n\x1a\n" + b"provider-result",
+            metadata={"external_calls": True, "provider_status": "ready"},
+            model=request.model,
+            provider=request.provider,
+            width=1,
+        )
 
 
 def provider_result_from_request(

@@ -73,6 +73,12 @@ async def create_simulation_records(
             object_key=f"workspaces/{workspace_id}/generated/{version.id}/concept.png",
             content_type="image/png",
             byte_size=128,
+            metadata={
+                "actual_cost": "0.0300",
+                "model": "flux-2-pro-preview",
+                "provider": "bfl",
+                "provider_status": "ready",
+            },
         )
         model_run = await jobs.create_model_run(
             session,
@@ -242,6 +248,12 @@ def test_simulation_records_are_readable_through_api(tmp_path: Path) -> None:
 
     assert [item["id"] for item in versions.json()] == [records["version_id"]]
     assert [item["id"] for item in artifacts.json()] == [records["artifact_id"]]
+    assert artifacts.json()[0]["metadata"] == {
+        "actual_cost": "0.0300",
+        "model": "flux-2-pro-preview",
+        "provider": "bfl",
+        "provider_status": "ready",
+    }
     assert [item["id"] for item in model_runs.json()] == [records["model_run_id"]]
     assert [item["id"] for item in feedback.json()] == [records["feedback_id"]]
     assert [item["id"] for item in exports.json()] == [records["export_id"]]
