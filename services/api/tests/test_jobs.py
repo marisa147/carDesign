@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import base64
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
@@ -16,7 +17,11 @@ from caragent_core.enums import (
     ModelRunStatus,
 )
 from caragent_core.models import Artifact, DesignVersion, metadata
-from caragent_core.preview3d import Preview3DScreenshotArtifactMetadata, Preview3DSpec
+from caragent_core.preview3d import (
+    Preview3DScreenshotArtifactMetadata,
+    Preview3DSpec,
+    build_preview_3d_spec,
+)
 from caragent_core.services import jobs
 from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker
@@ -25,9 +30,19 @@ from caragent_api.config import ApiSettings
 from caragent_api.main import create_app
 
 
-def create_job_client(tmp_path: Path) -> tuple[TestClient, Any]:
+PNG_BYTES = b"\x89PNG\r\n\x1a\n" + b"\x00" * 32
+
+
+def create_job_client(
+    tmp_path: Path,
+    *,
+    settings_overrides: dict[str, Any] | None = None,
+) -> tuple[TestClient, Any]:
     database_path = tmp_path / "jobs.db"
-    settings = ApiSettings(database_url=f"sqlite+aiosqlite:///{database_path.as_posix()}")
+    settings = ApiSettings(
+        database_url=f"sqlite+aiosqlite:///{database_path.as_posix()}",
+        **(settings_overrides or {}),
+    )
     app = create_app(settings)
     asyncio.run(create_schema(app.state.database_engine))
     return TestClient(app), app
@@ -267,6 +282,58 @@ async def create_preview_3d_records(
             width=1280,
         )
     return {"artifact_id": str(artifact.id), "version_id": str(version.id)}
+
+
+async def create_preview_3d_source_records(
+    session_factory: async_sessionmaker[Any],
+    workspace_id: UUID,
+    job_id: UUID,
+) -> dict[str, str]:
+    async with session_scope(session_factory) as session:
+        version = await jobs.create_design_version(
+            session,
+            workspace_id,
+            job_id=job_id,
+            parameters={"concept_label": "preview_3d_source"},
+            status=DesignVersionStatus.GENERATED.value,
+            title="3D preview source",
+        )
+        source_artifact = await jobs.create_artifact(
+            session,
+            workspace_id,
+            byte_size=1024,
+            content_type="image/png",
+            height=768,
+            job_id=job_id,
+            kind=ArtifactKind.GENERATED_IMAGE.value,
+            object_key=f"workspaces/{workspace_id}/generated_image/{version.id}/concept.png",
+            version_id=version.id,
+            width=1536,
+        )
+        spec = build_preview_3d_spec(
+            artifact_id=source_artifact.id,
+            artifact_object_key=source_artifact.object_key,
+            preview_spec={
+                **parent_preview_spec(),
+                "template": {
+                    "id": "generic-side-coupe",
+                    "label": "Generic side-view coupe",
+                    "view": "side",
+                },
+            },
+            version_id=version.id,
+            workspace_id=workspace_id,
+        )
+        version.parameters = {
+            **version.parameters,
+            "preview_3d": spec.model_dump(mode="json"),
+        }
+        await session.flush()
+    return {
+        "source_artifact_id": str(source_artifact.id),
+        "source_artifact_object_key": source_artifact.object_key,
+        "version_id": str(version.id),
+    }
 
 
 def test_create_job_requires_idempotency_and_reuses_duplicate_key(tmp_path: Path) -> None:
@@ -597,6 +664,135 @@ def test_preview_3d_screenshot_artifacts_are_readable_through_api(tmp_path: Path
     assert "binary" not in rendered
 
 
+def test_preview_3d_screenshot_can_be_created_through_api(tmp_path: Path) -> None:
+    client, app = create_job_client(
+        tmp_path,
+        settings_overrides={"v2_lightweight_3d_preview_enabled": True},
+    )
+    workspace_id = client.post("/workspaces", json={"title": "3D capture"}).json()["id"]
+    job_id = client.post(
+        f"/workspaces/{workspace_id}/jobs",
+        json={"idempotency_key": "preview-3d-capture-001", "operation": "generate_concept"},
+    ).json()["id"]
+    records = asyncio.run(
+        create_preview_3d_source_records(
+            app.state.session_factory,
+            UUID(workspace_id),
+            UUID(job_id),
+        ),
+    )
+
+    created = client.post(
+        f"/workspaces/{workspace_id}/versions/{records['version_id']}/preview-3d-screenshots",
+        json=preview_3d_screenshot_create_payload(
+            source_artifact_id=records["source_artifact_id"],
+            source_artifact_object_key=records["source_artifact_object_key"],
+            version_id=records["version_id"],
+            workspace_id=workspace_id,
+        ),
+    )
+
+    assert created.status_code == 201
+    payload = created.json()
+    assert payload["kind"] == "preview_3d_screenshot"
+    assert payload["version_id"] == records["version_id"]
+    assert payload["content_type"] == "image/png"
+    assert payload["byte_size"] == len(PNG_BYTES)
+    assert payload["width"] == 640
+    assert payload["height"] == 360
+    assert payload["object_key"].endswith("/preview-3d-screenshot.png")
+    assert payload["metadata"]["preview_3d_screenshot"]["shell_id"] == (
+        "generic-side-coupe-lightweight-v1"
+    )
+    assert payload["metadata"]["preview_3d_screenshot"]["source_artifact_id"] == (
+        records["source_artifact_id"]
+    )
+    assert payload["preview_3d_screenshot"]["warning_ids"] == [
+        "non_production_preview",
+        "uv_not_verified",
+    ]
+    rendered = str(payload["metadata"]).lower()
+    assert "base64" not in rendered
+    assert "image_bytes" not in rendered
+    assert "binary" not in rendered
+
+
+def test_preview_3d_screenshot_creation_is_feature_gated(tmp_path: Path) -> None:
+    client, app = create_job_client(tmp_path)
+    workspace_id = client.post("/workspaces", json={"title": "3D capture off"}).json()["id"]
+    job_id = client.post(
+        f"/workspaces/{workspace_id}/jobs",
+        json={"idempotency_key": "preview-3d-capture-off", "operation": "generate_concept"},
+    ).json()["id"]
+    records = asyncio.run(
+        create_preview_3d_source_records(
+            app.state.session_factory,
+            UUID(workspace_id),
+            UUID(job_id),
+        ),
+    )
+
+    response = client.post(
+        f"/workspaces/{workspace_id}/versions/{records['version_id']}/preview-3d-screenshots",
+        json=preview_3d_screenshot_create_payload(
+            source_artifact_id=records["source_artifact_id"],
+            source_artifact_object_key=records["source_artifact_object_key"],
+            version_id=records["version_id"],
+            workspace_id=workspace_id,
+        ),
+    )
+
+    assert response.status_code == 403
+    assert "V2_LIGHTWEIGHT_3D_PREVIEW_ENABLED is disabled" in response.json()["detail"]
+
+
+def test_preview_3d_screenshot_creation_validates_payload_and_ownership(
+    tmp_path: Path,
+) -> None:
+    client, app = create_job_client(
+        tmp_path,
+        settings_overrides={"v2_lightweight_3d_preview_enabled": True},
+    )
+    workspace_id = client.post("/workspaces", json={"title": "3D capture validation"}).json()[
+        "id"
+    ]
+    other_workspace_id = client.post("/workspaces", json={"title": "Other"}).json()["id"]
+    job_id = client.post(
+        f"/workspaces/{workspace_id}/jobs",
+        json={"idempotency_key": "preview-3d-capture-validation", "operation": "generate_concept"},
+    ).json()["id"]
+    records = asyncio.run(
+        create_preview_3d_source_records(
+            app.state.session_factory,
+            UUID(workspace_id),
+            UUID(job_id),
+        ),
+    )
+    payload = preview_3d_screenshot_create_payload(
+        source_artifact_id=records["source_artifact_id"],
+        source_artifact_object_key=records["source_artifact_object_key"],
+        version_id=records["version_id"],
+        workspace_id=workspace_id,
+    )
+
+    unsupported_type = client.post(
+        f"/workspaces/{workspace_id}/versions/{records['version_id']}/preview-3d-screenshots",
+        json={**payload, "content_type": "image/gif"},
+    )
+    wrong_workspace = client.post(
+        f"/workspaces/{other_workspace_id}/versions/{records['version_id']}/preview-3d-screenshots",
+        json=payload,
+    )
+    wrong_version = client.post(
+        f"/workspaces/{workspace_id}/versions/22222222-2222-2222-2222-222222222222/preview-3d-screenshots",
+        json=payload,
+    )
+
+    assert unsupported_type.status_code == 422
+    assert wrong_workspace.status_code == 422
+    assert wrong_version.status_code == 422
+
+
 def test_feedback_and_export_creation_validate_inputs(tmp_path: Path) -> None:
     client, app = create_job_client(tmp_path)
     workspace_id = client.post("/workspaces", json={"title": "Validation"}).json()["id"]
@@ -780,3 +976,35 @@ def preview_3d_screenshot_metadata() -> Preview3DScreenshotArtifactMetadata:
             },
         },
     )
+
+
+def preview_3d_screenshot_create_payload(
+    *,
+    source_artifact_id: str,
+    source_artifact_object_key: str,
+    version_id: str,
+    workspace_id: str,
+    content_type: str = "image/png",
+) -> dict[str, object]:
+    spec = build_preview_3d_spec(
+        artifact_id=source_artifact_id,
+        artifact_object_key=source_artifact_object_key,
+        preview_spec={
+            **parent_preview_spec(),
+            "template": {
+                "id": "generic-side-coupe",
+                "label": "Generic side-view coupe",
+                "view": "side",
+            },
+        },
+        version_id=version_id,
+        workspace_id=workspace_id,
+    )
+    return {
+        "content_type": content_type,
+        "filename": "preview-3d-screenshot.png",
+        "height": 360,
+        "image_base64": base64.b64encode(PNG_BYTES).decode("ascii"),
+        "preview_3d": spec.model_dump(mode="json"),
+        "width": 640,
+    }
