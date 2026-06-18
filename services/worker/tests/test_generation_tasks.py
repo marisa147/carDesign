@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import json
 from dataclasses import dataclass
 from decimal import Decimal
 from pathlib import Path
@@ -220,6 +221,40 @@ def test_generation_worker_passes_reference_usage_to_provider_request(
     assert request.prompt_payload["included_reference_asset_ids"] == [reference_id]
     assert state.model_runs[0].input_artifact_ids == [reference_id]
     assert state.model_runs[0].prompt_payload["reference_usage"] == request.reference_usage
+
+
+def test_generation_worker_persists_reference_trace_across_durable_records(
+    tmp_path: Path,
+) -> None:
+    seeded = seed_generation_job(
+        tmp_path,
+        include_confirmed_reference_asset=True,
+        reference_role="character",
+    )
+    reference_id = str(seeded.reference_asset_ids[0])
+    output_storage = InMemoryObjectStorage()
+
+    result = asyncio.run(
+        run_generate_2d_concept_job(
+            seeded.database_url,
+            seeded.job_id,
+            settings=WorkerSettings(),
+            storage=output_storage,
+        ),
+    )
+    state = asyncio.run(read_generation_state(seeded.session_factory, seeded.job_id))
+
+    assert result["status"] == "succeeded"
+    surfaces = [
+        state.model_runs[0].parameters,
+        state.model_runs[0].prompt_payload,
+        state.artifacts[0].metadata_json,
+        state.versions[0].parameters,
+        state.job.metadata_json["operations"],
+        state.events[-1].metadata_json,
+    ]
+    for surface in surfaces:
+        assert_reference_trace(surface, reference_id=reference_id)
 
 
 def test_generation_worker_recomposes_safe_targeted_edit_without_provider_call(
@@ -1563,6 +1598,59 @@ def assert_failure_metadata(
     assert operations["stage"] == stage
     assert operations["worker_version"] == "0.1.0"
     assert state.events[-1].metadata_json == operations
+
+
+def assert_reference_trace(surface: dict[str, object], *, reference_id: str) -> None:
+    assert surface["included_reference_asset_ids"] == [reference_id]
+    assert surface["omitted_reference_asset_ids"] == []
+    assert surface["unsupported_reference_roles"] == []
+    assert surface["reference_warning_count"] == 0
+    assert surface["reference_roles"] == {"character": [reference_id]}
+    rights_snapshot = surface["rights_snapshot"]
+    assert isinstance(rights_snapshot, dict)
+    rights = rights_snapshot[reference_id]
+    assert surface["reference_usage"] == {
+        "items": [
+            {
+                "asset_id": reference_id,
+                "enabled": True,
+                "rights": rights,
+                "role": "character",
+                "schema_version": 1,
+            },
+        ],
+        "schema_version": 1,
+    }
+    assert set(rights) == {
+        "asset_id",
+        "checksum_sha256",
+        "content_type",
+        "object_key",
+        "original_filename",
+        "rights_confirmed_at",
+        "rights_notes",
+        "rights_status",
+        "schema_version",
+        "source_label",
+        "source_url",
+    }
+    assert rights["asset_id"] == reference_id
+    assert rights["checksum_sha256"] == hashlib.sha256(
+        b"\x89PNG\r\n\x1a\nstructured-reference",
+    ).hexdigest()
+    assert rights["content_type"] == "image/png"
+    assert str(rights["object_key"]).endswith(
+        f"/reference/{reference_id}/structured-reference.png",
+    )
+    assert rights["original_filename"] == "structured-reference.png"
+    assert rights["rights_confirmed_at"] is not None
+    assert rights["rights_status"] == "confirmed"
+    assert rights["schema_version"] == 1
+    assert rights["source_label"] == "licensed reference pack"
+    rendered = json.dumps(surface, sort_keys=True)
+    assert "image_bytes" not in rendered
+    assert "api_key" not in rendered.lower()
+    assert "secret" not in rendered.lower()
 
 
 def seed_generation_job(

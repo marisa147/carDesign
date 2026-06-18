@@ -432,6 +432,53 @@ const secondVersionFixture: DesignVersionResponse = {
   updated_at: "2026-06-17T00:25:00Z",
 };
 
+const referenceTraceFixture = {
+  included_reference_asset_ids: ["asset-2"],
+  omitted_reference_asset_ids: [],
+  reference_roles: { character: ["asset-2"] },
+  reference_usage: {
+    items: [
+      {
+        asset_id: "asset-2",
+        enabled: true,
+        rights: {
+          asset_id: "asset-2",
+          checksum_sha256: "c".repeat(64),
+          content_type: "image/png",
+          object_key: confirmedCharacterAssetFixture.object_key,
+          original_filename: confirmedCharacterAssetFixture.original_filename,
+          rights_confirmed_at: confirmedCharacterAssetFixture.rights_confirmed_at,
+          rights_notes: confirmedCharacterAssetFixture.rights_notes,
+          rights_status: confirmedCharacterAssetFixture.rights_status,
+          schema_version: 1,
+          source_label: confirmedCharacterAssetFixture.source_label,
+          source_url: confirmedCharacterAssetFixture.source_url,
+        },
+        role: "character",
+        schema_version: 1,
+      },
+    ],
+    schema_version: 1,
+  },
+  reference_warning_count: 0,
+  rights_snapshot: {
+    "asset-2": {
+      asset_id: "asset-2",
+      checksum_sha256: "c".repeat(64),
+      content_type: "image/png",
+      object_key: confirmedCharacterAssetFixture.object_key,
+      original_filename: confirmedCharacterAssetFixture.original_filename,
+      rights_confirmed_at: confirmedCharacterAssetFixture.rights_confirmed_at,
+      rights_notes: confirmedCharacterAssetFixture.rights_notes,
+      rights_status: confirmedCharacterAssetFixture.rights_status,
+      schema_version: 1,
+      source_label: confirmedCharacterAssetFixture.source_label,
+      source_url: confirmedCharacterAssetFixture.source_url,
+    },
+  },
+  unsupported_reference_roles: [],
+};
+
 const feedbackFixture: FeedbackResponse = {
   approval_state: "approved",
   comment: "这个方向可以继续。",
@@ -1893,6 +1940,13 @@ describe("Phase 4 workbench shell", () => {
       id: "export-2",
       updated_at: "2026-06-17T00:55:00Z",
     } satisfies ExportResponse;
+    const referenceVersion = {
+      ...secondVersionFixture,
+      parameters: {
+        ...secondVersionFixture.parameters,
+        ...referenceTraceFixture,
+      },
+    } satisfies DesignVersionResponse;
     const fetchMock = mockResumeWithGenerationState({
       artifacts: [artifactFixture, secondArtifactFixture],
       events: [
@@ -1906,7 +1960,7 @@ describe("Phase 4 workbench shell", () => {
       ],
       exports: [exportFixture],
       job: succeededJob,
-      versions: [versionFixture, secondVersionFixture],
+      versions: [versionFixture, referenceVersion],
     }).mockResolvedValueOnce(jsonResponse(savedExport, 201));
     vi.stubGlobal("fetch", fetchMock);
 
@@ -1945,8 +1999,15 @@ describe("Phase 4 workbench shell", () => {
       format: "jpg",
       manifest: {
         disclaimer: "概念预览，不是生产印刷文件。",
+        included_reference_asset_ids: ["asset-2"],
+        omitted_reference_asset_ids: [],
+        reference_roles: { character: ["asset-2"] },
+        reference_usage: referenceTraceFixture.reference_usage,
+        reference_warning_count: 0,
+        rights_snapshot: referenceTraceFixture.rights_snapshot,
         source: "web-workbench",
         source_artifact_object_key: secondArtifactFixture.object_key,
+        unsupported_reference_roles: [],
         version_id: "version-2",
       },
     });

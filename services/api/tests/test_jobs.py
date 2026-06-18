@@ -200,6 +200,42 @@ async def create_targeted_edit_records(
     }
 
 
+async def create_reference_trace_records(
+    session_factory: async_sessionmaker[Any],
+    workspace_id: UUID,
+    job_id: UUID,
+) -> dict[str, Any]:
+    trace = reference_trace_metadata()
+    async with session_scope(session_factory) as session:
+        version = await jobs.create_design_version(
+            session,
+            workspace_id,
+            job_id=job_id,
+            parameters={
+                "concept_label": "concept_preview",
+                **trace,
+            },
+            status=DesignVersionStatus.GENERATED.value,
+            title="Reference concept",
+        )
+        artifact = await jobs.create_artifact(
+            session,
+            workspace_id,
+            job_id=job_id,
+            version_id=version.id,
+            kind=ArtifactKind.GENERATED_IMAGE.value,
+            object_key=f"workspaces/{workspace_id}/generated/{version.id}/concept.png",
+            content_type="image/png",
+            byte_size=128,
+            metadata=trace,
+        )
+    return {
+        "artifact_id": str(artifact.id),
+        "reference_trace": trace,
+        "version_id": str(version.id),
+    }
+
+
 def test_create_job_requires_idempotency_and_reuses_duplicate_key(tmp_path: Path) -> None:
     client, _app = create_job_client(tmp_path)
     workspace_id = client.post("/workspaces", json={"title": "Jobs"}).json()["id"]
@@ -441,6 +477,51 @@ def test_feedback_and_concept_export_can_be_created_through_api(tmp_path: Path) 
     assert "not print-ready" in export_payload["manifest"]["disclaimer"]
 
 
+def test_concept_export_manifest_includes_reference_trace_source(
+    tmp_path: Path,
+) -> None:
+    client, app = create_job_client(tmp_path)
+    workspace_id = client.post("/workspaces", json={"title": "Reference export"}).json()["id"]
+    job_id = client.post(
+        f"/workspaces/{workspace_id}/jobs",
+        json={"idempotency_key": "reference-export-001", "operation": "generate_concept"},
+    ).json()["id"]
+    records = asyncio.run(
+        create_reference_trace_records(
+            app.state.session_factory,
+            UUID(workspace_id),
+            UUID(job_id),
+        ),
+    )
+
+    export = client.post(
+        f"/workspaces/{workspace_id}/versions/{records['version_id']}/exports",
+        json={
+            "artifact_id": records["artifact_id"],
+            "format": "png",
+            "manifest": {"requested_by": "api-test"},
+        },
+    )
+
+    assert export.status_code == 201
+    manifest = export.json()["manifest"]
+    trace = records["reference_trace"]
+    for key in (
+        "included_reference_asset_ids",
+        "omitted_reference_asset_ids",
+        "reference_roles",
+        "reference_usage",
+        "reference_warning_count",
+        "rights_snapshot",
+        "unsupported_reference_roles",
+    ):
+        assert manifest[key] == trace[key]
+    rendered_manifest = str(manifest).lower()
+    assert "image_bytes" not in rendered_manifest
+    assert "api_key" not in rendered_manifest
+    assert "secret" not in rendered_manifest
+
+
 def test_feedback_and_export_creation_validate_inputs(tmp_path: Path) -> None:
     client, app = create_job_client(tmp_path)
     workspace_id = client.post("/workspaces", json={"title": "Validation"}).json()["id"]
@@ -519,4 +600,41 @@ def targeted_edit_trace_metadata(
             "y": 0.47,
         },
         "target": {"id": "text-1", "type": "overlay_layer"},
+    }
+
+
+def reference_trace_metadata() -> dict[str, object]:
+    reference_id = "11111111-1111-1111-1111-111111111111"
+    rights = {
+        "asset_id": reference_id,
+        "checksum_sha256": "a" * 64,
+        "content_type": "image/png",
+        "object_key": f"workspaces/workspace-1/reference/{reference_id}/reference.png",
+        "original_filename": "reference.png",
+        "rights_confirmed_at": "2026-06-17T00:10:00Z",
+        "rights_notes": "User confirmed use.",
+        "rights_status": "confirmed",
+        "schema_version": 1,
+        "source_label": "User source",
+        "source_url": None,
+    }
+    return {
+        "included_reference_asset_ids": [reference_id],
+        "omitted_reference_asset_ids": [],
+        "reference_roles": {"character": [reference_id]},
+        "reference_usage": {
+            "items": [
+                {
+                    "asset_id": reference_id,
+                    "enabled": True,
+                    "rights": rights,
+                    "role": "character",
+                    "schema_version": 1,
+                },
+            ],
+            "schema_version": 1,
+        },
+        "reference_warning_count": 0,
+        "rights_snapshot": {reference_id: rights},
+        "unsupported_reference_roles": [],
     }
