@@ -112,6 +112,8 @@ uv run alembic current
 
 Browser readiness UAT for Phase 8 is host-only: start local infrastructure, run API migrations, start the API, a Windows-safe worker, and web, then confirm the V1 workbench loads and future/V2 gates remain disabled or clearly deferred. Phase 8 must not imply hosted provider calls are enabled by default. Hosted provider production rollout, provider quality, pricing, moderation, account access, and commercial-rights checks remain Phase 9 scope.
 
+Phase 8 closure evidence is recorded in `.planning/phases/08-v1-closure-and-v2-readiness-gate/08-VERIFICATION.md` and `.planning/phases/08-v1-closure-and-v2-readiness-gate/08-HUMAN-UAT.md`. Static checks, aggregate validation, Docker local smoke, and Alembic current passed; worker live smoke and Browser desktop/mobile UAT remain host-run checklist items.
+
 ## Local Services
 
 Local PostgreSQL, Redis, and MinIO are defined in `infra/compose.yml`; see `infra/README.md` for images, ports, and Docker prerequisites.

@@ -53,6 +53,8 @@ Before enabling any V2 feature flag, prove the V1 local path still runs with the
 ```powershell
 pnpm validate
 pnpm contracts:check
+pnpm compat:v1
+pnpm migration:safety
 pnpm infra:up
 pnpm smoke:local
 pnpm smoke:worker -- --dry-run

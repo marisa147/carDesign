@@ -72,6 +72,8 @@ Run these commands from the repository root unless a command says otherwise.
 |---------|-------------------|
 | `pnpm validate` | Aggregate lint, typecheck, unit tests, env guard, and contract drift checks across web, contracts, core, API, and worker. |
 | `pnpm contracts:check` | Confirms generated OpenAPI and TypeScript contracts are in sync. |
+| `pnpm compat:v1` | Confirms key v1 route, schema, generated helper, and PreviewSpec-compatible parameter surfaces still exist. |
+| `pnpm migration:safety` | Confirms current Alembic head and v1 durable ledger tables are present through a static check. |
 | `pnpm infra:up` | Starts local PostgreSQL, Redis, and MinIO for live smoke evidence. |
 | `pnpm smoke:local` | Verifies Docker-backed local infrastructure, Alembic migration, durable data, and local deterministic generation smoke. |
 | `pnpm smoke:worker -- --dry-run` | Verifies worker smoke command wiring without requiring running services. |
