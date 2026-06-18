@@ -44,6 +44,22 @@ pnpm dev:web
 
 Use separate terminals for `pnpm dev:api`, `pnpm dev:worker`, and `pnpm dev:web`.
 
+## Phase 8 / V2 Readiness Gate
+
+Phase 8 starts V2 from the archived v1.0 baseline instead of enabling new V2 behavior immediately. The baseline evidence lives in `.planning/phases/08-v1-closure-and-v2-readiness-gate/08-READINESS-BASELINE.md` and references the `v1.0` tag, the v1.0 milestone archive, the audit verdict, and the latest Phase 7 operations closure.
+
+Before enabling any V2 feature flag, prove the V1 local path still runs with the existing command surface:
+
+```powershell
+pnpm validate
+pnpm contracts:check
+pnpm infra:up
+pnpm smoke:local
+pnpm smoke:worker -- --dry-run
+```
+
+Use `pnpm smoke:worker` without `--dry-run` only on a host where Docker services, API migrations, the API process, and the worker process are running. Hosted provider production rollout remains Phase 9 scope and must stay disabled by default during Phase 8 readiness work.
+
 For the Phase 2 browser refresh proof, start infrastructure and the API/web services, open the web shell, click `创建持久工作区`, click `创建模拟任务`, refresh the browser, and confirm the same workspace/job state is refetched from the API.
 
 For the Phase 3 concept-generation proof, keep the same workspace, edit `自然语言 brief` if needed, click `创建概念任务`, and confirm the page shows a structured brief, queued/succeeded generation job, generated artifact count, and design version count from API-backed durable state.

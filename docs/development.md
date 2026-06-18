@@ -81,6 +81,23 @@ Python services and the shared core package are managed by `uv` and are intentio
 
 Root commands are convenience wrappers. Service-specific commands remain independently runnable from their owning directories.
 
+## Phase 8 / V2 Readiness Gate
+
+Phase 8 is a readiness gate before V2 product expansion. It starts from the archived v1.0 evidence in `.planning/phases/08-v1-closure-and-v2-readiness-gate/08-READINESS-BASELINE.md`, which records the `v1.0` tag, the v1.0 milestone archive paths, the passed audit verdict, and the latest Phase 7 operations closure.
+
+Use these commands as the Phase 8 readiness vocabulary:
+
+| Command | Readiness Purpose |
+| ------- | ----------------- |
+| `pnpm validate` | Aggregate lint, typecheck, tests, env guard, and contract drift checks. |
+| `pnpm contracts:check` | Confirms generated OpenAPI and TypeScript contracts are in sync. |
+| `pnpm infra:up` | Starts PostgreSQL, Redis, and MinIO for live local smoke. |
+| `pnpm smoke:local` | Proves Docker-backed local infrastructure, migrations, durable data, and local deterministic generation smoke. |
+| `pnpm smoke:worker -- --dry-run` | Proves worker smoke command wiring without requiring live API/worker processes. |
+| `pnpm smoke:worker` | Proves the live API -> Redis/Celery -> worker -> durable artifact/version path on a prepared host. |
+
+Browser readiness UAT for Phase 8 is host-only: start local infrastructure, run API migrations, start the API, a Windows-safe worker, and web, then confirm the V1 workbench loads and future/V2 gates remain disabled or clearly deferred. Phase 8 must not imply hosted provider calls are enabled by default. Hosted provider production rollout, provider quality, pricing, moderation, account access, and commercial-rights checks remain Phase 9 scope.
+
 ## Local Services
 
 Local PostgreSQL, Redis, and MinIO are defined in `infra/compose.yml`; see `infra/README.md` for images, ports, and Docker prerequisites.
