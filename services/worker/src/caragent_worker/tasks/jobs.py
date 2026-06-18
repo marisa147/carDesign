@@ -18,6 +18,7 @@ from caragent_core.enums import (
     JobEventType,
     JobStatus,
     ModelRunStatus,
+    ReferenceRole,
 )
 from caragent_core.generation import (
     GenerationBriefPayload,
@@ -1671,10 +1672,17 @@ def _reference_usage_snapshot(
                 asset_id=asset_id,
                 enabled=item.get("enabled") is not False,
                 rights=rights_snapshots.get(str(asset_id)),
-                role=str(item.get("role") or "inspiration"),
+                role=_reference_role(item.get("role")),
             ),
         )
     return ReferenceUsageSnapshot(items=items)
+
+
+def _reference_role(value: object) -> ReferenceRole:
+    try:
+        return ReferenceRole(str(value or ReferenceRole.INSPIRATION.value))
+    except ValueError:
+        return ReferenceRole.INSPIRATION
 
 
 def _reference_roles_from_metadata(metadata: dict[str, object]) -> list[str]:

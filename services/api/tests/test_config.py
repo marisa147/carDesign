@@ -189,9 +189,20 @@ def test_settings_expose_browser_safe_provider_capabilities(
     assert local["blocked_reasons"] == []
     assert local["supports"]["generation"] is True
     assert local["supports"]["mask_aware_generation"] is False
-    assert local["supports"]["references"] is False
+    assert local["supports"]["reference_image_inputs"] is False
+    assert local["supports"]["references"] is True
     assert local["supports"]["masks"] is False
     assert local["mask_input"]["accepted"] is False
+    assert local["reference_input"]["accepted"] is False
+    assert local["reference_input"]["prompt_guidance_roles"] == [
+        "character",
+        "style",
+        "vehicle",
+        "logo",
+        "palette",
+        "inspiration",
+    ]
+    assert local["reference_input"]["unsupported_roles"] == []
     assert local["supported_edit_routes"] == ["deterministic_recomposition"]
     assert "provider_masked_generation" in local["unsupported_edit_routes"]
 
@@ -206,7 +217,18 @@ def test_settings_expose_browser_safe_provider_capabilities(
     assert bfl["supports"]["generation"] is True
     assert bfl["supports"]["input_image_editing"] is True
     assert bfl["supports"]["mask_aware_generation"] is False
+    assert bfl["supports"]["reference_image_inputs"] is False
+    assert bfl["supports"]["references"] is False
     assert bfl["mask_input"]["accepted"] is False
+    assert bfl["reference_input"]["accepted"] is False
+    assert bfl["reference_input"]["unsupported_roles"] == [
+        "character",
+        "style",
+        "vehicle",
+        "logo",
+        "palette",
+        "inspiration",
+    ]
     assert bfl["supported_edit_routes"] == []
     assert "provider_masked_generation" in bfl["unsupported_edit_routes"]
     assert bfl["guard_state"] == {

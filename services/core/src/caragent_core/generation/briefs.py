@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from typing import Any
 
 from pydantic import BaseModel, Field, field_validator
@@ -92,7 +93,7 @@ def create_generation_brief(
     color_harmony: str | None = None,
     coverage: str | None = None,
     reference_asset_ids: list[str] | None = None,
-    reference_usage: list[ReferenceAssignment | dict[str, Any]] | None = None,
+    reference_usage: Sequence[ReferenceAssignment | Mapping[str, Any]] | None = None,
     overlay_logo_asset_ids: list[str] | None = None,
 ) -> GenerationBriefPayload:
     normalized_request = original_request.strip()
@@ -114,7 +115,7 @@ def create_generation_brief(
         palette=palette or [],
         racing_cues=racing_cues or [],
         reference_asset_ids=reference_asset_ids or [],
-        reference_usage=reference_usage or [],
+        reference_usage=_normalize_reference_usage_input(reference_usage),
         safe_zones=resolution.safe_zones,
         style=(style or "itasha concept"),
         supporting_graphics=supporting_graphics or [],
@@ -134,6 +135,18 @@ def refresh_generation_brief_warnings(brief: GenerationBriefPayload) -> Generati
     return brief.model_copy(
         update={"warnings": [*template_warnings, *_quality_warnings(brief.text)]},
     )
+
+
+def _normalize_reference_usage_input(
+    reference_usage: Sequence[ReferenceAssignment | Mapping[str, Any]] | None,
+) -> list[ReferenceAssignment]:
+    if not reference_usage:
+        return []
+
+    return [
+        item if isinstance(item, ReferenceAssignment) else ReferenceAssignment.model_validate(item)
+        for item in reference_usage
+    ]
 
 
 def _quality_warnings(text: list[str]) -> list[str]:
