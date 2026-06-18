@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import pytest
 from sqlalchemy import LargeBinary, UniqueConstraint
 
 from caragent_core import enums
@@ -219,3 +220,96 @@ def test_phase_11_reference_roles_and_snapshots_round_trip_to_json() -> None:
         "schema_version": 1,
     }
     assert "binary" not in str(dumped).lower()
+
+
+def test_phase_12_preview_3d_spec_and_screenshot_metadata_round_trip_to_json() -> None:
+    from caragent_core.preview3d import (
+        Preview3DCompatibility,
+        Preview3DScreenshotArtifactMetadata,
+        Preview3DSpec,
+    )
+
+    assert enums.ArtifactKind.PREVIEW_3D_SCREENSHOT.value == "preview_3d_screenshot"
+
+    spec = Preview3DSpec.model_validate(
+        {
+            "camera": {
+                "preset_id": "front-left-default",
+                "position": {"x": 2.8, "y": 1.4, "z": 4.2},
+                "target": {"x": 0.0, "y": 0.4, "z": 0.0},
+                "zoom": 1.0,
+            },
+            "compatibility": {
+                "shell_id": "generic-side-coupe-lightweight-v1",
+                "status": "compatible",
+            },
+            "materials": {
+                "decal_strategy": "preview_spec_projection",
+                "overlay_layers": [
+                    {"id": "text-1", "slot": "side-decal-plane", "text": "MOON DRIVE"},
+                ],
+                "safe_zone_overlays": [
+                    {
+                        "height": 0.24,
+                        "id": "door-main",
+                        "slot": "side-decal-plane",
+                        "width": 0.34,
+                        "x": 0.32,
+                        "y": 0.47,
+                    },
+                ],
+                "source_artifact_id": "33333333-3333-3333-3333-333333333333",
+                "source_kind": "preview_spec",
+            },
+            "mode": "lightweight_shell",
+            "shell": {
+                "dimensions": {"height": 1.4, "length": 4.4, "width": 1.8},
+                "id": "generic-side-coupe-lightweight-v1",
+                "label": "Generic side coupe lightweight shell",
+                "material_slots": ["body", "side-decal-plane", "glass", "wheel"],
+                "template_id": "generic-side-coupe",
+            },
+            "source": {
+                "artifact_id": "33333333-3333-3333-3333-333333333333",
+                "artifact_object_key": "workspaces/ws/generated_image/artifact/concept.png",
+                "preview_spec_template_id": "generic-side-coupe",
+                "preview_spec_view": "side",
+                "version_id": "22222222-2222-2222-2222-222222222222",
+                "workspace_id": "11111111-1111-1111-1111-111111111111",
+            },
+        },
+    )
+
+    dumped = spec.model_dump(mode="json")
+    assert dumped["schema_version"] == 1
+    assert dumped["compatibility"] == {
+        "reason": None,
+        "shell_id": "generic-side-coupe-lightweight-v1",
+        "status": "compatible",
+    }
+    assert [warning["id"] for warning in dumped["warnings"]] == [
+        "non_production_preview",
+        "uv_not_verified",
+        "single_shell_fixture",
+    ]
+
+    screenshot = Preview3DScreenshotArtifactMetadata.model_validate(
+        {
+            "preview_3d_screenshot": {
+                "camera": dumped["camera"],
+                "preview_3d": dumped,
+                "shell_id": "generic-side-coupe-lightweight-v1",
+                "source_artifact_id": "33333333-3333-3333-3333-333333333333",
+                "warning_ids": ["non_production_preview", "uv_not_verified"],
+            },
+        },
+    ).model_dump(mode="json")
+
+    assert screenshot["preview_3d_screenshot"]["schema_version"] == 1
+    rendered = str(screenshot).lower()
+    assert "base64" not in rendered
+    assert "image_bytes" not in rendered
+    assert "binary" not in rendered
+
+    with pytest.raises(ValueError):
+        Preview3DCompatibility.model_validate({"status": "maybe"})

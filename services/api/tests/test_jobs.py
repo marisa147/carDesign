@@ -16,6 +16,7 @@ from caragent_core.enums import (
     ModelRunStatus,
 )
 from caragent_core.models import Artifact, DesignVersion, metadata
+from caragent_core.preview3d import Preview3DScreenshotArtifactMetadata, Preview3DSpec
 from caragent_core.services import jobs
 from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker
@@ -234,6 +235,38 @@ async def create_reference_trace_records(
         "reference_trace": trace,
         "version_id": str(version.id),
     }
+
+
+async def create_preview_3d_records(
+    session_factory: async_sessionmaker[Any],
+    workspace_id: UUID,
+    job_id: UUID,
+) -> dict[str, str]:
+    spec = preview_3d_spec()
+    async with session_scope(session_factory) as session:
+        version = await jobs.create_design_version(
+            session,
+            workspace_id,
+            job_id=job_id,
+            parameters={"preview_3d": spec.model_dump(mode="json")},
+            status=DesignVersionStatus.GENERATED.value,
+            title="3D preview source",
+        )
+        artifact = await jobs.create_artifact(
+            session,
+            workspace_id,
+            byte_size=1024,
+            checksum_sha256="b" * 64,
+            content_type="image/png",
+            height=720,
+            job_id=job_id,
+            kind=ArtifactKind.PREVIEW_3D_SCREENSHOT.value,
+            metadata=preview_3d_screenshot_metadata().model_dump(mode="json"),
+            object_key=f"workspaces/{workspace_id}/preview_3d_screenshot/{version.id}/capture.png",
+            version_id=version.id,
+            width=1280,
+        )
+    return {"artifact_id": str(artifact.id), "version_id": str(version.id)}
 
 
 def test_create_job_requires_idempotency_and_reuses_duplicate_key(tmp_path: Path) -> None:
@@ -522,6 +555,42 @@ def test_concept_export_manifest_includes_reference_trace_source(
     assert "secret" not in rendered_manifest
 
 
+def test_preview_3d_screenshot_artifacts_are_readable_through_api(tmp_path: Path) -> None:
+    client, app = create_job_client(tmp_path)
+    workspace_id = client.post("/workspaces", json={"title": "3D preview"}).json()["id"]
+    job_id = client.post(
+        f"/workspaces/{workspace_id}/jobs",
+        json={"idempotency_key": "preview-3d-api-001", "operation": "generate_concept"},
+    ).json()["id"]
+    records = asyncio.run(
+        create_preview_3d_records(app.state.session_factory, UUID(workspace_id), UUID(job_id)),
+    )
+
+    versions = client.get(f"/workspaces/{workspace_id}/versions")
+    artifacts = client.get(f"/workspaces/{workspace_id}/artifacts")
+
+    assert versions.status_code == 200
+    assert versions.json()[0]["parameters"]["preview_3d"]["schema_version"] == 1
+    assert versions.json()[0]["parameters"]["preview_3d"]["compatibility"] == {
+        "reason": None,
+        "shell_id": "generic-side-coupe-lightweight-v1",
+        "status": "compatible",
+    }
+
+    assert artifacts.status_code == 200
+    artifact = artifacts.json()[0]
+    assert artifact["id"] == records["artifact_id"]
+    assert artifact["kind"] == "preview_3d_screenshot"
+    assert artifact["version_id"] == records["version_id"]
+    assert artifact["metadata"]["preview_3d_screenshot"]["shell_id"] == (
+        "generic-side-coupe-lightweight-v1"
+    )
+    rendered = str(artifact["metadata"]).lower()
+    assert "base64" not in rendered
+    assert "image_bytes" not in rendered
+    assert "binary" not in rendered
+
+
 def test_feedback_and_export_creation_validate_inputs(tmp_path: Path) -> None:
     client, app = create_job_client(tmp_path)
     workspace_id = client.post("/workspaces", json={"title": "Validation"}).json()["id"]
@@ -638,3 +707,70 @@ def reference_trace_metadata() -> dict[str, object]:
         "rights_snapshot": {reference_id: rights},
         "unsupported_reference_roles": [],
     }
+
+
+def preview_3d_spec() -> Preview3DSpec:
+    return Preview3DSpec.model_validate(
+        {
+            "camera": {
+                "preset_id": "front-left-default",
+                "position": {"x": 2.8, "y": 1.4, "z": 4.2},
+                "target": {"x": 0.0, "y": 0.4, "z": 0.0},
+                "zoom": 1.0,
+            },
+            "compatibility": {
+                "shell_id": "generic-side-coupe-lightweight-v1",
+                "status": "compatible",
+            },
+            "materials": {
+                "decal_strategy": "preview_spec_projection",
+                "overlay_layers": [
+                    {"id": "text-1", "slot": "side-decal-plane", "text": "MOON DRIVE"},
+                ],
+                "safe_zone_overlays": [
+                    {
+                        "height": 0.24,
+                        "id": "door-main",
+                        "slot": "side-decal-plane",
+                        "width": 0.34,
+                        "x": 0.32,
+                        "y": 0.47,
+                    },
+                ],
+                "source_artifact_id": "33333333-3333-3333-3333-333333333333",
+                "source_kind": "preview_spec",
+            },
+            "mode": "lightweight_shell",
+            "shell": {
+                "dimensions": {"height": 1.4, "length": 4.4, "width": 1.8},
+                "id": "generic-side-coupe-lightweight-v1",
+                "label": "Generic side coupe lightweight shell",
+                "material_slots": ["body", "side-decal-plane", "glass", "wheel"],
+                "template_id": "generic-side-coupe",
+            },
+            "source": {
+                "artifact_id": "33333333-3333-3333-3333-333333333333",
+                "artifact_object_key": "workspaces/ws/generated_image/artifact/concept.png",
+                "preview_spec_template_id": "generic-side-coupe",
+                "preview_spec_view": "side",
+                "version_id": "22222222-2222-2222-2222-222222222222",
+                "workspace_id": "11111111-1111-1111-1111-111111111111",
+            },
+        },
+    )
+
+
+def preview_3d_screenshot_metadata() -> Preview3DScreenshotArtifactMetadata:
+    spec = preview_3d_spec()
+    dumped = spec.model_dump(mode="json")
+    return Preview3DScreenshotArtifactMetadata.model_validate(
+        {
+            "preview_3d_screenshot": {
+                "camera": dumped["camera"],
+                "preview_3d": dumped,
+                "shell_id": "generic-side-coupe-lightweight-v1",
+                "source_artifact_id": "33333333-3333-3333-3333-333333333333",
+                "warning_ids": ["non_production_preview", "uv_not_verified"],
+            },
+        },
+    )
