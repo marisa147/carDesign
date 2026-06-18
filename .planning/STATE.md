@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: V2 MVP
 status: executing
-stopped_at: Created Phase 10 execution plans
-last_updated: "2026-06-18T09:40:39Z"
-last_activity: "2026-06-18 -- Created Phase 10 targeted regeneration execution plans"
+stopped_at: Completed 10-01-PLAN.md
+last_updated: "2026-06-18T09:57:54Z"
+last_activity: "2026-06-18 -- Completed Phase 10 Plan 01 targeted edit schema foundation"
 progress:
   total_phases: 7
   completed_phases: 2
   total_plans: 48
-  completed_plans: 12
-  percent: 25
+  completed_plans: 13
+  percent: 27
 ---
 
 # Project State
@@ -25,13 +25,13 @@ See: .planning/PROJECT.md (updated 2026-06-18)
 
 ## Current Position
 
-Milestone: v2.0 V2 MVP — PHASE 10 READY
-Phase: 10 (Targeted Regeneration And Masked Editing MVP) — READY FOR EXECUTION
-Plan: 10-01-PLAN.md
-Status: Ready to execute Phase 10 Plan 01
-Last activity: 2026-06-18 -- Created Phase 10 targeted regeneration execution plans
+Milestone: v2.0 V2 MVP — PHASE 10 EXECUTING
+Phase: 10 (Targeted Regeneration And Masked Editing MVP) — IN PROGRESS
+Plan: 10-02-PLAN.md
+Status: Ready to execute Phase 10 Plan 02
+Last activity: 2026-06-18 -- Completed Phase 10 Plan 01 targeted edit schema foundation
 
-Progress: [###-------] 25%
+Progress: [###-------] 27%
 
 ## Milestone Archives
 
@@ -50,7 +50,7 @@ v2.0 MVP is scoped to the following phase sequence:
 |-------|-------|-------|--------------|
 | Phase 8 | V1 Closure And V2 Readiness Gate | 5/5 | V2-READY-01..04 |
 | Phase 9 | Hosted Provider Rollout MVP | 7/7 | V2-PROVIDER-01..05 |
-| Phase 10 | Targeted Regeneration And Masked Editing MVP | 0/8 ready | V2-EDIT-01..05 |
+| Phase 10 | Targeted Regeneration And Masked Editing MVP | 1/8 | V2-EDIT-01..05 |
 | Phase 11 | Reference-Guided Generation MVP | 0/7 | V2-REF-01..05 |
 | Phase 12 | Lightweight 3D Preview MVP | 0/8 | V2-3D-01..05 |
 | Phase 13 | Enhanced Concept Handoff Package MVP | 0/7 | V2-HANDOFF-01..05 |
@@ -91,6 +91,7 @@ Recent decisions affecting v2.0:
 - [Milestone v1.0]: Keep exported files labeled as concept preview until production handoff validation exists.
 - [Milestone v2.0]: Use `C:/Users/25858/Downloads/V2_MVP_ROADMAP (1).md` as the milestone source for requirements and roadmap.
 - [Milestone v2.0]: Continue phase numbering from v1.0, so V2 work starts at Phase 8.
+- [Phase 10 Plan 01]: Targeted edits use shared `caragent_core.editing` Pydantic schemas; iteration jobs persist `edit_intent` with route-derived parent version id.
 
 ### Pending Todos
 
@@ -120,47 +121,22 @@ Items acknowledged and deferred beyond v2.0 MVP:
 
 ## Session Continuity
 
-Last session: 2026-06-18T09:40:39Z
-Stopped at: Created Phase 10 execution plans
+Last session: 2026-06-18T09:57:54Z
+Stopped at: Completed 10-01-PLAN.md
 Resume files:
 
 - `.planning/PROJECT.md`
 - `.planning/REQUIREMENTS.md`
 - `.planning/ROADMAP.md`
 - `.planning/STATE.md`
-- `.planning/phases/09-hosted-provider-rollout-mvp/09-CONTEXT.md`
-- `.planning/phases/09-hosted-provider-rollout-mvp/09-RESEARCH.md`
-- `.planning/phases/09-hosted-provider-rollout-mvp/09-VALIDATION.md`
-- `.planning/phases/09-hosted-provider-rollout-mvp/09-PATTERNS.md`
-- `.planning/phases/09-hosted-provider-rollout-mvp/09-01-PLAN.md`
-- `.planning/phases/09-hosted-provider-rollout-mvp/09-01-SUMMARY.md`
-- `.planning/phases/09-hosted-provider-rollout-mvp/09-02-PLAN.md`
-- `.planning/phases/09-hosted-provider-rollout-mvp/09-02-SUMMARY.md`
-- `.planning/phases/09-hosted-provider-rollout-mvp/09-03-PLAN.md`
-- `.planning/phases/09-hosted-provider-rollout-mvp/09-03-SUMMARY.md`
-- `.planning/phases/09-hosted-provider-rollout-mvp/09-04-PLAN.md`
-- `.planning/phases/09-hosted-provider-rollout-mvp/09-04-SUMMARY.md`
-- `.planning/phases/09-hosted-provider-rollout-mvp/09-05-PLAN.md`
-- `.planning/phases/09-hosted-provider-rollout-mvp/09-05-SUMMARY.md`
-- `.planning/phases/09-hosted-provider-rollout-mvp/09-06-PLAN.md`
-- `.planning/phases/09-hosted-provider-rollout-mvp/09-06-SUMMARY.md`
-- `.planning/phases/09-hosted-provider-rollout-mvp/09-07-PLAN.md`
-- `.planning/phases/09-hosted-provider-rollout-mvp/09-07-SUMMARY.md`
-- `.planning/phases/09-hosted-provider-rollout-mvp/09-VERIFICATION.md`
-- `.planning/phases/09-hosted-provider-rollout-mvp/09-HUMAN-UAT.md`
 - `.planning/phases/09-hosted-provider-rollout-mvp/09-MILESTONE-NOTES.md`
 - `.planning/phases/10-targeted-regeneration-and-masked-editing-mvp/10-CONTEXT.md`
 - `.planning/phases/10-targeted-regeneration-and-masked-editing-mvp/10-RESEARCH.md`
 - `.planning/phases/10-targeted-regeneration-and-masked-editing-mvp/10-VALIDATION.md`
 - `.planning/phases/10-targeted-regeneration-and-masked-editing-mvp/10-PATTERNS.md`
 - `.planning/phases/10-targeted-regeneration-and-masked-editing-mvp/10-01-PLAN.md`
+- `.planning/phases/10-targeted-regeneration-and-masked-editing-mvp/10-01-SUMMARY.md`
 - `.planning/phases/10-targeted-regeneration-and-masked-editing-mvp/10-02-PLAN.md`
-- `.planning/phases/10-targeted-regeneration-and-masked-editing-mvp/10-03-PLAN.md`
-- `.planning/phases/10-targeted-regeneration-and-masked-editing-mvp/10-04-PLAN.md`
-- `.planning/phases/10-targeted-regeneration-and-masked-editing-mvp/10-05-PLAN.md`
-- `.planning/phases/10-targeted-regeneration-and-masked-editing-mvp/10-06-PLAN.md`
-- `.planning/phases/10-targeted-regeneration-and-masked-editing-mvp/10-07-PLAN.md`
-- `.planning/phases/10-targeted-regeneration-and-masked-editing-mvp/10-08-PLAN.md`
 
 Next recommended command: `$gsd-execute-phase 10 --auto`
 Alternative: `$gsd-progress --next`
