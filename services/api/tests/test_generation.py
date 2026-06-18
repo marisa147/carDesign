@@ -580,7 +580,7 @@ def test_submit_targeted_iteration_records_edit_intent_metadata(
         },
     }
     assert stored_job.metadata_json["provider_intent"] == {
-        "model": "local-deterministic-v1",
+        "model": "local-concept-v1",
         "parameters": {"quality": "concept"},
         "provider": "local-deterministic",
     }

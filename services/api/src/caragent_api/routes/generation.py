@@ -210,16 +210,21 @@ async def submit_generation_iteration_job(
 ) -> GenerationJobSubmissionResponse:
     brief = await _get_workspace_brief(session, workspace_id, payload.brief_id)
     provider_intent = _provider_intent_from_submission(payload, _settings_from_request(request))
-    metadata: dict[str, Any] = {
-        "change_request": payload.change_request,
-        "iteration": True,
-        "parameter_overrides": payload.parameter_overrides,
-        "source": "generation-iteration-api",
-    }
-    if provider_intent is not None:
-        metadata["provider_intent"] = provider_intent.metadata
     try:
         parent_version = await jobs.get_workspace_version(session, workspace_id, version_id)
+        metadata: dict[str, Any] = {
+            "change_request": payload.change_request,
+            "iteration": True,
+            "parameter_overrides": payload.parameter_overrides,
+            "source": "generation-iteration-api",
+        }
+        if payload.edit_intent is not None:
+            edit_intent = payload.edit_intent.model_copy(
+                update={"parent_version_id": parent_version.id},
+            )
+            metadata["edit_intent"] = edit_intent.model_dump(mode="json")
+        if provider_intent is not None:
+            metadata["provider_intent"] = provider_intent.metadata
         metadata["parent_version_id"] = str(parent_version.id)
         result = await jobs.create_job(
             session,

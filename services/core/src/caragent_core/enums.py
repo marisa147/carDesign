@@ -71,6 +71,7 @@ class DesignVersionStatus(StrEnum):
 
 class ArtifactKind(StrEnum):
     UPLOAD = "upload"
+    MASK = "mask"
     THUMBNAIL = "thumbnail"
     GENERATED_IMAGE = "generated_image"
     PREVIEW = "preview"

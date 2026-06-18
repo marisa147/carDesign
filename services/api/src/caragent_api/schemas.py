@@ -5,6 +5,7 @@ from decimal import Decimal
 from typing import Any
 from uuid import UUID
 
+from caragent_core.editing import EditIntent
 from caragent_core.enums import MessageRole
 from caragent_core.generation import GenerationBriefPayload
 from pydantic import BaseModel, ConfigDict, Field
@@ -193,6 +194,7 @@ class GenerationJobSubmissionRequest(BaseModel):
 class GenerationIterationSubmissionRequest(BaseModel):
     brief_id: UUID
     change_request: str = Field(min_length=1)
+    edit_intent: EditIntent | None = None
     idempotency_key: str = Field(min_length=1, max_length=160)
     parameter_overrides: dict[str, Any] = Field(default_factory=dict)
     model: str | None = Field(default=None, max_length=120)
