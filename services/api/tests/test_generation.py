@@ -549,7 +549,9 @@ def test_submit_targeted_iteration_records_edit_intent_metadata(
     assert response.status_code == 201
     assert len(queue.enqueued) == 1
 
-    stored_job = asyncio.run(read_job(app.state.session_factory, UUID(response.json()["job"]["id"])))
+    stored_job = asyncio.run(
+        read_job(app.state.session_factory, UUID(response.json()["job"]["id"])),
+    )
     assert stored_job.metadata_json["parent_version_id"] == str(parent_version_id)
     assert stored_job.metadata_json["edit_intent"] == {
         "mask": {

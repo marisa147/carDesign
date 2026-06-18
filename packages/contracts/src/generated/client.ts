@@ -128,6 +128,81 @@ export interface DesignVersionResponse {
   workspace_id: string;
 }
 
+export type EditIntentRoutePreference = typeof EditIntentRoutePreference[keyof typeof EditIntentRoutePreference];
+
+
+export const EditIntentRoutePreference = {
+  deterministic_recomposition: 'deterministic_recomposition',
+  provider_masked_generation: 'provider_masked_generation',
+} as const;
+
+export interface MaskAssetRef {
+  artifact_id: string;
+  /** @minLength 1 */
+  content_type: string;
+  /** @exclusiveMinimum 0 */
+  height: number;
+  /** @exclusiveMinimum 0 */
+  width: number;
+}
+
+export interface PromptDelta {
+  /** @minItems 1 */
+  instructions: string[];
+  /** @minLength 1 */
+  summary: string;
+}
+
+export interface EditRegion {
+  /**
+     * @maximum 1
+     * @exclusiveMinimum 0
+     */
+  height: number;
+  type: 'rectangle';
+  unit?: 'normalized';
+  /**
+     * @maximum 1
+     * @exclusiveMinimum 0
+     */
+  width: number;
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  x: number;
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  y: number;
+}
+
+export type EditTargetType = typeof EditTargetType[keyof typeof EditTargetType];
+
+
+export const EditTargetType = {
+  safe_zone: 'safe_zone',
+  overlay_layer: 'overlay_layer',
+} as const;
+
+export interface EditTarget {
+  /** @minLength 1 */
+  id: string;
+  type: EditTargetType;
+}
+
+export interface EditIntent {
+  mask: MaskAssetRef;
+  mode: 'targeted_edit';
+  parent_version_id?: string | null;
+  prompt_delta: PromptDelta;
+  region: EditRegion;
+  route_preference: EditIntentRoutePreference;
+  schema_version?: 1;
+  target: EditTarget;
+}
+
 export type ExportCreateRequestManifest = { [key: string]: unknown };
 
 export interface ExportCreateRequest {
@@ -270,6 +345,7 @@ export interface GenerationIterationSubmissionRequest {
   brief_id: string;
   /** @minLength 1 */
   change_request: string;
+  edit_intent?: EditIntent | null;
   /**
      * @minLength 1
      * @maxLength 160

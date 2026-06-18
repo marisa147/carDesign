@@ -602,6 +602,137 @@
         "title": "DesignVersionResponse",
         "type": "object"
       },
+      "EditIntent": {
+        "additionalProperties": false,
+        "properties": {
+          "mask": {
+            "$ref": "#/components/schemas/MaskAssetRef"
+          },
+          "mode": {
+            "const": "targeted_edit",
+            "title": "Mode",
+            "type": "string"
+          },
+          "parent_version_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Version Id"
+          },
+          "prompt_delta": {
+            "$ref": "#/components/schemas/PromptDelta"
+          },
+          "region": {
+            "$ref": "#/components/schemas/EditRegion"
+          },
+          "route_preference": {
+            "enum": [
+              "deterministic_recomposition",
+              "provider_masked_generation"
+            ],
+            "title": "Route Preference",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": 1,
+            "default": 1,
+            "title": "Schema Version",
+            "type": "integer"
+          },
+          "target": {
+            "$ref": "#/components/schemas/EditTarget"
+          }
+        },
+        "required": [
+          "mode",
+          "route_preference",
+          "target",
+          "region",
+          "prompt_delta",
+          "mask"
+        ],
+        "title": "EditIntent",
+        "type": "object"
+      },
+      "EditRegion": {
+        "additionalProperties": false,
+        "properties": {
+          "height": {
+            "exclusiveMinimum": 0.0,
+            "maximum": 1.0,
+            "title": "Height",
+            "type": "number"
+          },
+          "type": {
+            "const": "rectangle",
+            "title": "Type",
+            "type": "string"
+          },
+          "unit": {
+            "const": "normalized",
+            "default": "normalized",
+            "title": "Unit",
+            "type": "string"
+          },
+          "width": {
+            "exclusiveMinimum": 0.0,
+            "maximum": 1.0,
+            "title": "Width",
+            "type": "number"
+          },
+          "x": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "X",
+            "type": "number"
+          },
+          "y": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Y",
+            "type": "number"
+          }
+        },
+        "required": [
+          "type",
+          "x",
+          "y",
+          "width",
+          "height"
+        ],
+        "title": "EditRegion",
+        "type": "object"
+      },
+      "EditTarget": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "minLength": 1,
+            "title": "Id",
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "safe_zone",
+              "overlay_layer"
+            ],
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "id"
+        ],
+        "title": "EditTarget",
+        "type": "object"
+      },
       "ExportCreateRequest": {
         "properties": {
           "artifact_id": {
@@ -1416,6 +1547,16 @@
             "title": "Change Request",
             "type": "string"
           },
+          "edit_intent": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EditIntent"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "idempotency_key": {
             "maxLength": 160,
             "minLength": 1,
@@ -2218,6 +2359,39 @@
         "title": "JobEventResponse",
         "type": "object"
       },
+      "MaskAssetRef": {
+        "additionalProperties": false,
+        "properties": {
+          "artifact_id": {
+            "format": "uuid",
+            "title": "Artifact Id",
+            "type": "string"
+          },
+          "content_type": {
+            "minLength": 1,
+            "title": "Content Type",
+            "type": "string"
+          },
+          "height": {
+            "exclusiveMinimum": 0.0,
+            "title": "Height",
+            "type": "integer"
+          },
+          "width": {
+            "exclusiveMinimum": 0.0,
+            "title": "Width",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "artifact_id",
+          "content_type",
+          "width",
+          "height"
+        ],
+        "title": "MaskAssetRef",
+        "type": "object"
+      },
       "MessageCreateRequest": {
         "properties": {
           "content": {
@@ -2490,6 +2664,30 @@
           "worker"
         ],
         "title": "OperationsProviderStatusResponse",
+        "type": "object"
+      },
+      "PromptDelta": {
+        "additionalProperties": false,
+        "properties": {
+          "instructions": {
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Instructions",
+            "type": "array"
+          },
+          "summary": {
+            "minLength": 1,
+            "title": "Summary",
+            "type": "string"
+          }
+        },
+        "required": [
+          "summary",
+          "instructions"
+        ],
+        "title": "PromptDelta",
         "type": "object"
       },
       "ProviderOperationsSummary": {
