@@ -1,8 +1,8 @@
 # Development Guide
 
-This guide is the local runbook for the foundation stack, durable-data work, first text-to-2D generation slice, Phase 4 integrated workbench, Phase 5 iteration/feedback/concept export flow, Phase 6 itasha/template intelligence, and Phase 7 operations/provider strategy. It documents how to install prerequisites, configure local environment files, run the web/API/worker processes, start local infrastructure, run migrations, generate contracts, run validation, perform smoke checks, run browser UAT, and troubleshoot host setup failures.
+This guide is the local runbook for the foundation stack, durable-data work, first text-to-2D generation slice, Phase 4 integrated workbench, Phase 5 iteration/feedback/concept export flow, Phase 6 itasha/template intelligence, Phase 7 operations/provider strategy, and Phase 10 targeted edit workflow. It documents how to install prerequisites, configure local environment files, run the web/API/worker processes, start local infrastructure, run migrations, generate contracts, run validation, perform smoke checks, run browser UAT, and troubleshoot host setup failures.
 
-`init.MD` and `UI.png` are seed references for the product direction. Phase 1 established the runnable foundation; Phase 2 adds durable workspace/message/asset/job data and a minimal web refresh proof; Phase 3 adds structured brief parsing, prompt traceability, local deterministic concept generation, generation API routes, retry behavior, and a compact web proof. Phase 4 replaces the proof-first page with a workbench that connects chat, parameters, asset upload/rights state, progress events, 2D preview, version history, and future gates to canonical API-backed state. Phase 5 adds selected-version iteration, parent/child lineage comparison, durable feedback, approval/rejection comments, and concept export records with a metadata manifest that says the output is not print-ready. Phase 6 adds itasha-specific controls, deterministic text/logo overlay evidence, safe-zone/template warnings, and PreviewSpec metadata for future renderer work. Phase 7 adds operations status, classified failure metadata, cancel/revoke handoff, bounded provider retry/fallback, hosted-call quota preflight, and worker queue smoke checks. Phase 8 starts V2 from a verified V1 baseline. Phase 9 adds a default-off hosted BFL rollout path with provider capability metadata, BFL adapter polling, API/worker preflight, trace/cost/failure diagnostics, a workbench provider selector, and provider-off/provider-on runbooks. Production-ready wrap output, authentication, hosted provider calls by default, billing, true 3D, marketplace/community flows, and production deployment remain out of scope.
+`init.MD` and `UI.png` are seed references for the product direction. Phase 1 established the runnable foundation; Phase 2 adds durable workspace/message/asset/job data and a minimal web refresh proof; Phase 3 adds structured brief parsing, prompt traceability, local deterministic concept generation, generation API routes, retry behavior, and a compact web proof. Phase 4 replaces the proof-first page with a workbench that connects chat, parameters, asset upload/rights state, progress events, 2D preview, version history, and future gates to canonical API-backed state. Phase 5 adds selected-version iteration, parent/child lineage comparison, durable feedback, approval/rejection comments, and concept export records with a metadata manifest that says the output is not print-ready. Phase 6 adds itasha-specific controls, deterministic text/logo overlay evidence, safe-zone/template warnings, and PreviewSpec metadata for future renderer work. Phase 7 adds operations status, classified failure metadata, cancel/revoke handoff, bounded provider retry/fallback, hosted-call quota preflight, and worker queue smoke checks. Phase 8 starts V2 from a verified V1 baseline. Phase 9 adds a default-off hosted BFL rollout path with provider capability metadata, BFL adapter polling, API/worker preflight, trace/cost/failure diagnostics, a workbench provider selector, and provider-off/provider-on runbooks. Phase 10 adds targeted edit selection, mask preview, deterministic recomposition, provider-mask guardrails, retry-safe failure states, and comparison for parent/child versions with metadata-backed changed-region highlighting. Production-ready wrap output, authentication, hosted provider calls by default, billing, true 3D, marketplace/community flows, and production deployment remain out of scope.
 
 ## Prerequisites
 
@@ -193,7 +193,7 @@ uv run alembic upgrade head
 uv run alembic current
 ```
 
-API settings cover database URL, Redis URL, S3/MinIO endpoint and bucket settings, CORS origins, runtime mode, and the provider placeholder contract: `AI_PROVIDER_DEFAULT`, `AI_PROVIDER_CALLS_ENABLED`, `AI_PROVIDER_OPENAI_API_KEY`, `AI_PROVIDER_FAL_API_KEY`, and `AI_PROVIDER_BFL_API_KEY`. The API exposes Phase 2 workspace, message, asset, rights, job, event, version, artifact, feedback, export, and cost/idempotency contract surfaces plus Phase 3 structured brief creation/update, generation submission, and failed-job retry routes through FastAPI and generated OpenAPI. Phase 5 adds workspace/version-scoped creation routes for feedback, concept export, and child iteration submission. Phase 6 extends existing generation brief create/update contracts with itasha fields for character focus, supporting graphics, racing/JDM cues, typography intent, color harmony, and overlay logo asset ids. Phase 7 adds `/operations/provider-status` and `POST /jobs/{job_id}/cancel`. Provider calls remain disabled in local mode.
+API settings cover database URL, Redis URL, S3/MinIO endpoint and bucket settings, CORS origins, runtime mode, and the provider placeholder contract: `AI_PROVIDER_DEFAULT`, `AI_PROVIDER_CALLS_ENABLED`, `AI_PROVIDER_OPENAI_API_KEY`, `AI_PROVIDER_FAL_API_KEY`, and `AI_PROVIDER_BFL_API_KEY`. The API exposes Phase 2 workspace, message, asset, rights, job, event, version, artifact, feedback, export, and cost/idempotency contract surfaces plus Phase 3 structured brief creation/update, generation submission, and failed-job retry routes through FastAPI and generated OpenAPI. Phase 5 adds workspace/version-scoped creation routes for feedback, concept export, and child iteration submission. Phase 6 extends existing generation brief create/update contracts with itasha fields for character focus, supporting graphics, racing/JDM cues, typography intent, color harmony, and overlay logo asset ids. Phase 7 adds `/operations/provider-status` and `POST /jobs/{job_id}/cancel`. Phase 10 extends iteration submission with typed targeted edit intent, mask metadata, route preference, and parent-version validation while keeping provider calls disabled in local mode.
 
 ## Worker
 
@@ -219,7 +219,7 @@ uv run mypy src
 uv run pytest -q
 ```
 
-The worker boot path includes Celery, Redis broker configuration, service `.env` loading, provider setting parsing/redaction, the health task, a local no-provider job simulation task, and the Phase 3 `generate_2d_concept_job` task. It updates durable job state through `caragent_core`, does not import FastAPI routers, and defaults to local deterministic image generation without hosted provider calls. For Phase 5 child iterations, the worker reads durable generation job metadata such as `parent_version_id`, `change_request`, and `parameter_overrides`, then creates a child design version instead of overwriting the parent. For Phase 6 PreviewSpec support, the worker persists overlay/safe-zone/warning metadata into generated version parameters and artifact metadata, and checks confirmed rights for both reference assets and overlay logo assets before generation. For Phase 7 operations, the worker emits structured failure categories/stages, observes canceled jobs before and during generation, records provider attempt metadata, applies bounded retry/fallback rules, and blocks non-local hosted calls before provider execution unless daily, per-minute, and per-job cost guards are configured. For Phase 9 hosted BFL calls, the worker uses the BFL adapter only after API/worker preflight passes; it stores provider/model/parameter/cost/fallback traces and maps moderation, validation, credits, rate-limit, timeout, and provider errors into safe diagnostics.
+The worker boot path includes Celery, Redis broker configuration, service `.env` loading, provider setting parsing/redaction, the health task, a local no-provider job simulation task, and the Phase 3 `generate_2d_concept_job` task. It updates durable job state through `caragent_core`, does not import FastAPI routers, and defaults to local deterministic image generation without hosted provider calls. For Phase 5 child iterations, the worker reads durable generation job metadata such as `parent_version_id`, `change_request`, and `parameter_overrides`, then creates a child design version instead of overwriting the parent. For Phase 6 PreviewSpec support, the worker persists overlay/safe-zone/warning metadata into generated version parameters and artifact metadata, and checks confirmed rights for both reference assets and overlay logo assets before generation. For Phase 7 operations, the worker emits structured failure categories/stages, observes canceled jobs before and during generation, records provider attempt metadata, applies bounded retry/fallback rules, and blocks non-local hosted calls before provider execution unless daily, per-minute, and per-job cost guards are configured. For Phase 9 hosted BFL calls, the worker uses the BFL adapter only after API/worker preflight passes; it stores provider/model/parameter/cost/fallback traces and maps moderation, validation, credits, rate-limit, timeout, and provider errors into safe diagnostics. For Phase 10 targeted edit jobs, the worker reads durable `edit_intent`, validates parent version and mask metadata, uses deterministic recomposition for safe layer edits, blocks unsupported provider-mask routes, and records route/target/region/prompt/provider evidence for comparison.
 
 ## Phase 3 Generation
 
@@ -411,6 +411,34 @@ corepack pnpm validate
 
 If provider-on smoke is skipped because credentials are absent or cost approval is not available, record that skip explicitly in `.planning/phases/09-hosted-provider-rollout-mvp/09-HUMAN-UAT.md`. Do not claim live hosted success without a real provider-on run.
 
+## Phase 10 Targeted Editing
+
+Phase 10 keeps default validation local, provider-off, and free. Targeted edit requests are child iterations with a durable `edit_intent`: parent version id, selected target, normalized region, mask artifact metadata, prompt delta, route preference, and provider intent where applicable. Parent versions and artifacts remain immutable.
+
+The web workbench uses PreviewSpec safe zones and overlay layers as selectable targets. In a generated version, enable `局部编辑`, select a safe zone or overlay layer, preview the mask, and submit a targeted edit from the iteration panel. Deterministic recomposition is used for safe layer edits such as text, logo, opacity, visibility, position, or scale changes. Provider-mask generation is guarded by feature flags, provider capability metadata, hosted preflight, quota/rate/cost guards, and worker-side validation.
+
+Failure and retry behavior is metadata-driven. Invalid target or mask failures are non-retryable; provider, timeout, and storage failures may be retryable while preserving the original edit intent, parent version, mask artifact, route, and provider intent. The progress panel shows safe failure category, route, target, blocked reason, and retry eligibility without exposing provider secrets or raw vendor payloads.
+
+Comparison is metadata-first. Targeted child versions expose a compare affordance in version history. The comparison panel shows parent/child labels, route (`deterministic_recomposition` or `provider_masked_generation`), selected target, prompt delta, changed fields, provider/model/cost evidence when present, and a normalized changed-region highlight. The highlight is not a pixel-perfect diff and does not imply print-ready or production validation.
+
+Focused Phase 10 checks:
+
+```powershell
+cd services/api
+uv run pytest -q tests/test_generation.py tests/test_jobs.py tests/test_operations.py
+cd ../core
+uv run pytest -q tests/test_models.py tests/test_generation_jobs.py tests/test_prompt_plans.py
+cd ../worker
+uv run pytest -q tests/test_generation_tasks.py tests/test_image_providers.py tests/test_config.py
+cd ../..
+corepack pnpm --filter @caragent/web exec vitest --run src/app/page.test.tsx src/lib/workbench/store.test.ts src/lib/api/iteration.test.ts
+corepack pnpm contracts:check
+corepack pnpm smoke:worker -- --dry-run
+corepack pnpm validate
+```
+
+Manual hosted mask smoke is optional and must be skipped unless all prerequisites are explicit: real credentials in ignored service env files, small quota/rate/cost guards, operator cost approval, account/model access, and verified provider mask support. If it is run, submit exactly one small masked edit, record job/version/artifact/model-run/provider/cost/route evidence, then disable hosted flags and remove active credentials. A skipped hosted mask smoke is acceptable local evidence; it is not proof of live hosted quality or account readiness.
+
 ## Web
 
 Run the web workbench:
@@ -490,6 +518,22 @@ pnpm smoke:local
 pnpm smoke:worker
 pnpm infra:down
 ```
+
+## Phase 10 Targeted Editing UAT
+
+Use this browser UAT after `pnpm infra:up`, `uv run alembic upgrade head`, `pnpm dev:api`, a Windows-safe worker command with `--pool=solo --concurrency=1`, and `pnpm dev:web` are running:
+
+1. Open or create a workspace and generate a local concept preview.
+2. Select a generated version, enable `局部编辑`, toggle `安全区`, and select a safe zone such as `door-main`.
+3. Select an overlay layer such as `text-1`, toggle mask preview, and confirm the mask is bounded inside the 2D preview.
+4. Submit a recomposition-safe targeted edit such as moving text or changing the text content.
+5. Confirm a child iteration job is created and the parent version remains visible and immutable.
+6. After completion, compare parent and child versions and confirm route, target, prompt delta, provider/model evidence when present, and metadata-backed changed-region highlight are visible.
+7. Trigger or inspect invalid-target/mask and unsupported-provider failures; confirm safe failure category, blocked reason, target, and retry eligibility are visible without secrets.
+8. Confirm non-retryable targeted edit failures hide retry, while retryable provider/timeout/storage failures preserve edit intent on retry.
+9. Repeat the visibility checks at desktop and mobile widths. There should be no horizontal document scroll, incoherent overlap, or hidden critical controls.
+
+Optional hosted mask smoke follows the Phase 10 runbook above and is manual-only. If skipped, record the reason such as missing credentials, no cost approval, no hosted account access, or no verified mask-capable provider route.
 
 ## Phase 9 Hosted Provider Rollout UAT
 
@@ -659,6 +703,11 @@ This UAT does not cover real image generation, full workbench chat, uploads in t
 | V2-PROVIDER-03 | Provider/model/request parameters, prompt plan, input assets, estimated/actual cost, fallback path, and error category are durable. | Run worker generation task tests, API job/operations tests, and inspect Phase 9 verification notes. |
 | V2-PROVIDER-04 | Hosted failures are visible to user/operator surfaces without exposing secrets. | Run BFL adapter tests, worker failure classification tests, API operations tests, web diagnostics tests, and Phase 9 UAT. |
 | V2-PROVIDER-05 | Local deterministic provider stays available as the free default test/fallback path. | Run provider-off web tests, worker local deterministic tests, `pnpm smoke:worker -- --dry-run`, and provider-off UAT. |
+| V2-EDIT-01 | Users can select safe zones or overlay layers in the workbench and preview a targeted edit mask. | Run Phase 10 web tests and Targeted Editing UAT. |
+| V2-EDIT-02 | Edit intent, selected region, mask data, parent version, prompt delta, provider parameters, and child version evidence are durable. | Run API generation/jobs tests, worker generation tests, and inspect Phase 10 verification notes. |
+| V2-EDIT-03 | Deterministic recomposition handles safe layer edits without hosted provider calls. | Run worker generation/provider tests and provider-off targeted edit UAT. |
+| V2-EDIT-04 | Provider-mask routes are capability-gated, feature-flagged, quota-guarded, and fail closed when unsupported. | Run API operations/generation tests, worker config/generation tests, and optional hosted mask smoke only with approval. |
+| V2-EDIT-05 | Parent/child comparison shows recomposition versus provider-generated route evidence and changed-region metadata. | Run Phase 10 web comparison tests and Targeted Editing UAT. |
 
 ## Source Coverage
 
@@ -673,6 +722,7 @@ This UAT does not cover real image generation, full workbench chat, uploads in t
 | Phase 7 goal | Operations API, structured worker failures, cancel/revoke handoff, retry/fallback settings, hosted quota guards, workbench operations UI, docs, Browser UAT, and `pnpm smoke:worker` prove the local operational path. |
 | Phase 8 goal | Archived v1.0 baseline, compatibility checks, migration safety checks, and default-off V2 flags prove V2 starts from a stable baseline. |
 | Phase 9 goal | Provider capability contracts, BFL adapter tests, API/worker preflight gates, provider trace/failure diagnostics, workbench selector tests, docs, verification, and provider-off/provider-on UAT runbooks prove controlled hosted rollout readiness without enabling hosted calls by default. |
+| Phase 10 goal | Edit intent contracts, workbench selection/mask preview, deterministic recomposition, provider-mask guardrails, retry/failure diagnostics, comparison UI, docs, verification, and UAT checklists prove targeted editing without enabling hosted calls by default. |
 | FOUND-01 | `infra/compose.yml`, `infra/README.md`, `scripts/smoke-local.mjs`, and the documented dev commands cover local web, API, worker, PostgreSQL, Redis, and MinIO run paths. |
 | FOUND-02 | `scripts/validate-all.mjs` sequences frontend, contract, API, and worker lint/type/test checks from `pnpm validate`. |
 | FOUND-03 | `services/api/src/caragent_api/scripts/export_openapi.py`, `packages/contracts/openapi/openapi.json`, `packages/contracts/src/generated/client.ts`, `scripts/check-contracts.mjs`, and `apps/web/src/lib/api/health.ts` cover generated API contracts. |
@@ -705,8 +755,9 @@ This UAT does not cover real image generation, full workbench chat, uploads in t
 | D-21 | Full GPT-style workbench behavior moved from deferred Phase 3 scope into the Phase 4 MVP surface. |
 | D-22 | Hosted provider calls remain opt-in, quota-guarded, and revalidation-dependent; local deterministic generation is the baseline evidence path. |
 | D-23 | Phase 9 hosted BFL smoke is manual-only, credential-gated, cost-guarded, and reversible; provider-off validation remains the default completion path. |
+| D-24 | Phase 10 targeted edits are child iterations with immutable parents, metadata-backed comparison, deterministic recomposition for safe layer edits, and provider-mask smoke as manual-only. |
 
-Deferred items after Phase 9 remain out of scope for this milestone until later phases implement them: production-ready export UX, true 3D/UV preview, broad reference-guided generation, enhanced handoff packaging, auth, billing, marketplace/community flows, and production handoff. Hosted output quality, pricing, moderation, account status, and commercial terms must still be rechecked before any non-local output is treated as production-ready evidence.
+Deferred items after Phase 10 remain out of scope for this milestone until later phases implement them: production-ready export UX, true 3D/UV preview, broad reference-guided generation, enhanced handoff packaging, auth, billing, marketplace/community flows, and production handoff. Hosted output quality, pricing, moderation, account status, mask support, and commercial terms must still be rechecked before any non-local output is treated as production-ready evidence.
 
 ## Security Notes
 
@@ -714,6 +765,7 @@ Deferred items after Phase 9 remain out of scope for this milestone until later 
 - AI provider keys use `AI_PROVIDER_OPENAI_API_KEY`, `AI_PROVIDER_FAL_API_KEY`, and `AI_PROVIDER_BFL_API_KEY` as configuration placeholders. They are parsed and redacted; hosted calls require explicit `AI_PROVIDER_CALLS_ENABLED=true` in ignored env files.
 - Hosted BFL calls also require `V2_HOSTED_PROVIDER_ROLLOUT_ENABLED=true`, explicit daily, per-minute, and estimated cost guards before provider execution; missing guard values block the job before any provider call.
 - Provider-on smoke should use the lowest practical daily/rate/cost guard values and must be reversed after the one-job smoke.
+- Provider-mask targeted edit smoke is manual-only; unsupported mask capability must fail closed instead of falling back to full regeneration.
 - Workbench operational text should render structured category/stage/provider values and sanitize raw diagnostic text before displaying it.
 - Local deterministic generation remains the baseline verification path and must not require hosted keys.
 - Docker Compose credentials and ports are local-only and not a production hardening guide.
@@ -739,4 +791,4 @@ Deferred items after Phase 9 remain out of scope for this milestone until later 
 
 ## Phase Boundary
 
-Phase 9 is complete when the foundation, durable data/job/asset surfaces, structured brief/prompt trace, local deterministic generation task, API generation routes, integrated web workbench, selected-version iteration, lineage comparison, feedback, concept export manifest, itasha controls, PreviewSpec metadata, safe-zone overlays, operations API, structured failures, cancellation, retry/fallback settings, hosted provider capability map, BFL adapter, hosted preflight, provider trace/cost/failure diagnostics, workbench provider selector, provider-off validation, hosted smoke runbook, and Browser UAT evidence can be run from documented commands. Production-ready wrap output, layered source packages, print preflight, true UV-mapped 3D, broad vehicle-template libraries, reference-guided generation, enhanced handoff packages, auth, billing, marketplace/community flows, and production deployment remain deferred to later phases.
+Phase 10 is complete when the foundation, durable data/job/asset surfaces, structured brief/prompt trace, local deterministic generation task, API generation routes, integrated web workbench, selected-version iteration, lineage comparison, feedback, concept export manifest, itasha controls, PreviewSpec metadata, safe-zone overlays, operations API, structured failures, cancellation, retry/fallback settings, hosted provider capability map, BFL adapter, hosted preflight, provider trace/cost/failure diagnostics, workbench provider selector, targeted edit schemas, mask preview, deterministic recomposition, provider-mask guardrails, retry-safe targeted failures, comparison UI, provider-off validation, hosted smoke runbooks, and Browser UAT checklists can be run from documented commands. Production-ready wrap output, layered source packages, print preflight, true UV-mapped 3D, broad vehicle-template libraries, reference-guided generation, enhanced handoff packages, auth, billing, marketplace/community flows, and production deployment remain deferred to later phases.

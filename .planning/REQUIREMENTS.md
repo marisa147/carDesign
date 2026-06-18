@@ -25,11 +25,13 @@ Completion evidence: `.planning/phases/09-hosted-provider-rollout-mvp/09-VERIFIC
 
 ### Targeted Editing
 
-- [ ] **V2-EDIT-01**: User can select a concept region or layer and request a targeted edit such as character size, style accent, text placement, decal density, or palette change.
-- [ ] **V2-EDIT-02**: System stores edit intent, selected region, mask data, parent version, prompt delta, provider parameters, and generated child version.
-- [ ] **V2-EDIT-03**: Worker can use deterministic recomposition when only layer position, scale, visibility, opacity, text, or logo changes are requested.
-- [ ] **V2-EDIT-04**: Worker can route mask-aware provider calls when visual content must be regenerated.
+- [x] **V2-EDIT-01**: User can select a concept region or layer and request a targeted edit such as character size, style accent, text placement, decal density, or palette change.
+- [x] **V2-EDIT-02**: System stores edit intent, selected region, mask data, parent version, prompt delta, provider parameters, and generated child version.
+- [x] **V2-EDIT-03**: Worker can use deterministic recomposition when only layer position, scale, visibility, opacity, text, or logo changes are requested.
+- [x] **V2-EDIT-04**: Worker can route mask-aware provider calls when visual content must be regenerated.
 - [x] **V2-EDIT-05**: User can compare parent and child versions and see whether a change was recomposition-only or provider-generated.
+
+Completion evidence: `.planning/phases/10-targeted-regeneration-and-masked-editing-mvp/10-VERIFICATION.md`, `.planning/phases/10-targeted-regeneration-and-masked-editing-mvp/10-HUMAN-UAT.md`, and `.planning/phases/10-targeted-regeneration-and-masked-editing-mvp/10-MILESTONE-NOTES.md`. Hosted mask smoke is documented as manual-only and skipped in the agent run because real credentials, cost approval, and a verified mask-capable hosted route were not provided.
 
 ### Reference Guidance
 
@@ -105,10 +107,10 @@ Completion evidence: `.planning/phases/09-hosted-provider-rollout-mvp/09-VERIFIC
 | V2-PROVIDER-03 | Phase 9 | Complete |
 | V2-PROVIDER-04 | Phase 9 | Complete |
 | V2-PROVIDER-05 | Phase 9 | Complete |
-| V2-EDIT-01 | Phase 10 | Pending |
-| V2-EDIT-02 | Phase 10 | Pending |
-| V2-EDIT-03 | Phase 10 | Pending |
-| V2-EDIT-04 | Phase 10 | Pending |
+| V2-EDIT-01 | Phase 10 | Completed |
+| V2-EDIT-02 | Phase 10 | Completed |
+| V2-EDIT-03 | Phase 10 | Completed |
+| V2-EDIT-04 | Phase 10 | Completed |
 | V2-EDIT-05 | Phase 10 | Completed |
 | V2-REF-01 | Phase 11 | Pending |
 | V2-REF-02 | Phase 11 | Pending |

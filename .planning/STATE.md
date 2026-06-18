@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: V2 MVP
-status: executing
-stopped_at: Completed 10-07-PLAN.md
-last_updated: "2026-06-18T13:23:42Z"
-last_activity: "2026-06-18 -- Completed Phase 10 Plan 07 targeted edit comparison UI"
+status: planning
+stopped_at: Completed 10-08-PLAN.md
+last_updated: "2026-06-18T13:35:37Z"
+last_activity: "2026-06-18 -- Completed Phase 10 targeted editing MVP closure"
 progress:
   total_phases: 7
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 48
-  completed_plans: 19
-  percent: 40
+  completed_plans: 20
+  percent: 42
 ---
 
 # Project State
@@ -21,17 +21,17 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-18)
 
 **Core value:** 用户能用自然语言快速得到一套可预览、可迭代、可导出的高质量痛车设计方案。
-**Current focus:** Phase 10 — Targeted Regeneration And Masked Editing MVP
+**Current focus:** Phase 11 — Reference-Guided Generation MVP
 
 ## Current Position
 
-Milestone: v2.0 V2 MVP — PHASE 10 EXECUTING
-Phase: 10 (Targeted Regeneration And Masked Editing MVP) — IN PROGRESS
-Plan: 10-08-PLAN.md
-Status: Ready to execute Phase 10 Plan 08
-Last activity: 2026-06-18 -- Completed Phase 10 Plan 07 targeted edit comparison UI
+Milestone: v2.0 V2 MVP — PHASE 11 PLANNING
+Phase: 11 (Reference-Guided Generation MVP) — READY TO PLAN
+Plan: Not yet planned
+Status: Ready to plan Phase 11
+Last activity: 2026-06-18 -- Completed Phase 10 targeted editing MVP closure
 
-Progress: [####------] 40%
+Progress: [####------] 42%
 
 ## Milestone Archives
 
@@ -50,7 +50,7 @@ v2.0 MVP is scoped to the following phase sequence:
 |-------|-------|-------|--------------|
 | Phase 8 | V1 Closure And V2 Readiness Gate | 5/5 | V2-READY-01..04 |
 | Phase 9 | Hosted Provider Rollout MVP | 7/7 | V2-PROVIDER-01..05 |
-| Phase 10 | Targeted Regeneration And Masked Editing MVP | 7/8 | V2-EDIT-01..05 |
+| Phase 10 | Targeted Regeneration And Masked Editing MVP | 8/8 | V2-EDIT-01..05 |
 | Phase 11 | Reference-Guided Generation MVP | 0/7 | V2-REF-01..05 |
 | Phase 12 | Lightweight 3D Preview MVP | 0/8 | V2-3D-01..05 |
 | Phase 13 | Enhanced Concept Handoff Package MVP | 0/7 | V2-HANDOFF-01..05 |
@@ -98,6 +98,7 @@ Recent decisions affecting v2.0:
 - [Phase 10 Plan 05]: Targeted edit executions now write unified route, target, region, mask, prompt-delta, parent-child lineage, and provider/model evidence to durable records already exposed by jobs/version/artifact/model-run APIs.
 - [Phase 10 Plan 06]: Targeted edit failures now persist actionable categories, retry eligibility, retry route, blocked reason, and original edit intent; retry API preserves original parent/mask/provider metadata and the workbench hides retry for non-retryable failures.
 - [Phase 10 Plan 07]: Targeted edit child versions can now be compared against parents in the workbench with route type, target, prompt delta, provider/model/cost evidence, and metadata-backed region highlighting.
+- [Phase 10 Plan 08]: Phase 10 focused regression, provider-off smoke dry run, contracts check, and aggregate validation passed; targeted edit docs, UAT checklist, and milestone notes now close V2-EDIT-01..05.
 
 ### Pending Todos
 
@@ -127,8 +128,8 @@ Items acknowledged and deferred beyond v2.0 MVP:
 
 ## Session Continuity
 
-Last session: 2026-06-18T13:23:42Z
-Stopped at: Completed 10-07-PLAN.md
+Last session: 2026-06-18T13:35:37Z
+Stopped at: Completed 10-08-PLAN.md
 Resume files:
 
 - `.planning/PROJECT.md`
@@ -155,6 +156,10 @@ Resume files:
 - `.planning/phases/10-targeted-regeneration-and-masked-editing-mvp/10-07-PLAN.md`
 - `.planning/phases/10-targeted-regeneration-and-masked-editing-mvp/10-07-SUMMARY.md`
 - `.planning/phases/10-targeted-regeneration-and-masked-editing-mvp/10-08-PLAN.md`
+- `.planning/phases/10-targeted-regeneration-and-masked-editing-mvp/10-VERIFICATION.md`
+- `.planning/phases/10-targeted-regeneration-and-masked-editing-mvp/10-HUMAN-UAT.md`
+- `.planning/phases/10-targeted-regeneration-and-masked-editing-mvp/10-MILESTONE-NOTES.md`
+- `.planning/phases/10-targeted-regeneration-and-masked-editing-mvp/10-08-SUMMARY.md`
 
-Next recommended command: `$gsd-execute-phase 10 --auto`
+Next recommended command: `$gsd-plan-phase 11 --auto`
 Alternative: `$gsd-progress --next`

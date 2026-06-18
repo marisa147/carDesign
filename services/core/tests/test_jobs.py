@@ -116,13 +116,16 @@ async def test_job_events_order_and_status_persist_across_sessions(
     ]
 
 
-def test_failure_category_enum_covers_phase_7_operations_taxonomy() -> None:
+def test_failure_category_enum_covers_current_operations_taxonomy() -> None:
     assert {item.value for item in enums.FailureCategory} == {
         "canceled",
         "provider",
         "provider_configuration",
         "queue_worker",
         "storage",
+        "targeted_edit_conflict",
+        "targeted_edit_invalid",
+        "targeted_edit_unsupported",
         "timeout",
         "unknown",
         "validation_rights",

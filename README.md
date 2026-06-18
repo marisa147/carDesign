@@ -2,7 +2,7 @@
 
 痛车设计 Agent is an AI web workbench for turning natural-language itasha design requests into previewable, iterable, and exportable concept designs.
 
-Phase 1 established the runnable foundation. Phase 2 adds durable workspaces, messages, asset metadata and rights records, job/event/output ledgers, generated frontend wrappers, worker no-provider simulation, and a minimal web refresh/status proof. Phase 3 adds structured generation briefs, prompt traceability, a local deterministic text-to-2D generation slice, generation API routes, and a compact web proof. Phase 4 integrates those pieces into the first real web workbench: GPT-style chat-to-brief, editable parameters, reference asset upload and rights confirmation, job progress/events, 2D preview controls, version history, and explicit future-feature gates. Phase 5 adds selected-version iteration, parent/child lineage comparison, feedback/rating/approval records, and concept export records with a metadata manifest labeled as not print-ready. Phase 6 adds itasha-specific controls, deterministic text/logo overlay evidence, safe-zone/template warnings, and PreviewSpec metadata for future renderer work while keeping output a concept preview. Phase 7 adds provider/worker operations visibility, classified failures, job cancellation, bounded retry/fallback controls, hosted-call quota guards, and a live worker queue smoke path. Phase 8 starts V2 from a verified V1 baseline. Phase 9 adds a default-off hosted BFL rollout path with explicit provider selection, preflight guards, trace/cost/failure diagnostics, and local deterministic fallback.
+Phase 1 established the runnable foundation. Phase 2 adds durable workspaces, messages, asset metadata and rights records, job/event/output ledgers, generated frontend wrappers, worker no-provider simulation, and a minimal web refresh/status proof. Phase 3 adds structured generation briefs, prompt traceability, a local deterministic text-to-2D generation slice, generation API routes, and a compact web proof. Phase 4 integrates those pieces into the first real web workbench: GPT-style chat-to-brief, editable parameters, reference asset upload and rights confirmation, job progress/events, 2D preview controls, version history, and explicit future-feature gates. Phase 5 adds selected-version iteration, parent/child lineage comparison, feedback/rating/approval records, and concept export records with a metadata manifest labeled as not print-ready. Phase 6 adds itasha-specific controls, deterministic text/logo overlay evidence, safe-zone/template warnings, and PreviewSpec metadata for future renderer work while keeping output a concept preview. Phase 7 adds provider/worker operations visibility, classified failures, job cancellation, bounded retry/fallback controls, hosted-call quota guards, and a live worker queue smoke path. Phase 8 starts V2 from a verified V1 baseline. Phase 9 adds a default-off hosted BFL rollout path with explicit provider selection, preflight guards, trace/cost/failure diagnostics, and local deterministic fallback. Phase 10 adds targeted edit selection, mask preview, deterministic recomposition, provider-mask guardrails, retry-safe failure states, and parent/child comparison with metadata-backed changed-region highlighting.
 
 The project still does not implement production-ready wrap output, authentication, billing, true 3D, hosted provider production rollout by default, marketplace/community flows, or production deployment. `init.MD` and `UI.png` remain seed references for product direction.
 
@@ -75,6 +75,8 @@ For the Phase 6 itasha/template intelligence flow, edit `痛车设计控制` fie
 For the Phase 7 operations flow, keep Docker infrastructure, API, worker, and web running. Use the progress panel to refresh compact provider/worker status, inspect failure classification, cancel queued/running jobs, and confirm terminal canceled jobs no longer show the cancel control. Use `pnpm smoke:worker` for a live API -> Redis/Celery -> worker -> durable artifact/version smoke once the worker is running.
 
 For the Phase 9 hosted-provider rollout flow, default validation remains provider-off and free. Use the parameter panel `生成模式` selector to confirm `本地概念` is available without credentials, `BFL 托管` is disabled when rollout, calls, credentials, or quota/cost guards are missing, and no API keys/secrets/paths appear in workbench or operations diagnostics. Provider-on BFL smoke is manual-only: put real credentials in ignored service env files, set `V2_HOSTED_PROVIDER_ROLLOUT_ENABLED=true`, `AI_PROVIDER_CALLS_ENABLED=true`, `AI_PROVIDER_DEFAULT=bfl`, `AI_PROVIDER_MODEL=flux-2-pro-preview`, and small `AI_HOSTED_DAILY_CALL_LIMIT`, `AI_HOSTED_RATE_LIMIT_PER_MINUTE`, and `AI_MAX_ESTIMATED_COST_PER_JOB` guard values. Submit one concept-preview job, record the job/version/artifact/model-run evidence, then disable hosted flags again.
+
+For the Phase 10 targeted edit flow, use a generated version with PreviewSpec metadata, enable `局部编辑`, select a safe zone or overlay layer, preview the mask, and submit a recomposition-safe edit such as moving or changing text. The worker creates a child version and leaves the parent immutable. Comparison shows parent/child, route (`deterministic_recomposition` or `provider_masked_generation`), target, prompt delta, provider/model evidence when present, and a metadata-backed changed-region highlight. Provider-mask hosted smoke is manual-only and skippable without credentials: keep default validation provider-off, and only run a paid mask edit after explicit cost approval, small quota/rate/cost guards, and verified provider mask support.
 
 ## Core Commands
 
@@ -187,5 +189,23 @@ corepack pnpm validate
 ```
 
 The Phase 9 command set above is provider-off by default. It must not require `AI_PROVIDER_BFL_API_KEY` and must not spend hosted-provider credits. Run live provider-on BFL smoke only from the documented manual checklist in [docs/development.md](docs/development.md).
+
+Focused Phase 10 targeted edit commands:
+
+```powershell
+cd services/api
+uv run pytest -q tests/test_generation.py tests/test_jobs.py tests/test_operations.py
+cd ../core
+uv run pytest -q tests/test_models.py tests/test_generation_jobs.py tests/test_prompt_plans.py
+cd ../worker
+uv run pytest -q tests/test_generation_tasks.py tests/test_image_providers.py tests/test_config.py
+cd ../..
+corepack pnpm --filter @caragent/web exec vitest --run src/app/page.test.tsx src/lib/workbench/store.test.ts src/lib/api/iteration.test.ts
+corepack pnpm contracts:check
+corepack pnpm smoke:worker -- --dry-run
+corepack pnpm validate
+```
+
+The Phase 10 command set is local and provider-off by default. It validates targeted edit schemas, mask metadata, deterministic recomposition, provider capability guardrails, retry/failure behavior, comparison UI, and aggregate validation without making hosted calls.
 
 See [docs/development.md](docs/development.md) for environment setup, command details, requirement coverage, and troubleshooting for blocked host prerequisites such as missing `uv`, Node/Corepack profile `EPERM`, and Docker daemon availability. If `pnpm` cannot start, run `node scripts/check-host-prereqs.mjs` from the repository root for a direct prerequisite report.
