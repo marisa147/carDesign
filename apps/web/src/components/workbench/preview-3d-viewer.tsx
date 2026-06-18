@@ -1,7 +1,7 @@
 "use client";
 
 import type { Group, PerspectiveCamera, WebGLRenderer } from "three";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 
 import { cn } from "@/lib/utils";
 import type { Preview3DCompatibilityResult } from "@/lib/preview3d/spec";
@@ -84,6 +84,23 @@ export function Preview3DViewer({ camera, compatibility }: Preview3DViewerProps)
       cabin.position.set(-0.28, 1.08, 0);
       shellGroup.add(cabin);
 
+      const decalGeometries: Array<{ dispose: () => void }> = [];
+      const decalMaterials: Array<{ dispose: () => void }> = [];
+      for (const zone of compatibility.materialPlan.safeZones) {
+        const geometry = new THREE.PlaneGeometry(zone.bounds.width * 3.5, zone.bounds.height * 1.1);
+        const material = new THREE.MeshBasicMaterial({
+          color: 0x2563eb,
+          opacity: 0.2,
+          side: THREE.DoubleSide,
+          transparent: true,
+        });
+        const marker = new THREE.Mesh(geometry, material);
+        marker.position.set((zone.bounds.x - 0.5) * 3.5, 0.74 - zone.bounds.y * 0.9, 0.681);
+        shellGroup.add(marker);
+        decalGeometries.push(geometry);
+        decalMaterials.push(material);
+      }
+
       scene.add(shellGroup);
       scene.add(new THREE.AmbientLight(0xffffff, 0.75));
       const keyLight = new THREE.DirectionalLight(0xffffff, 1.2);
@@ -125,6 +142,12 @@ export function Preview3DViewer({ camera, compatibility }: Preview3DViewerProps)
         bodyMaterial.dispose();
         cabinGeometry.dispose();
         cabinMaterial.dispose();
+        for (const geometry of decalGeometries) {
+          geometry.dispose();
+        }
+        for (const material of decalMaterials) {
+          material.dispose();
+        }
         renderer?.dispose();
         renderer?.domElement.remove();
       };
@@ -136,7 +159,7 @@ export function Preview3DViewer({ camera, compatibility }: Preview3DViewerProps)
       disposed = true;
       cleanupScene();
     };
-  }, [camera.rotationY, camera.zoom, compatibility.status]);
+  }, [camera.rotationY, camera.zoom, compatibility.materialPlan.safeZones, compatibility.status]);
 
   return (
     <div
@@ -166,6 +189,24 @@ export function Preview3DViewer({ camera, compatibility }: Preview3DViewerProps)
             <div className="absolute bottom-[-18%] left-[18%] h-11 w-11 rounded-full bg-foreground" />
             <div className="absolute bottom-[-18%] right-[18%] h-11 w-11 rounded-full bg-foreground" />
             <div className="absolute left-[28%] top-[34%] h-[30%] w-[38%] rounded border border-primary bg-primary/10" />
+            {compatibility.materialPlan.safeZones.map((zone) => (
+              <span
+                className="absolute overflow-hidden rounded border border-primary bg-primary/10 px-1 py-0.5 text-[9px] font-medium text-primary"
+                key={zone.id}
+                style={materialBoundsStyle(zone.bounds)}
+              >
+                {zone.id}
+              </span>
+            ))}
+            {compatibility.materialPlan.overlays.map((overlay) => (
+              <span
+                className="absolute overflow-hidden rounded border border-foreground bg-foreground px-1 py-0.5 text-[9px] font-semibold text-background"
+                key={overlay.id}
+                style={materialBoundsStyle(overlay.bounds)}
+              >
+                {overlay.label}
+              </span>
+            ))}
           </div>
           <p className="mt-24 text-center text-xs text-secondary-foreground">
             {status === "loading"
@@ -176,6 +217,20 @@ export function Preview3DViewer({ camera, compatibility }: Preview3DViewerProps)
       ) : null}
     </div>
   );
+}
+
+function materialBoundsStyle(bounds: {
+  height: number;
+  width: number;
+  x: number;
+  y: number;
+}): CSSProperties {
+  return {
+    height: `${bounds.height * 100}%`,
+    left: `${bounds.x * 100}%`,
+    top: `${bounds.y * 100}%`,
+    width: `${bounds.width * 100}%`,
+  };
 }
 
 function prefersReducedMotion(): boolean {

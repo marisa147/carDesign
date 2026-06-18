@@ -109,7 +109,23 @@ export function Preview3DPanel({ artifact, version }: Preview3DPanelProps) {
           <div className="grid gap-1 text-xs text-secondary-foreground">
             <p>Shell {compatibility.shell?.id}</p>
             <p>Camera {compatibility.cameraPresetId}</p>
-            <p className="break-all">Source {compatibility.source.artifactObjectKey}</p>
+            <p className="break-all">
+              Source {compatibility.materialPlan.source.artifactId} ·{" "}
+              {compatibility.materialPlan.source.artifactObjectKey}
+            </p>
+            <p>{compatibility.materialPlan.warnings.join(" ")}</p>
+            <div className="flex flex-wrap gap-2">
+              {compatibility.materialPlan.safeZones.map((zone) => (
+                <span className="rounded-md border border-border px-2 py-1" key={zone.id}>
+                  {zone.id}
+                </span>
+              ))}
+              {compatibility.materialPlan.overlays.map((overlay) => (
+                <span className="rounded-md border border-border px-2 py-1" key={overlay.id}>
+                  {overlay.label}
+                </span>
+              ))}
+            </div>
           </div>
         </>
       ) : (

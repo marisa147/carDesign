@@ -5,6 +5,11 @@ import type {
 } from "@caragent/contracts";
 
 import {
+  buildPreview3DMaterialPlan,
+  materialPlanFromProjectionRecords,
+  type Preview3DMaterialPlan,
+} from "./materials";
+import {
   DEFAULT_PREVIEW_3D_CAMERA_PRESET_ID,
   GENERIC_SIDE_COUPE_LIGHTWEIGHT_SHELL_ID,
   SIDE_DECAL_MATERIAL_SLOT,
@@ -38,6 +43,7 @@ export interface Preview3DCompatibilitySource {
 export interface Preview3DCompatibilityResult {
   cameraPresetId: string;
   fallbackMessage: string | null;
+  materialPlan: Preview3DMaterialPlan;
   overlayLayers: Preview3DProjectionRecord[];
   preview3dSpec: Preview3DSpec;
   reason: string | null;
@@ -74,6 +80,7 @@ export function buildPreview3DCompatibility({
   };
   const overlayLayers = projectionRecords(previewSpec?.overlay_layers);
   const safeZoneOverlays = projectionRecords(previewSpec?.safe_zones);
+  const materialPlan = buildPreview3DMaterialPlan({ artifact, previewSpec });
   const preview3dSpec = buildPreview3DSpec({
     overlayLayers,
     reason,
@@ -85,6 +92,7 @@ export function buildPreview3DCompatibility({
   return {
     cameraPresetId: preview3dSpec.camera.preset_id,
     fallbackMessage: shell === null ? PREVIEW_3D_FALLBACK_MESSAGE : null,
+    materialPlan,
     overlayLayers,
     preview3dSpec,
     reason,
@@ -103,9 +111,23 @@ function compatibilityFromPreview3DSpec(
   const reason = preview3dSpec.compatibility.reason ?? null;
   const overlayLayers = projectionRecords(preview3dSpec.materials.overlay_layers);
   const safeZoneOverlays = projectionRecords(preview3dSpec.materials.safe_zone_overlays);
+  const materialPlan = materialPlanFromProjectionRecords({
+    artifact: null,
+    overlayLayers,
+    safeZoneOverlays,
+    source: {
+      artifactContentType: null,
+      artifactHeight: null,
+      artifactId: preview3dSpec.source.artifact_id,
+      artifactObjectKey: preview3dSpec.source.artifact_object_key,
+      artifactWidth: null,
+    },
+    warningIds: preview3dSpec.warnings?.map((warning) => warning.id) ?? [],
+  });
   return {
     cameraPresetId: preview3dSpec.camera.preset_id,
     fallbackMessage: status === "compatible" ? null : PREVIEW_3D_FALLBACK_MESSAGE,
+    materialPlan,
     overlayLayers,
     preview3dSpec,
     reason,
