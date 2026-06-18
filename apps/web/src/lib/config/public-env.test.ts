@@ -1,9 +1,32 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { publicEnv } from "./public-env";
+const v2PublicEnvKeys = [
+  "NEXT_PUBLIC_V2_HOSTED_PROVIDER_ROLLOUT_ENABLED",
+  "NEXT_PUBLIC_V2_TARGETED_REGENERATION_ENABLED",
+  "NEXT_PUBLIC_V2_REFERENCE_GUIDANCE_ENABLED",
+  "NEXT_PUBLIC_V2_LIGHTWEIGHT_3D_PREVIEW_ENABLED",
+  "NEXT_PUBLIC_V2_ENHANCED_HANDOFF_PACKAGE_ENABLED",
+] as const;
+
+const loadPublicEnv = async () => {
+  vi.resetModules();
+  const module = await import("./public-env");
+  return module.publicEnv;
+};
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+  vi.resetModules();
+});
 
 describe("publicEnv", () => {
-  it("defaults V2 capability flags off without exposing server secrets", () => {
+  it("defaults V2 capability flags off without exposing server secrets", async () => {
+    for (const key of v2PublicEnvKeys) {
+      vi.stubEnv(key, undefined);
+    }
+
+    const publicEnv = await loadPublicEnv();
+
     expect(publicEnv.v2HostedProviderRolloutEnabled).toBe(false);
     expect(publicEnv.v2TargetedRegenerationEnabled).toBe(false);
     expect(publicEnv.v2ReferenceGuidanceEnabled).toBe(false);
