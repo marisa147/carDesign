@@ -1,11 +1,16 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import Literal
 from uuid import UUID
 
+from caragent_core.generation.templates import SUPPORTED_TEMPLATE_ID, SUPPORTED_VIEW
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 PREVIEW_3D_SCHEMA_VERSION = 1
+GENERIC_SIDE_COUPE_LIGHTWEIGHT_SHELL_ID = "generic-side-coupe-lightweight-v1"
+DEFAULT_PREVIEW_3D_CAMERA_PRESET_ID = "front-left-default"
+SIDE_DECAL_MATERIAL_SLOT = "side-decal-plane"
 
 
 class Preview3DVector3(BaseModel):
@@ -127,6 +132,19 @@ class Preview3DScreenshotArtifactMetadata(BaseModel):
     preview_3d_screenshot: Preview3DScreenshotMetadata
 
 
+GENERIC_SIDE_COUPE_LIGHTWEIGHT_SHELL = Preview3DShell(
+    dimensions={"height": 1.4, "length": 4.4, "width": 1.8},
+    id=GENERIC_SIDE_COUPE_LIGHTWEIGHT_SHELL_ID,
+    label="Generic side coupe lightweight shell",
+    material_slots=["body", SIDE_DECAL_MATERIAL_SLOT, "glass", "wheel"],
+    template_id=SUPPORTED_TEMPLATE_ID,
+)
+
+_SHELL_REGISTRY: dict[tuple[str, str], Preview3DShell] = {
+    (SUPPORTED_TEMPLATE_ID, SUPPORTED_VIEW): GENERIC_SIDE_COUPE_LIGHTWEIGHT_SHELL,
+}
+
+
 def default_preview_3d_warnings() -> list[Preview3DWarning]:
     return [
         Preview3DWarning(
@@ -147,7 +165,115 @@ def default_preview_3d_warnings() -> list[Preview3DWarning]:
     ]
 
 
+def registered_preview_3d_shells() -> list[Preview3DShell]:
+    return [shell.model_copy(deep=True) for shell in _SHELL_REGISTRY.values()]
+
+
+def resolve_preview_3d_shell(preview_spec: Mapping[str, object]) -> Preview3DShell | None:
+    template_id, view = _preview_spec_identity(preview_spec)
+    shell = _SHELL_REGISTRY.get((template_id, view))
+    if shell is None:
+        return None
+    return shell.model_copy(deep=True)
+
+
+def build_preview_3d_spec(
+    *,
+    artifact_id: UUID | str,
+    artifact_object_key: str,
+    preview_spec: Mapping[str, object],
+    version_id: UUID | str,
+    workspace_id: UUID | str,
+) -> Preview3DSpec:
+    template_id, view = _preview_spec_identity(preview_spec)
+    shell = resolve_preview_3d_shell(preview_spec)
+    compatibility: dict[str, object]
+    if shell is None:
+        compatibility = {
+            "reason": _preview_3d_fallback_reason(template_id=template_id, view=view),
+            "status": "incompatible",
+        }
+    else:
+        compatibility = {
+            "shell_id": shell.id,
+            "status": "compatible",
+        }
+
+    return Preview3DSpec.model_validate(
+        {
+            "camera": _default_camera_preset_payload(),
+            "compatibility": compatibility,
+            "materials": {
+                "decal_strategy": "preview_spec_projection",
+                "overlay_layers": _projection_records(preview_spec.get("overlay_layers")),
+                "safe_zone_overlays": _projection_records(preview_spec.get("safe_zones")),
+                "source_artifact_id": artifact_id,
+                "source_kind": "preview_spec",
+            },
+            "mode": "lightweight_shell",
+            "shell": shell.model_dump(mode="json") if shell is not None else None,
+            "source": {
+                "artifact_id": artifact_id,
+                "artifact_object_key": artifact_object_key,
+                "preview_spec_template_id": template_id,
+                "preview_spec_view": view,
+                "version_id": version_id,
+                "workspace_id": workspace_id,
+            },
+            "warnings": [warning.model_dump(mode="json") for warning in default_preview_3d_warnings()],
+        },
+    )
+
+
+def _preview_spec_identity(preview_spec: Mapping[str, object]) -> tuple[str, str]:
+    template = preview_spec.get("template")
+    if not isinstance(template, Mapping):
+        return "unknown-template", "unknown-view"
+    template_id = _string_value(template.get("id"), fallback="unknown-template")
+    view = _string_value(template.get("view"), fallback="unknown-view").lower()
+    return template_id, view
+
+
+def _preview_3d_fallback_reason(*, template_id: str, view: str) -> str:
+    return (
+        "No lightweight 3D shell is registered for template "
+        f"'{template_id}' with view '{view}'. Continue with the 2D PreviewSpec fallback."
+    )
+
+
+def _default_camera_preset_payload() -> dict[str, object]:
+    return {
+        "preset_id": DEFAULT_PREVIEW_3D_CAMERA_PRESET_ID,
+        "position": {"x": 2.8, "y": 1.4, "z": 4.2},
+        "target": {"x": 0.0, "y": 0.4, "z": 0.0},
+        "zoom": 1.0,
+    }
+
+
+def _projection_records(value: object) -> list[dict[str, object]]:
+    if not isinstance(value, list):
+        return []
+
+    records: list[dict[str, object]] = []
+    for item in value:
+        if not isinstance(item, Mapping):
+            continue
+        record = {str(key): record_value for key, record_value in item.items()}
+        record.setdefault("slot", SIDE_DECAL_MATERIAL_SLOT)
+        records.append(record)
+    return records
+
+
+def _string_value(value: object, *, fallback: str) -> str:
+    if isinstance(value, str) and value.strip():
+        return value.strip()
+    return fallback
+
+
 __all__ = [
+    "DEFAULT_PREVIEW_3D_CAMERA_PRESET_ID",
+    "GENERIC_SIDE_COUPE_LIGHTWEIGHT_SHELL",
+    "GENERIC_SIDE_COUPE_LIGHTWEIGHT_SHELL_ID",
     "PREVIEW_3D_SCHEMA_VERSION",
     "Preview3DCameraPreset",
     "Preview3DCompatibility",
@@ -159,5 +285,9 @@ __all__ = [
     "Preview3DSpec",
     "Preview3DVector3",
     "Preview3DWarning",
+    "SIDE_DECAL_MATERIAL_SLOT",
+    "build_preview_3d_spec",
     "default_preview_3d_warnings",
+    "registered_preview_3d_shells",
+    "resolve_preview_3d_shell",
 ]
