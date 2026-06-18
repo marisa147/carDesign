@@ -16,6 +16,7 @@ from caragent_core.provider_capabilities import (
     BFL_PROVIDER,
     LOCAL_DEFAULT_MODEL,
     LOCAL_PROVIDER,
+    PROVIDER_MASKED_GENERATION_ROUTE,
     normalize_provider_name,
 )
 from caragent_core.services import jobs, workspaces
@@ -209,9 +210,11 @@ async def submit_generation_iteration_job(
     queue: QueueDependency,
 ) -> GenerationJobSubmissionResponse:
     brief = await _get_workspace_brief(session, workspace_id, payload.brief_id)
-    provider_intent = _provider_intent_from_submission(payload, _settings_from_request(request))
+    settings = _settings_from_request(request)
+    provider_intent = _provider_intent_from_submission(payload, settings)
     try:
         parent_version = await jobs.get_workspace_version(session, workspace_id, version_id)
+        _validate_provider_mask_route(payload, provider_intent, settings)
         metadata: dict[str, Any] = {
             "change_request": payload.change_request,
             "iteration": True,
@@ -381,3 +384,61 @@ def _bfl_provider_intent(
 def _requested_model(value: str | None, *, default: str) -> str:
     model = (value or "").strip()
     return model or default
+
+
+def _validate_provider_mask_route(
+    payload: GenerationIterationSubmissionRequest,
+    provider_intent: ProviderIntent | None,
+    settings: ApiSettings,
+) -> None:
+    edit_intent = payload.edit_intent
+    if edit_intent is None or edit_intent.route_preference != PROVIDER_MASKED_GENERATION_ROUTE:
+        return
+    if not settings.v2_targeted_regeneration_enabled:
+        raise generation_validation_failed(
+            ValueError("V2_TARGETED_REGENERATION_ENABLED is disabled."),
+        )
+    if provider_intent is None:
+        raise generation_validation_failed(
+            ValueError("provider_masked_generation requires a selected provider."),
+        )
+
+    provider_key = _capability_provider_key(provider_intent.provider)
+    capability = settings.provider_capability_map().get(provider_key)
+    if capability is None:
+        raise generation_validation_failed(
+            ValueError(
+                f"Provider {provider_intent.provider} does not support "
+                f"{PROVIDER_MASKED_GENERATION_ROUTE}.",
+            ),
+    )
+
+    supported_routes = {str(route) for route in capability.get("supported_edit_routes", [])}
+    raw_supports = capability.get("supports")
+    supports = raw_supports if isinstance(raw_supports, dict) else {}
+    raw_mask_input = capability.get("mask_input")
+    mask_input = raw_mask_input if isinstance(raw_mask_input, dict) else {}
+    if (
+        PROVIDER_MASKED_GENERATION_ROUTE not in supported_routes
+        or not bool(supports.get("mask_aware_generation"))
+        or not bool(mask_input.get("accepted"))
+    ):
+        blocked_reason = str(
+            mask_input.get("blocked_reason")
+            or f"Route {PROVIDER_MASKED_GENERATION_ROUTE} is not enabled.",
+        )
+        raise generation_validation_failed(
+            ValueError(
+                f"Provider {provider_key} does not support "
+                f"{PROVIDER_MASKED_GENERATION_ROUTE}: {blocked_reason}",
+            ),
+        )
+
+
+def _capability_provider_key(provider_name: str) -> str:
+    provider = provider_name.strip().lower()
+    if provider in LOCAL_PROVIDER_NAMES:
+        return LOCAL_PROVIDER
+    if provider in BFL_ALIASES:
+        return BFL_PROVIDER
+    return provider

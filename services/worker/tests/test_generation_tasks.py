@@ -279,6 +279,122 @@ def test_generation_worker_rejects_invalid_recomposition_without_partial_child(
     assert state.model_runs == []
 
 
+def test_generation_worker_blocks_unsupported_provider_mask_route_before_call(
+    tmp_path: Path,
+) -> None:
+    provider = RecordingSuccessProvider()
+    seeded = seed_generation_job(
+        tmp_path,
+        iteration_parent=True,
+        model="flux-2-pro-preview",
+        provider="bfl",
+        provider_parameters={"output_format": "png"},
+        targeted_edit_instruction="Repaint the selected door text.",
+        targeted_edit_route_preference="provider_masked_generation",
+    )
+
+    result = asyncio.run(
+        run_generate_2d_concept_job(
+            seeded.database_url,
+            seeded.job_id,
+            provider=provider,
+            settings=WorkerSettings(
+                ai_hosted_daily_call_limit=10,
+                ai_hosted_rate_limit_per_minute=10,
+                ai_max_estimated_cost_per_job="1.0000",
+                ai_provider_bfl_api_key="bfl-secret",
+                ai_provider_calls_enabled=True,
+                ai_provider_default="disabled",
+                v2_hosted_provider_rollout_enabled=True,
+                v2_targeted_regeneration_enabled=True,
+            ),
+            storage=InMemoryObjectStorage(),
+        ),
+    )
+    state = asyncio.run(read_generation_state(seeded.session_factory, seeded.job_id))
+
+    assert result["status"] == "failed"
+    assert "provider_masked_generation" in (state.job.latest_error or "")
+    assert "does not support" in (state.job.latest_error or "")
+    assert provider.requests == []
+    assert len(state.versions) == 1
+    assert len(state.artifacts) == 1
+    assert state.model_runs[0].status == ModelRunStatus.FAILED.value
+    assert state.model_runs[0].parameters["edit_route"] == "provider_masked_generation"
+    assert_failure_metadata(
+        state,
+        category="provider_configuration",
+        error=state.job.latest_error or "",
+        model="flux-2-pro-preview",
+        provider="bfl",
+        stage="provider_mask_preflight",
+    )
+
+
+def test_generation_worker_passes_mask_metadata_to_allowed_mock_provider(
+    tmp_path: Path,
+    monkeypatch: object,
+) -> None:
+    provider = RecordingSuccessProvider()
+    seeded = seed_generation_job(
+        tmp_path,
+        iteration_parent=True,
+        model="flux-2-pro-preview",
+        provider="bfl",
+        provider_parameters={"output_format": "png"},
+        targeted_edit_instruction="Repaint the selected door text.",
+        targeted_edit_route_preference="provider_masked_generation",
+    )
+
+    def allow_provider_mask_route(_provider_name: str, *, settings: WorkerSettings) -> None:
+        return None
+
+    monkeypatch.setattr(
+        generation_tasks,
+        "_require_provider_mask_capability",
+        allow_provider_mask_route,
+    )
+
+    result = asyncio.run(
+        run_generate_2d_concept_job(
+            seeded.database_url,
+            seeded.job_id,
+            provider=provider,
+            settings=WorkerSettings(
+                ai_hosted_daily_call_limit=10,
+                ai_hosted_rate_limit_per_minute=10,
+                ai_max_estimated_cost_per_job="1.0000",
+                ai_provider_bfl_api_key="bfl-secret",
+                ai_provider_calls_enabled=True,
+                ai_provider_default="disabled",
+                v2_hosted_provider_rollout_enabled=True,
+                v2_targeted_regeneration_enabled=True,
+            ),
+            storage=InMemoryObjectStorage(),
+        ),
+    )
+    state = asyncio.run(read_generation_state(seeded.session_factory, seeded.job_id))
+
+    assert result["status"] == "succeeded"
+    assert len(provider.requests) == 1
+    request = provider.requests[0]
+    assert request.provider == "bfl"
+    assert request.mask_edit is not None
+    assert request.mask_edit.route_preference == "provider_masked_generation"
+    assert request.mask_edit.mask_content_type == "image/png"
+    assert request.mask_edit.region["unit"] == "normalized"
+    assert request.mask_edit.prompt_delta["instructions"] == [
+        "Repaint the selected door text.",
+    ]
+    assert state.model_runs[0].parameters["edit_route"] == "provider_masked_generation"
+    assert state.model_runs[0].prompt_payload["mask_edit"]["target"] == {
+        "id": "text-1",
+        "type": "overlay_layer",
+    }
+    assert state.artifacts[1].metadata_json["edit_route"] == "provider_masked_generation"
+    assert state.versions[1].parameters["edit_route"] == "provider_masked_generation"
+
+
 def test_generation_worker_records_sanitized_provider_failure(tmp_path: Path) -> None:
     seeded = seed_generation_job(tmp_path)
 
@@ -1211,6 +1327,7 @@ def seed_generation_job(
     provider: str | None = None,
     provider_parameters: dict[str, object] | None = None,
     targeted_edit_instruction: str | None = None,
+    targeted_edit_route_preference: str = "deterministic_recomposition",
     targeted_edit_target_id: str = "text-1",
 ) -> SeededGenerationJob:
     database_url = f"sqlite+aiosqlite:///{(tmp_path / 'generation.db').as_posix()}"
@@ -1227,6 +1344,7 @@ def seed_generation_job(
             provider=provider,
             provider_parameters=provider_parameters,
             targeted_edit_instruction=targeted_edit_instruction,
+            targeted_edit_route_preference=targeted_edit_route_preference,
             targeted_edit_target_id=targeted_edit_target_id,
         ),
     )
@@ -1250,6 +1368,7 @@ async def seed_database(
     provider: str | None,
     provider_parameters: dict[str, object] | None,
     targeted_edit_instruction: str | None,
+    targeted_edit_route_preference: str,
     targeted_edit_target_id: str,
 ) -> tuple[UUID, UUID | None]:
     async with engine.begin() as connection:
@@ -1344,6 +1463,7 @@ async def seed_database(
             job_metadata["edit_intent"] = targeted_edit_intent_metadata(
                 parent_artifact_id=parent_artifact_id,
                 parent_version_id=parent_version_id,
+                route_preference=targeted_edit_route_preference,
                 target_id=targeted_edit_target_id,
                 instruction=targeted_edit_instruction,
             )
@@ -1372,6 +1492,7 @@ def targeted_edit_intent_metadata(
     parent_version_id: UUID,
     target_id: str,
     instruction: str,
+    route_preference: str = "deterministic_recomposition",
 ) -> dict[str, object]:
     return {
         "mask": {
@@ -1394,7 +1515,7 @@ def targeted_edit_intent_metadata(
             "x": 0.32,
             "y": 0.47,
         },
-        "route_preference": "deterministic_recomposition",
+        "route_preference": route_preference,
         "schema_version": 1,
         "target": {"id": target_id, "type": "overlay_layer"},
     }

@@ -34,6 +34,19 @@ class ImageProviderTimeoutError(ImageProviderError):
 
 
 @dataclass(frozen=True, slots=True)
+class MaskEditRequest:
+    route_preference: str
+    mask_artifact_id: str
+    mask_content_type: str
+    mask_width: int
+    mask_height: int
+    region: JsonObject
+    target: JsonObject
+    prompt_delta: JsonObject
+    parent_version_id: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class ImageGenerationRequest:
     prompt_text: str
     prompt_payload: JsonObject
@@ -43,6 +56,7 @@ class ImageGenerationRequest:
     input_artifact_ids: list[str] = field(default_factory=list)
     estimated_cost: Decimal | None = None
     concept_label: str = "concept_preview"
+    mask_edit: MaskEditRequest | None = None
 
     @classmethod
     def from_prompt_plan(cls, prompt_plan: PromptPlan) -> Self:

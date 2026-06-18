@@ -588,6 +588,42 @@ def test_submit_targeted_iteration_records_edit_intent_metadata(
     }
 
 
+def test_submit_provider_masked_iteration_rejects_unsupported_provider_route(
+    tmp_path: Path,
+) -> None:
+    client, app, queue = create_generation_client(
+        tmp_path,
+        settings=hosted_api_settings(tmp_path, v2_targeted_regeneration_enabled=True),
+    )
+    workspace_id = client.post("/workspaces", json={"title": "Provider mask"}).json()["id"]
+    brief_id = create_brief(client, workspace_id)
+    parent_version_id = asyncio.run(
+        create_parent_version(app.state.session_factory, workspace_id, brief_id),
+    )
+
+    response = client.post(
+        f"/workspaces/{workspace_id}/versions/{parent_version_id}/iterations",
+        json={
+            "brief_id": brief_id,
+            "change_request": "Repaint just the selected door text.",
+            "edit_intent": targeted_edit_intent_payload(
+                route_preference="provider_masked_generation",
+            ),
+            "idempotency_key": "provider-mask-unsupported",
+            "model": "flux-2-pro-preview",
+            "provider": "bfl",
+            "provider_parameters": {"output_format": "png"},
+            "requested_by": "local-user",
+        },
+    )
+
+    assert response.status_code == 422
+    assert "provider_masked_generation" in response.json()["detail"]
+    assert "does not support" in response.json()["detail"]
+    assert queue.enqueued == []
+    assert "bfl-secret" not in response.text
+
+
 def targeted_edit_intent_payload(
     *,
     mask_artifact_id: UUID | None = None,
@@ -655,6 +691,14 @@ def targeted_edit_intent_payload(
         (
             targeted_edit_intent_payload(prompt_delta={"instructions": []}),
             "prompt_delta",
+        ),
+        (
+            {
+                key: value
+                for key, value in targeted_edit_intent_payload().items()
+                if key != "mask"
+            },
+            "mask",
         ),
     ],
 )

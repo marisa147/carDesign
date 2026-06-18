@@ -218,6 +218,10 @@ def _json_payload(response: httpx.Response) -> JsonObject:
 
 
 def _submit_payload(request: ImageGenerationRequest) -> JsonObject:
+    if request.mask_edit is not None:
+        raise ImageProviderConfigurationError(
+            "BFL provider_masked_generation is deferred for the current FLUX.2 adapter.",
+        )
     payload: JsonObject = {"prompt": request.prompt_text}
     payload.update(request.parameters)
     return payload

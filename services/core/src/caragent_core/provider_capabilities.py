@@ -10,6 +10,8 @@ BFL_PROVIDER = "bfl"
 BFL_ALIASES = ("bfl", "black-forest-labs")
 BFL_DEFAULT_MODEL = "flux-2-pro-preview"
 LOCAL_DEFAULT_MODEL = "local-concept-v1"
+DETERMINISTIC_RECOMPOSITION_ROUTE = "deterministic_recomposition"
+PROVIDER_MASKED_GENERATION_ROUTE = "provider_masked_generation"
 
 
 def build_provider_capability_map(
@@ -55,9 +57,18 @@ def build_provider_capability_map(
             "selected_by_default": normalized_provider not in BFL_ALIASES,
             "supports": {
                 "generation": True,
+                "mask_aware_generation": False,
                 "masks": False,
                 "references": False,
             },
+            "mask_input": {
+                "accepted": False,
+                "blocked_reason": "Local deterministic provider does not call image-edit APIs.",
+                "content_types": [],
+                "required": False,
+            },
+            "supported_edit_routes": [DETERMINISTIC_RECOMPOSITION_ROUTE],
+            "unsupported_edit_routes": [PROVIDER_MASKED_GENERATION_ROUTE],
         },
         BFL_PROVIDER: {
             "aliases": list(BFL_ALIASES),
@@ -70,6 +81,11 @@ def build_provider_capability_map(
             "caveats": [
                 "Hosted BFL calls are paid external calls and remain concept-preview only.",
                 "Result delivery URLs are short-lived and must be stored before browser use.",
+                (
+                    "Current adapter uses FLUX.2 image editing/generation endpoints; "
+                    "explicit mask input is only verified in FLUX.1 Fill docs and is "
+                    "deferred."
+                ),
             ],
             "credential_configured": bfl_key_configured,
             "credential_required": True,
@@ -85,9 +101,22 @@ def build_provider_capability_map(
             "selected_by_default": normalized_provider in BFL_ALIASES,
             "supports": {
                 "generation": True,
+                "input_image_editing": True,
+                "mask_aware_generation": False,
                 "masks": False,
                 "references": False,
             },
+            "mask_input": {
+                "accepted": False,
+                "blocked_reason": (
+                    "Explicit mask payload support is not verified for the current "
+                    "FLUX.2 adapter route."
+                ),
+                "content_types": [],
+                "required": False,
+            },
+            "supported_edit_routes": [],
+            "unsupported_edit_routes": [PROVIDER_MASKED_GENERATION_ROUTE],
         },
     }
 

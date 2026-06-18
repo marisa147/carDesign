@@ -10,6 +10,7 @@ from caragent_worker.providers.base import (
     ImageProviderConfigurationError,
     ImageProviderError,
     ImageProviderTimeoutError,
+    MaskEditRequest,
 )
 from caragent_worker.providers.bfl import BflImageProvider
 from caragent_worker.providers.local import LocalDeterministicImageProvider
@@ -23,6 +24,7 @@ __all__ = [
     "ImageProviderError",
     "ImageProviderTimeoutError",
     "LocalDeterministicImageProvider",
+    "MaskEditRequest",
     "select_image_provider",
 ]
 

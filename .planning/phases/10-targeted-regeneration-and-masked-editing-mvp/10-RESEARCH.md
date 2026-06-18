@@ -56,6 +56,22 @@ Required planning guardrails:
 - Hosted provider errors must be sanitized and mapped to user-safe categories.
 - Default validation uses mocks or local deterministic route only.
 
+### 2026-06-18 BFL Mask/Edit Documentation Re-check
+
+Official BFL docs were re-checked during 10-04 implementation before adding any real hosted mask payload behavior:
+
+- FLUX.2 image editing docs: <https://docs.bfl.ai/flux_2/flux2_image_editing>
+- FLUX.2 `[pro]` preview API reference: <https://docs.bfl.ai/api-reference/models/generate-or-edit-an-image-with-flux2-%5Bpro%5D-preview>
+- FLUX.1 Fill `[pro]` mask/inpaint API reference: <https://docs.bfl.ai/api-reference/models/inpaint-an-image-with-flux1-fill-%5Bpro%5D-using-an-input-image-and-mask>
+
+Findings:
+
+- FLUX.2 image editing docs describe text-prompt image editing with `input_image` references and up to eight API reference images, but the documented FLUX.2 request surface reviewed for the current adapter route does not include an explicit `mask` field.
+- The FLUX.2 `[pro]` preview API reference documents `prompt`, `input_image`, optional `input_image_2` through `input_image_8`, dimensions/safety/output fields, and polling. It does not document a mask input for the adapter's current `/v1/flux-2-pro-preview` route.
+- BFL does document explicit image + mask input for FLUX.1 Fill `[pro]` via `/v1/flux-pro-1.0-fill`, with `image`, optional `mask`, prompt, steps, guidance, and output settings. The mask semantics are black/white same-dimension input where white marks the inpaint region.
+
+Implementation consequence: 10-04 keeps real BFL provider-masked generation deferred. The shared capability map exposes BFL full-generation capability and a caveat for FLUX.2 input-image editing, but `provider_masked_generation` remains unsupported until the project intentionally adds and verifies a FLUX.1 Fill or other mask-specific adapter path. Worker and API preflight must block unsupported mask routes before any accidental full-generation call.
+
 ## UI Route
 
 First MVP selectors can use structured targets rather than pixel brush tooling:

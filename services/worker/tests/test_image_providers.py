@@ -19,6 +19,7 @@ from caragent_worker.providers import (
     ImageProviderError,
     ImageProviderTimeoutError,
     LocalDeterministicImageProvider,
+    MaskEditRequest,
     select_image_provider,
 )
 from caragent_worker.recomposition import (
@@ -157,6 +158,39 @@ def test_named_local_fallback_provider_uses_configured_local_dimensions() -> Non
 def test_bfl_provider_requires_api_key_before_hosted_calls() -> None:
     with pytest.raises(ImageProviderConfigurationError, match="AI_PROVIDER_BFL_API_KEY"):
         BflImageProvider(api_key=None)
+
+
+def test_image_generation_request_can_carry_mask_edit_metadata() -> None:
+    request = replace(build_image_request(), mask_edit=build_mask_edit_request())
+
+    assert request.mask_edit is not None
+    assert request.mask_edit.route_preference == "provider_masked_generation"
+    assert request.mask_edit.mask_artifact_id == "11111111-1111-1111-1111-111111111111"
+    assert request.mask_edit.region["unit"] == "normalized"
+    assert request.mask_edit.prompt_delta["instructions"] == ["Repaint the selected door text."]
+
+
+def test_bfl_provider_rejects_mask_edit_metadata_before_submit() -> None:
+    request = replace(build_bfl_image_request(), mask_edit=build_mask_edit_request())
+    submitted_paths: list[str] = []
+
+    def handler(http_request: httpx.Request) -> httpx.Response:
+        submitted_paths.append(http_request.url.path)
+        return httpx.Response(500, text="should not be called")
+
+    client = httpx.AsyncClient(
+        base_url="https://api.test",
+        transport=httpx.MockTransport(handler),
+    )
+    provider = BflImageProvider(api_key="bfl-secret", client=client)
+
+    try:
+        with pytest.raises(ImageProviderConfigurationError, match="provider_masked_generation"):
+            asyncio.run(provider.generate(request))
+    finally:
+        asyncio.run(client.aclose())
+
+    assert submitted_paths == []
 
 
 def test_bfl_provider_submits_polls_and_downloads_result_bytes() -> None:
@@ -451,6 +485,30 @@ def build_bfl_image_request() -> ImageGenerationRequest:
         model="flux-2-pro-preview",
         parameters={"output_format": "png"},
         provider="bfl",
+    )
+
+
+def build_mask_edit_request() -> MaskEditRequest:
+    return MaskEditRequest(
+        mask_artifact_id="11111111-1111-1111-1111-111111111111",
+        mask_content_type="image/png",
+        mask_height=768,
+        mask_width=1536,
+        parent_version_id="22222222-2222-2222-2222-222222222222",
+        prompt_delta={
+            "instructions": ["Repaint the selected door text."],
+            "summary": "Repaint door text",
+        },
+        region={
+            "height": 0.2,
+            "type": "rectangle",
+            "unit": "normalized",
+            "width": 0.4,
+            "x": 0.2,
+            "y": 0.35,
+        },
+        route_preference="provider_masked_generation",
+        target={"id": "door-main", "type": "safe_zone"},
     )
 
 

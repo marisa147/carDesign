@@ -209,9 +209,18 @@ def test_worker_settings_expose_safe_provider_capabilities(
     assert set(capabilities) == {"local-deterministic", "bfl"}
     assert capabilities["local-deterministic"]["enabled"] is True
     assert capabilities["local-deterministic"]["credential_required"] is False
+    assert capabilities["local-deterministic"]["mask_input"]["accepted"] is False
+    assert capabilities["local-deterministic"]["supported_edit_routes"] == [
+        "deterministic_recomposition",
+    ]
     assert capabilities["bfl"]["enabled"] is True
     assert capabilities["bfl"]["credential_configured"] is True
     assert capabilities["bfl"]["default_model"] == "flux-2-pro-preview"
+    assert capabilities["bfl"]["supports"]["input_image_editing"] is True
+    assert capabilities["bfl"]["supports"]["mask_aware_generation"] is False
+    assert capabilities["bfl"]["mask_input"]["accepted"] is False
+    assert capabilities["bfl"]["supported_edit_routes"] == []
+    assert "provider_masked_generation" in capabilities["bfl"]["unsupported_edit_routes"]
     assert capabilities["bfl"]["guard_state"] == {
         "daily_call_limit": 10,
         "hosted_quota_guard_enabled": True,

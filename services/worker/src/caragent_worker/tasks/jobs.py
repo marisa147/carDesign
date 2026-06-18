@@ -33,6 +33,11 @@ from caragent_core.models import (
     ModelRun,
     utc_now,
 )
+from caragent_core.provider_capabilities import (
+    BFL_PROVIDER,
+    LOCAL_PROVIDER,
+    PROVIDER_MASKED_GENERATION_ROUTE,
+)
 from caragent_core.services import assets, jobs
 from caragent_core.storage import FileObjectStorage, ObjectStorage, build_object_key
 from pydantic import ValidationError
@@ -49,6 +54,7 @@ from caragent_worker.providers import (
     ImageProviderConfigurationError,
     ImageProviderError,
     ImageProviderTimeoutError,
+    MaskEditRequest,
     select_image_provider,
 )
 from caragent_worker.providers.base import sanitize_provider_error
@@ -243,6 +249,7 @@ async def _run_generate_2d_concept_job(
             return canceled_result
 
         edit_intent = _job_edit_intent(job)
+        provider_mask_edit_intent: EditIntent | None = None
         if edit_intent is not None:
             if not settings.v2_targeted_regeneration_enabled:
                 failure_stage = "targeted_regeneration_flag"
@@ -263,6 +270,8 @@ async def _run_generate_2d_concept_job(
                     storage=storage,
                     settings=settings,
                 )
+            if edit_intent.route_preference == PROVIDER_MASKED_GENERATION_ROUTE:
+                provider_mask_edit_intent = edit_intent
 
         provider_result: ImageGenerationResult | None = None
         request: ImageGenerationRequest | None = None
@@ -275,8 +284,10 @@ async def _run_generate_2d_concept_job(
             total_attempts += 1
             request = _image_request_from_prompt_plan(
                 prompt_plan,
+                edit_intent=provider_mask_edit_intent,
                 input_artifact_ids=input_artifact_ids,
             )
+            edit_route_metadata = _edit_route_metadata(request)
             model_run = await jobs.create_model_run(
                 session,
                 job_id,
@@ -286,6 +297,7 @@ async def _run_generate_2d_concept_job(
                 parameters={
                     **prompt_plan.parameters,
                     **iteration_parameters,
+                    **edit_route_metadata,
                     **preview_spec_summary,
                     "provider_attempt": attempt_index,
                     "provider_route": request.provider,
@@ -322,6 +334,15 @@ async def _run_generate_2d_concept_job(
                     settings=settings,
                     current_model_run_id=model_run_id,
                 )
+                if provider_mask_edit_intent is not None:
+                    failure_stage = "provider_mask_preflight"
+                    await _enforce_provider_mask_preflight(
+                        session,
+                        job=job,
+                        parent_version_id=parent_version_id,
+                        request=request,
+                        settings=settings,
+                    )
                 active_provider = provider or select_image_provider(
                     settings,
                     provider_name=request.provider,
@@ -377,6 +398,8 @@ async def _run_generate_2d_concept_job(
                     primary_attempts,
                 ):
                     continue
+                if provider_mask_edit_intent is not None:
+                    raise
                 if not _should_fallback_to_local(
                     attempt_category,
                     primary_provider=request.provider,
@@ -387,9 +410,11 @@ async def _run_generate_2d_concept_job(
                 total_attempts += 1
                 fallback_request = _image_request_from_prompt_plan(
                     prompt_plan,
+                    edit_intent=provider_mask_edit_intent,
                     input_artifact_ids=input_artifact_ids,
                     provider_name=settings.ai_provider_fallback_name,
                 )
+                fallback_edit_route_metadata = _edit_route_metadata(fallback_request)
                 fallback_metadata = {
                     "fallback_from_provider": request.provider,
                     "fallback_reason": sanitized_attempt_error,
@@ -416,6 +441,7 @@ async def _run_generate_2d_concept_job(
                     parameters={
                         **prompt_plan.parameters,
                         **iteration_parameters,
+                        **fallback_edit_route_metadata,
                         **preview_spec_summary,
                         **fallback_metadata,
                         "provider_attempt": total_attempts,
@@ -438,6 +464,15 @@ async def _run_generate_2d_concept_job(
                         settings=settings,
                         current_model_run_id=model_run_id,
                     )
+                    if provider_mask_edit_intent is not None:
+                        failure_stage = "provider_mask_preflight"
+                        await _enforce_provider_mask_preflight(
+                            session,
+                            job=job,
+                            parent_version_id=parent_version_id,
+                            request=fallback_request,
+                            settings=settings,
+                        )
                     active_provider = select_image_provider(
                         settings,
                         provider_name=fallback_request.provider,
@@ -1039,6 +1074,89 @@ async def _enforce_hosted_preflight(
         raise ImageProviderConfigurationError("Hosted provider per-minute rate limit reached.")
 
 
+async def _enforce_provider_mask_preflight(
+    session: AsyncSession,
+    *,
+    job: GenerationJob,
+    parent_version_id: UUID | None,
+    request: ImageGenerationRequest,
+    settings: WorkerSettings,
+) -> None:
+    mask_edit = request.mask_edit
+    if mask_edit is None:
+        raise ImageProviderConfigurationError(
+            "provider_masked_generation requires mask edit metadata.",
+        )
+    if parent_version_id is None:
+        raise ImageProviderConfigurationError(
+            "provider_masked_generation requires a parent version.",
+        )
+    if (
+        mask_edit.parent_version_id is not None
+        and mask_edit.parent_version_id != str(parent_version_id)
+    ):
+        raise ImageProviderConfigurationError(
+            "provider_masked_generation parent version does not match job.",
+        )
+
+    _require_provider_mask_capability(request.provider, settings=settings)
+
+    mask_artifact_id = UUID(mask_edit.mask_artifact_id)
+    mask_artifact = await session.get(Artifact, mask_artifact_id)
+    if mask_artifact is None or mask_artifact.workspace_id != job.workspace_id:
+        raise ImageProviderConfigurationError(
+            "provider_masked_generation mask artifact was not found.",
+        )
+    if mask_artifact.content_type != mask_edit.mask_content_type:
+        raise ImageProviderConfigurationError(
+            "provider_masked_generation mask content type does not match artifact.",
+        )
+    if mask_artifact.width != mask_edit.mask_width or mask_artifact.height != mask_edit.mask_height:
+        raise ImageProviderConfigurationError(
+            "provider_masked_generation mask dimensions do not match artifact.",
+        )
+
+
+def _require_provider_mask_capability(
+    provider_name: str,
+    *,
+    settings: WorkerSettings,
+) -> None:
+    provider_key = _capability_provider_key(provider_name)
+    capability = settings.provider_capability_map().get(provider_key)
+    if capability is None:
+        raise ImageProviderConfigurationError(
+            f"Provider {provider_name} does not support {PROVIDER_MASKED_GENERATION_ROUTE}.",
+        )
+    supported_routes = {str(route) for route in capability.get("supported_edit_routes", [])}
+    raw_supports = capability.get("supports")
+    supports = raw_supports if isinstance(raw_supports, dict) else {}
+    raw_mask_input = capability.get("mask_input")
+    mask_input = raw_mask_input if isinstance(raw_mask_input, dict) else {}
+    if (
+        PROVIDER_MASKED_GENERATION_ROUTE not in supported_routes
+        or not bool(supports.get("mask_aware_generation"))
+        or not bool(mask_input.get("accepted"))
+    ):
+        blocked_reason = str(
+            mask_input.get("blocked_reason")
+            or f"Route {PROVIDER_MASKED_GENERATION_ROUTE} is not enabled.",
+        )
+        raise ImageProviderConfigurationError(
+            f"Provider {provider_key} does not support "
+            f"{PROVIDER_MASKED_GENERATION_ROUTE}: {blocked_reason}",
+        )
+
+
+def _capability_provider_key(provider_name: str) -> str:
+    normalized = provider_name.strip().lower()
+    if normalized in LOCAL_PROVIDER_NAMES:
+        return LOCAL_PROVIDER
+    if normalized in BFL_PROVIDER_NAMES:
+        return BFL_PROVIDER
+    return normalized
+
+
 async def _count_recent_hosted_model_runs(
     session: AsyncSession,
     *,
@@ -1285,19 +1403,45 @@ def _generation_iteration_context(metadata: object) -> tuple[UUID | None, dict[s
 def _image_request_from_prompt_plan(
     prompt_plan: PromptPlan,
     *,
+    edit_intent: EditIntent | None = None,
     input_artifact_ids: list[str],
     provider_name: str | None = None,
 ) -> ImageGenerationRequest:
     request = ImageGenerationRequest.from_prompt_plan(prompt_plan)
+    mask_edit = _mask_edit_request_from_intent(edit_intent)
+    prompt_payload = dict(request.prompt_payload)
+    if mask_edit is not None:
+        prompt_payload["mask_edit"] = _mask_edit_metadata(mask_edit)
     return ImageGenerationRequest(
         concept_label=request.concept_label,
         estimated_cost=request.estimated_cost,
         input_artifact_ids=input_artifact_ids,
+        mask_edit=mask_edit,
         model=request.model,
         parameters=request.parameters,
-        prompt_payload=request.prompt_payload,
+        prompt_payload=prompt_payload,
         prompt_text=request.prompt_text,
         provider=provider_name or request.provider,
+    )
+
+
+def _mask_edit_request_from_intent(edit_intent: EditIntent | None) -> MaskEditRequest | None:
+    if edit_intent is None:
+        return None
+    return MaskEditRequest(
+        mask_artifact_id=str(edit_intent.mask.artifact_id),
+        mask_content_type=edit_intent.mask.content_type,
+        mask_height=edit_intent.mask.height,
+        mask_width=edit_intent.mask.width,
+        parent_version_id=(
+            str(edit_intent.parent_version_id)
+            if edit_intent.parent_version_id is not None
+            else None
+        ),
+        prompt_delta=edit_intent.prompt_delta.model_dump(mode="json"),
+        region=edit_intent.region.model_dump(mode="json"),
+        route_preference=edit_intent.route_preference,
+        target=edit_intent.target.model_dump(mode="json"),
     )
 
 
@@ -1305,12 +1449,34 @@ def _provider_trace_metadata(
     request: ImageGenerationRequest,
     result: ImageGenerationResult,
 ) -> dict[str, object]:
-    return {
+    metadata: dict[str, object] = {
         "actual_cost": _decimal_metadata(result.actual_cost),
         "estimated_cost": _decimal_metadata(result.estimated_cost),
         "model": result.model,
         "provider": result.provider,
         "provider_parameters": dict(request.parameters),
+    }
+    metadata.update(_edit_route_metadata(request))
+    return metadata
+
+
+def _edit_route_metadata(request: ImageGenerationRequest) -> dict[str, object]:
+    if request.mask_edit is None:
+        return {}
+    return _mask_edit_metadata(request.mask_edit)
+
+
+def _mask_edit_metadata(mask_edit: MaskEditRequest) -> dict[str, object]:
+    return {
+        "edit_route": mask_edit.route_preference,
+        "mask_artifact_id": mask_edit.mask_artifact_id,
+        "mask_content_type": mask_edit.mask_content_type,
+        "mask_height": mask_edit.mask_height,
+        "mask_width": mask_edit.mask_width,
+        "parent_version_id": mask_edit.parent_version_id,
+        "prompt_delta": dict(mask_edit.prompt_delta),
+        "region": dict(mask_edit.region),
+        "target": dict(mask_edit.target),
     }
 
 

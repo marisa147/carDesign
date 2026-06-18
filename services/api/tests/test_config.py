@@ -188,8 +188,12 @@ def test_settings_expose_browser_safe_provider_capabilities(
     assert local["enabled"] is True
     assert local["blocked_reasons"] == []
     assert local["supports"]["generation"] is True
+    assert local["supports"]["mask_aware_generation"] is False
     assert local["supports"]["references"] is False
     assert local["supports"]["masks"] is False
+    assert local["mask_input"]["accepted"] is False
+    assert local["supported_edit_routes"] == ["deterministic_recomposition"]
+    assert "provider_masked_generation" in local["unsupported_edit_routes"]
 
     bfl = capabilities["bfl"]
     assert bfl["provider"] == "bfl"
@@ -199,6 +203,12 @@ def test_settings_expose_browser_safe_provider_capabilities(
     assert bfl["enabled"] is True
     assert bfl["default_model"] == "flux-2-pro-preview"
     assert bfl["blocked_reasons"] == []
+    assert bfl["supports"]["generation"] is True
+    assert bfl["supports"]["input_image_editing"] is True
+    assert bfl["supports"]["mask_aware_generation"] is False
+    assert bfl["mask_input"]["accepted"] is False
+    assert bfl["supported_edit_routes"] == []
+    assert "provider_masked_generation" in bfl["unsupported_edit_routes"]
     assert bfl["guard_state"] == {
         "daily_call_limit": 10,
         "hosted_quota_guard_enabled": True,

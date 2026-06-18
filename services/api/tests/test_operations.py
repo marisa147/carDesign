@@ -203,10 +203,19 @@ def test_operations_provider_status_exposes_safe_capabilities_and_guard_state(
     assert set(capabilities) == {"local-deterministic", "bfl"}
     assert capabilities["local-deterministic"]["enabled"] is True
     assert capabilities["local-deterministic"]["credential_required"] is False
+    assert capabilities["local-deterministic"]["mask_input"]["accepted"] is False
+    assert capabilities["local-deterministic"]["supported_edit_routes"] == [
+        "deterministic_recomposition",
+    ]
     assert capabilities["bfl"]["enabled"] is True
     assert capabilities["bfl"]["credential_configured"] is True
     assert capabilities["bfl"]["default_model"] == "flux-2-pro-preview"
     assert capabilities["bfl"]["blocked_reasons"] == []
+    assert capabilities["bfl"]["supports"]["input_image_editing"] is True
+    assert capabilities["bfl"]["supports"]["mask_aware_generation"] is False
+    assert capabilities["bfl"]["mask_input"]["accepted"] is False
+    assert capabilities["bfl"]["supported_edit_routes"] == []
+    assert "provider_masked_generation" in capabilities["bfl"]["unsupported_edit_routes"]
     rendered = json.dumps(provider, sort_keys=True)
     assert "bfl-secret" not in rendered
     assert "api_key" not in rendered.lower()
@@ -231,6 +240,8 @@ def test_operations_provider_status_blocks_bfl_without_secrets_or_guards(
     bfl = next(item for item in provider["capabilities"] if item["provider"] == "bfl")
     assert bfl["enabled"] is False
     assert bfl["credential_configured"] is False
+    assert bfl["mask_input"]["accepted"] is False
+    assert "provider_masked_generation" in bfl["unsupported_edit_routes"]
     assert "AI_PROVIDER_BFL_API_KEY is missing" in bfl["blocked_reasons"]
     assert "Hosted quota/rate/cost guards are incomplete" in bfl["blocked_reasons"]
     assert provider["guard_state"]["hosted_quota_guard_enabled"] is False
