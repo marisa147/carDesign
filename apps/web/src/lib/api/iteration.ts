@@ -1,15 +1,18 @@
 import {
+  getCreatePreview3dScreenshotWorkspacesWorkspaceIdVersionsVersionIdPreview3dScreenshotsPostUrl,
   getCreateExportWorkspacesWorkspaceIdVersionsVersionIdExportsPostUrl,
   getCreateFeedbackWorkspacesWorkspaceIdVersionsVersionIdFeedbackPostUrl,
   getListExportsWorkspacesWorkspaceIdExportsGetUrl,
   getListFeedbackWorkspacesWorkspaceIdFeedbackGetUrl,
   getSubmitGenerationIterationJobWorkspacesWorkspaceIdVersionsVersionIdIterationsPostUrl,
+  type ArtifactResponse,
   type ExportCreateRequest,
   type ExportResponse,
   type FeedbackCreateRequest,
   type FeedbackResponse,
   type GenerationIterationSubmissionRequest,
   type GenerationJobSubmissionResponse,
+  type Preview3DScreenshotCreateRequest,
 } from "@caragent/contracts";
 
 import {
@@ -93,6 +96,23 @@ export async function createConceptExport(
 ): Promise<ExportResponse> {
   return requestIterationJson<ExportResponse>(
     getCreateExportWorkspacesWorkspaceIdVersionsVersionIdExportsPostUrl(workspaceId, versionId),
+    "POST",
+    payload,
+    options,
+  );
+}
+
+export async function createPreview3DScreenshot(
+  workspaceId: string,
+  versionId: string,
+  payload: Preview3DScreenshotCreateRequest,
+  options: IterationApiOptions = {},
+): Promise<ArtifactResponse> {
+  return requestIterationJson<ArtifactResponse>(
+    getCreatePreview3dScreenshotWorkspacesWorkspaceIdVersionsVersionIdPreview3dScreenshotsPostUrl(
+      workspaceId,
+      versionId,
+    ),
     "POST",
     payload,
     options,

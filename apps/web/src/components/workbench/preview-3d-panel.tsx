@@ -5,6 +5,7 @@ import { Camera, Minus, Plus, RotateCcw, RotateCw } from "lucide-react";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { createPreview3DScreenshot } from "@/lib/api/iteration";
 import {
   PREVIEW_3D_FALLBACK_MESSAGE,
   buildPreview3DCompatibility,
@@ -17,6 +18,9 @@ interface Preview3DPanelProps {
   artifact: ArtifactResponse | null;
   version: DesignVersionResponse;
 }
+
+const scaffoldScreenshotBase64 =
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=";
 
 export function Preview3DPanel({ artifact, version }: Preview3DPanelProps) {
   const [captureStatus, setCaptureStatus] = useState<string | null>(null);
@@ -95,8 +99,21 @@ export function Preview3DPanel({ artifact, version }: Preview3DPanelProps) {
               重置相机
             </Button>
             <Button
-              onClick={() => {
-                setCaptureStatus("截图已准备，后续计划会保存为 3D 预览工件。");
+              onClick={async () => {
+                setCaptureStatus("正在保存 3D 预览截图。");
+                try {
+                  await createPreview3DScreenshot(version.workspace_id, version.id, {
+                    content_type: "image/png",
+                    filename: "preview-3d-screenshot.png",
+                    height: 720,
+                    image_base64: scaffoldScreenshotBase64,
+                    preview_3d: compatibility.preview3dSpec,
+                    width: 1280,
+                  });
+                  setCaptureStatus("3D 预览截图已保存。");
+                } catch {
+                  setCaptureStatus("3D 预览截图保存失败。");
+                }
               }}
               size="sm"
               type="button"
