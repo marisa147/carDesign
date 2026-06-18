@@ -96,19 +96,19 @@ def test_operations_provider_status_reports_local_disabled_provider(tmp_path: Pa
     payload = response.json()
     assert payload["api_version"] == "0.1.0"
     assert payload["runtime_mode"] == "local"
-    assert payload["provider"] == {
-        "active_mode": "local-deterministic",
-        "bfl_key_configured": False,
-        "calls_enabled": False,
-        "default_provider": "disabled",
-        "hosted_calls_blocked_reason": None,
-        "hosted_daily_call_limit": None,
-        "hosted_provider_configured": False,
-        "hosted_quota_guard_enabled": False,
-        "hosted_rate_limit_per_minute": None,
-        "max_estimated_cost_per_job": None,
-        "supported_providers": ["local-deterministic", "bfl"],
-    }
+    provider = payload["provider"]
+    assert provider["active_mode"] == "local-deterministic"
+    assert provider["bfl_key_configured"] is False
+    assert provider["calls_enabled"] is False
+    assert provider["default_provider"] == "disabled"
+    assert provider["guard_state"]["hosted_quota_guard_enabled"] is False
+    assert provider["hosted_calls_blocked_reason"] is None
+    assert provider["hosted_daily_call_limit"] is None
+    assert provider["hosted_provider_configured"] is False
+    assert provider["hosted_quota_guard_enabled"] is False
+    assert provider["hosted_rate_limit_per_minute"] is None
+    assert provider["max_estimated_cost_per_job"] is None
+    assert provider["supported_providers"] == ["local-deterministic", "bfl"]
     assert payload["queue"]["status"] == "unavailable"
     assert payload["queue"]["generation_queue"] == "caragent.default"
     assert payload["worker"]["status"] == "unavailable"
@@ -130,21 +130,19 @@ def test_operations_provider_status_reports_hosted_config_without_secret(
     response = client.get("/operations/provider-status")
 
     assert response.status_code == 200
-    assert response.json()["provider"] == {
-        "active_mode": "bfl",
-        "bfl_key_configured": True,
-        "calls_enabled": True,
-        "default_provider": "bfl",
-        "hosted_calls_blocked_reason": (
-            "Hosted calls require daily, per-minute, and per-job cost limits."
-        ),
-        "hosted_daily_call_limit": None,
-        "hosted_provider_configured": True,
-        "hosted_quota_guard_enabled": False,
-        "hosted_rate_limit_per_minute": None,
-        "max_estimated_cost_per_job": None,
-        "supported_providers": ["local-deterministic", "bfl"],
-    }
+    provider = response.json()["provider"]
+    assert provider["active_mode"] == "local-deterministic"
+    assert provider["bfl_key_configured"] is True
+    assert provider["calls_enabled"] is True
+    assert provider["default_provider"] == "bfl"
+    assert provider["hosted_provider_configured"] is True
+    assert provider["hosted_quota_guard_enabled"] is False
+    assert "V2_HOSTED_PROVIDER_ROLLOUT_ENABLED is disabled" in provider[
+        "hosted_calls_blocked_reason"
+    ]
+    assert "Hosted quota/rate/cost guards are incomplete" in provider[
+        "hosted_calls_blocked_reason"
+    ]
     assert "bfl-secret" not in response.text
 
 
@@ -159,6 +157,7 @@ def test_operations_provider_status_reports_hosted_quota_guards(
         ai_provider_calls_enabled=True,
         ai_provider_default="bfl",
         database_url=f"sqlite+aiosqlite:///{(tmp_path / 'hosted-guarded.db').as_posix()}",
+        v2_hosted_provider_rollout_enabled=True,
     )
     client, _app = create_operations_client(tmp_path, settings=settings)
 

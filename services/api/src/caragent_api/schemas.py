@@ -248,7 +248,9 @@ class ProviderOperationsSummary(BaseModel):
     active_mode: str
     bfl_key_configured: bool
     calls_enabled: bool
+    capabilities: list[dict[str, Any]] = Field(default_factory=list)
     default_provider: str
+    guard_state: dict[str, Any] = Field(default_factory=dict)
     hosted_calls_blocked_reason: str | None = None
     hosted_daily_call_limit: int | None = None
     hosted_provider_configured: bool

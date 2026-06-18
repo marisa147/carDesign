@@ -18,6 +18,7 @@ ENV_KEYS = (
     "CORS_ORIGINS",
     "RUNTIME_MODE",
     "AI_PROVIDER_DEFAULT",
+    "AI_PROVIDER_MODEL",
     "AI_PROVIDER_CALLS_ENABLED",
     "AI_PROVIDER_OPENAI_API_KEY",
     "AI_PROVIDER_FAL_API_KEY",
@@ -66,6 +67,7 @@ def test_settings_parse_required_foundation_env(monkeypatch: pytest.MonkeyPatch)
     assert settings.s3_bucket == "caragent-test-artifacts"
     assert settings.cors_origins == ["https://app.example", "https://admin.example"]
     assert settings.ai_provider_default == "openai"
+    assert settings.ai_provider_model == "local-concept-v1"
     assert settings.ai_provider_calls_enabled is True
     assert settings.ai_provider_openai_api_key is not None
     assert settings.ai_provider_openai_api_key.get_secret_value() == "openai-secret"
@@ -113,6 +115,7 @@ def test_settings_load_documented_service_env_file(
     assert settings.s3_bucket == "api-artifacts"
     assert settings.cors_origins == ["https://app.internal", "https://ops.internal"]
     assert settings.ai_provider_default == "fal"
+    assert settings.ai_provider_model == "local-concept-v1"
     assert settings.ai_provider_calls_enabled is True
     assert settings.ai_provider_openai_api_key is not None
     assert settings.ai_provider_openai_api_key.get_secret_value() == "api-openai-secret"

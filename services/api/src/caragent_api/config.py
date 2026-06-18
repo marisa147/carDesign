@@ -50,6 +50,10 @@ class ApiSettings(BaseSettings):
     )
     cors_allow_credentials: bool = Field(default=True, validation_alias="CORS_ALLOW_CREDENTIALS")
     ai_provider_default: str = Field(default="disabled", validation_alias="AI_PROVIDER_DEFAULT")
+    ai_provider_model: str = Field(
+        default="local-concept-v1",
+        validation_alias="AI_PROVIDER_MODEL",
+    )
     ai_provider_calls_enabled: bool = Field(
         default=False,
         validation_alias="AI_PROVIDER_CALLS_ENABLED",
@@ -163,6 +167,23 @@ class ApiSettings(BaseSettings):
         if missing:
             msg = f"Non-local runtime requires explicit settings: {', '.join(missing)}"
             raise ValueError(msg)
+
+    def provider_capability_map(self) -> dict[str, dict[str, Any]]:
+        from caragent_core.provider_capabilities import build_provider_capability_map
+
+        bfl_key_configured = bool(
+            self.ai_provider_bfl_api_key and self.ai_provider_bfl_api_key.get_secret_value()
+        )
+        return build_provider_capability_map(
+            bfl_key_configured=bfl_key_configured,
+            default_model=self.ai_provider_model,
+            default_provider=self.ai_provider_default,
+            hosted_daily_call_limit=self.ai_hosted_daily_call_limit,
+            hosted_rate_limit_per_minute=self.ai_hosted_rate_limit_per_minute,
+            max_estimated_cost_per_job=self.ai_max_estimated_cost_per_job,
+            provider_calls_enabled=self.ai_provider_calls_enabled,
+            v2_hosted_provider_rollout_enabled=self.v2_hosted_provider_rollout_enabled,
+        )
 
 
 @lru_cache

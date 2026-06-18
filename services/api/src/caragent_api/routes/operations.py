@@ -4,6 +4,11 @@ from typing import Annotated
 
 from caragent_core.enums import FailureCategory, JobStatus
 from caragent_core.models import GenerationJob
+from caragent_core.provider_capabilities import (
+    BFL_ALIASES,
+    BFL_PROVIDER,
+    provider_capabilities_as_list,
+)
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -62,30 +67,28 @@ def _settings_from_request(request: Request) -> ApiSettings:
 
 def _provider_summary(settings: ApiSettings) -> ProviderOperationsSummary:
     default_provider = settings.ai_provider_default.strip().lower() or "disabled"
-    bfl_key_configured = bool(
-        settings.ai_provider_bfl_api_key
-        and settings.ai_provider_bfl_api_key.get_secret_value()
+    capabilities = settings.provider_capability_map()
+    bfl = capabilities[BFL_PROVIDER]
+    bfl_key_configured = bool(bfl["credential_configured"])
+    hosted_provider_configured = settings.ai_provider_calls_enabled and bfl_key_configured
+    hosted_quota_guard_enabled = bool(bfl["guard_state"]["hosted_quota_guard_enabled"])
+    active_mode = (
+        BFL_PROVIDER
+        if default_provider in BFL_ALIASES and bfl["enabled"]
+        else "local-deterministic"
     )
-    hosted_provider_configured = (
-        settings.ai_provider_calls_enabled
-        and default_provider in {"bfl", "black-forest-labs"}
-        and bfl_key_configured
-    )
-    active_mode = "bfl" if hosted_provider_configured else "local-deterministic"
-    hosted_quota_guard_enabled = (
-        settings.ai_hosted_daily_call_limit is not None
-        and settings.ai_hosted_rate_limit_per_minute is not None
-        and settings.ai_max_estimated_cost_per_job is not None
-    )
+    blocked_reasons = bfl["blocked_reasons"] if default_provider in BFL_ALIASES else []
     return ProviderOperationsSummary(
         active_mode=active_mode,
         bfl_key_configured=bfl_key_configured,
         calls_enabled=settings.ai_provider_calls_enabled,
+        capabilities=provider_capabilities_as_list(capabilities),
         default_provider=default_provider,
+        guard_state=bfl["guard_state"],
         hosted_calls_blocked_reason=(
-            None
-            if not settings.ai_provider_calls_enabled or hosted_quota_guard_enabled
-            else "Hosted calls require daily, per-minute, and per-job cost limits."
+            "; ".join(str(reason) for reason in blocked_reasons)
+            if blocked_reasons
+            else None
         ),
         hosted_daily_call_limit=settings.ai_hosted_daily_call_limit,
         hosted_provider_configured=hosted_provider_configured,

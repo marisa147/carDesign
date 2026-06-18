@@ -1,6 +1,6 @@
 from decimal import Decimal
 from functools import lru_cache
-from typing import Literal, Self
+from typing import Any, Literal, Self
 
 from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -150,6 +150,23 @@ class WorkerSettings(BaseSettings):
             "openai": self.ai_provider_openai_api_key,
         }.get(provider_name)
         return bool(provider_key and provider_key.get_secret_value())
+
+    def provider_capability_map(self) -> dict[str, dict[str, Any]]:
+        from caragent_core.provider_capabilities import build_provider_capability_map
+
+        return build_provider_capability_map(
+            bfl_key_configured=bool(
+                self.ai_provider_bfl_api_key
+                and self.ai_provider_bfl_api_key.get_secret_value()
+            ),
+            default_model=self.ai_provider_model,
+            default_provider=self.ai_provider_default,
+            hosted_daily_call_limit=self.ai_hosted_daily_call_limit,
+            hosted_rate_limit_per_minute=self.ai_hosted_rate_limit_per_minute,
+            max_estimated_cost_per_job=self.ai_max_estimated_cost_per_job,
+            provider_calls_enabled=self.ai_provider_calls_enabled,
+            v2_hosted_provider_rollout_enabled=self.v2_hosted_provider_rollout_enabled,
+        )
 
 
 @lru_cache(maxsize=1)
