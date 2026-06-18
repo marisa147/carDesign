@@ -29,7 +29,7 @@ Completion evidence: `.planning/phases/09-hosted-provider-rollout-mvp/09-VERIFIC
 - [ ] **V2-EDIT-02**: System stores edit intent, selected region, mask data, parent version, prompt delta, provider parameters, and generated child version.
 - [ ] **V2-EDIT-03**: Worker can use deterministic recomposition when only layer position, scale, visibility, opacity, text, or logo changes are requested.
 - [ ] **V2-EDIT-04**: Worker can route mask-aware provider calls when visual content must be regenerated.
-- [ ] **V2-EDIT-05**: User can compare parent and child versions and see whether a change was recomposition-only or provider-generated.
+- [x] **V2-EDIT-05**: User can compare parent and child versions and see whether a change was recomposition-only or provider-generated.
 
 ### Reference Guidance
 
@@ -109,7 +109,7 @@ Completion evidence: `.planning/phases/09-hosted-provider-rollout-mvp/09-VERIFIC
 | V2-EDIT-02 | Phase 10 | Pending |
 | V2-EDIT-03 | Phase 10 | Pending |
 | V2-EDIT-04 | Phase 10 | Pending |
-| V2-EDIT-05 | Phase 10 | Pending |
+| V2-EDIT-05 | Phase 10 | Completed |
 | V2-REF-01 | Phase 11 | Pending |
 | V2-REF-02 | Phase 11 | Pending |
 | V2-REF-03 | Phase 11 | Pending |

@@ -37,19 +37,23 @@ interface WorkbenchUiState {
   editPromptDelta: string;
   editRoutePreference: TargetedEditRoutePreference;
   isTargetedEditMode: boolean;
+  isVersionComparisonMode: boolean;
   previewPan: PreviewPan;
   previewZoom: number;
+  selectedComparisonChildId: string | null;
   selectedEditTarget: TargetedEditTarget | null;
   selectedVersionId: string | null;
   selectedView: WorkbenchView;
   showEditMaskPreview: boolean;
   showOverlayLayers: boolean;
   showSafeZones: boolean;
+  clearVersionComparison: () => void;
   clearTargetedEditDraft: () => void;
   panPreview: (pan: PreviewPan) => void;
   resetPreviewTransform: () => void;
   resetWorkbenchUi: () => void;
   setActiveInspectorTab: (tab: WorkbenchTab) => void;
+  setSelectedComparisonChildId: (versionId: string | null) => void;
   setEditPromptDelta: (value: string) => void;
   setEditRoutePreference: (routePreference: TargetedEditRoutePreference) => void;
   setPreviewZoom: (zoom: number) => void;
@@ -70,8 +74,10 @@ const initialWorkbenchUiState = {
   editPromptDelta: "",
   editRoutePreference: "deterministic_recomposition" as TargetedEditRoutePreference,
   isTargetedEditMode: false,
+  isVersionComparisonMode: false,
   previewPan: { x: 0, y: 0 },
   previewZoom: 1,
+  selectedComparisonChildId: null,
   selectedEditTarget: null,
   selectedVersionId: null,
   selectedView: "side" as WorkbenchView,
@@ -86,6 +92,9 @@ const maxPreviewZoom = 3;
 
 export const useWorkbenchStore = create<WorkbenchUiState>()((set) => ({
   ...initialWorkbenchUiState,
+  clearVersionComparison: () => {
+    set(versionComparisonDefaults);
+  },
   clearTargetedEditDraft: () => {
     set(targetedEditDraftDefaults);
   },
@@ -103,6 +112,16 @@ export const useWorkbenchStore = create<WorkbenchUiState>()((set) => ({
   },
   setActiveInspectorTab: (activeInspectorTab) => {
     set({ activeInspectorTab });
+  },
+  setSelectedComparisonChildId: (selectedComparisonChildId) => {
+    set((state) => ({
+      isVersionComparisonMode: selectedComparisonChildId !== null,
+      selectedComparisonChildId,
+      selectedVersionId: selectedComparisonChildId ?? state.selectedVersionId,
+      ...(state.selectedVersionId !== selectedComparisonChildId && selectedComparisonChildId !== null
+        ? targetedEditDraftDefaults
+        : {}),
+    }));
   },
   setEditPromptDelta: (editPromptDelta) => {
     set({ editPromptDelta });
@@ -123,7 +142,9 @@ export const useWorkbenchStore = create<WorkbenchUiState>()((set) => ({
   setSelectedVersionId: (selectedVersionId) => {
     set((state) => ({
       selectedVersionId,
-      ...(state.selectedVersionId !== selectedVersionId ? targetedEditDraftDefaults : {}),
+      ...(state.selectedVersionId !== selectedVersionId
+        ? { ...targetedEditDraftDefaults, ...versionComparisonDefaults }
+        : {}),
     }));
   },
   setSelectedView: (selectedView) => {
@@ -164,6 +185,11 @@ const targetedEditDraftDefaults = {
   editRoutePreference: initialWorkbenchUiState.editRoutePreference,
   selectedEditTarget: initialWorkbenchUiState.selectedEditTarget,
   showEditMaskPreview: initialWorkbenchUiState.showEditMaskPreview,
+};
+
+const versionComparisonDefaults = {
+  isVersionComparisonMode: initialWorkbenchUiState.isVersionComparisonMode,
+  selectedComparisonChildId: initialWorkbenchUiState.selectedComparisonChildId,
 };
 
 function clampZoom(value: number): number {

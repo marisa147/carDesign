@@ -436,6 +436,75 @@ const feedbackFixture: FeedbackResponse = {
   workspace_id: "workspace-1",
 };
 
+const targetedRecompositionVersionFixture: DesignVersionResponse = {
+  ...versionFixture,
+  id: "version-targeted-recomposition",
+  lineage_depth: 1,
+  parameters: {
+    changed_fields: ["text", "y"],
+    edit_route: "deterministic_recomposition",
+    mask_artifact_id: "artifact-1",
+    prompt_delta: {
+      instructions: ["把门板文字上移"],
+      summary: "把门板文字上移",
+    },
+    region: {
+      height: 0.24,
+      type: "rectangle",
+      unit: "normalized",
+      width: 0.34,
+      x: 0.32,
+      y: 0.47,
+    },
+    target: {
+      id: "text-1",
+      type: "overlay_layer",
+    },
+  },
+  parent_version_id: "version-1",
+  summary: "Text layer moved within the door area.",
+  title: "局部编辑 1",
+  updated_at: "2026-06-17T00:35:00Z",
+};
+
+const targetedProviderVersionFixture: DesignVersionResponse = {
+  ...targetedRecompositionVersionFixture,
+  id: "version-targeted-provider",
+  parameters: {
+    edit_route: "provider_masked_generation",
+    estimated_cost: "0.6500",
+    mask_artifact_id: "artifact-1",
+    model: "flux-2-pro-preview",
+    prompt_delta: {
+      instructions: ["重绘后翼子板角色表情"],
+      summary: "重绘后翼子板角色表情",
+    },
+    provider: "bfl",
+    region: {
+      height: 0.2,
+      type: "rectangle",
+      unit: "normalized",
+      width: 0.18,
+      x: 0.64,
+      y: 0.43,
+    },
+    target: {
+      id: "rear-quarter",
+      type: "safe_zone",
+    },
+  },
+  summary: "Provider masked edit for rear quarter.",
+  title: "托管局部编辑",
+  updated_at: "2026-06-17T00:38:00Z",
+};
+
+const orphanTargetedVersionFixture: DesignVersionResponse = {
+  ...targetedRecompositionVersionFixture,
+  id: "version-targeted-orphan",
+  parent_version_id: "missing-parent",
+  title: "孤立局部编辑",
+};
+
 const exportFixture: ExportResponse = {
   artifact_id: "artifact-2",
   completed_at: null,
@@ -1453,6 +1522,100 @@ describe("Phase 4 workbench shell", () => {
           (init as RequestInit | undefined)?.method !== "GET",
       ),
     ).toBe(false);
+  });
+
+  it("compares targeted recomposition child versions with metadata-backed region highlights", async () => {
+    const user = userEvent.setup();
+    localStorage.setItem("caragent.workbench.workspaceId", "workspace-1");
+    localStorage.setItem("caragent.workbench.briefId", "brief-1");
+    const succeededJob = {
+      ...generationJobFixture,
+      status: "succeeded",
+      updated_at: "2026-06-17T00:35:00Z",
+    } satisfies GenerationJobResponse;
+    const targetedArtifact = {
+      ...secondArtifactFixture,
+      id: "artifact-targeted-recomposition",
+      object_key: "workspaces/workspace-1/generated_image/artifact-targeted/concept.png",
+      version_id: "version-targeted-recomposition",
+    } satisfies ArtifactResponse;
+    const fetchMock = mockResumeWithGenerationState({
+      artifacts: [artifactFixture, targetedArtifact],
+      events: [
+        {
+          ...jobEventFixture,
+          event_type: "completed",
+          message: "Artifact ready.",
+          progress: "100",
+          status: "succeeded",
+        },
+      ],
+      job: succeededJob,
+      versions: [versionFixture, secondVersionFixture, targetedRecompositionVersionFixture],
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<Home />);
+
+    expect(await screen.findByText("2D 概念预览")).toBeVisible();
+    expect(screen.queryByRole("button", { name: "对比 版本 2" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "对比 局部编辑 1" }));
+
+    expect(screen.getByText("局部编辑对比")).toBeVisible();
+    expect(screen.getByText("父版本: 版本 1")).toBeVisible();
+    expect(screen.getByText("当前版本: 局部编辑 1")).toBeVisible();
+    expect(screen.getByText("路线 本地重组")).toBeVisible();
+    expect(screen.getByText("Route deterministic_recomposition")).toBeVisible();
+    expect(screen.getByText("目标 overlay_layer:text-1")).toBeVisible();
+    expect(screen.getByText("Prompt 把门板文字上移")).toBeVisible();
+    expect(screen.getByText("改动字段 text, y")).toBeVisible();
+    expect(screen.getByText("区域 32% / 47% / 34% / 24%")).toBeVisible();
+    expect(screen.getByLabelText("改动区域 overlay_layer:text-1")).toBeVisible();
+    expect(screen.getByText("区域高亮来自编辑元数据")).toBeVisible();
+  });
+
+  it("compares provider masked children and handles missing parents gracefully", async () => {
+    const user = userEvent.setup();
+    localStorage.setItem("caragent.workbench.workspaceId", "workspace-1");
+    localStorage.setItem("caragent.workbench.briefId", "brief-1");
+    const succeededJob = {
+      ...generationJobFixture,
+      status: "succeeded",
+      updated_at: "2026-06-17T00:38:00Z",
+    } satisfies GenerationJobResponse;
+    const fetchMock = mockResumeWithGenerationState({
+      artifacts: [artifactFixture],
+      events: [
+        {
+          ...jobEventFixture,
+          event_type: "completed",
+          message: "Artifact ready.",
+          progress: "100",
+          status: "succeeded",
+        },
+      ],
+      job: succeededJob,
+      versions: [versionFixture, targetedProviderVersionFixture, orphanTargetedVersionFixture],
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<Home />);
+
+    expect(await screen.findByText("2D 概念预览")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "对比 托管局部编辑" }));
+
+    expect(screen.getByText("路线 托管遮罩生成")).toBeVisible();
+    expect(screen.getByText("Route provider_masked_generation")).toBeVisible();
+    expect(screen.getByText("Provider bfl")).toBeVisible();
+    expect(screen.getByText("Model flux-2-pro-preview")).toBeVisible();
+    expect(screen.getByText("Cost 0.6500")).toBeVisible();
+    expect(screen.getByText("目标 safe_zone:rear-quarter")).toBeVisible();
+    expect(screen.getByText("Prompt 重绘后翼子板角色表情")).toBeVisible();
+
+    await user.click(screen.getByRole("button", { name: "对比 孤立局部编辑" }));
+
+    expect(screen.getByText("父版本: 未加载")).toBeVisible();
+    expect(screen.getByText("当前版本: 孤立局部编辑")).toBeVisible();
   });
 
   it("submits targeted edit intent from selected preview layers", async () => {

@@ -1,11 +1,12 @@
 "use client";
 
 import type { ArtifactResponse, DesignVersionResponse } from "@caragent/contracts";
-import type { CSSProperties } from "react";
+import { useEffect, type CSSProperties } from "react";
 import {
   Crosshair,
   Eye,
   EyeOff,
+  GitCompareArrows,
   Image as ImageIcon,
   Minus,
   Plus,
@@ -36,11 +37,14 @@ const viewOptions: Array<{ label: string; value: WorkbenchView }> = [
 
 export function PreviewPanel({ artifacts, isLoading, versions }: PreviewPanelProps) {
   const {
+    clearVersionComparison,
     isTargetedEditMode,
     resetPreviewTransform,
+    selectedComparisonChildId,
     selectedEditTarget,
     selectedVersionId,
     selectedView,
+    setSelectedComparisonChildId,
     setSelectedEditTarget,
     setSelectedVersionId,
     setSelectedView,
@@ -62,6 +66,19 @@ export function PreviewPanel({ artifacts, isLoading, versions }: PreviewPanelPro
     artifacts[0] ??
     null;
   const previewSpec = readPreviewSpec(selectedVersion);
+
+  useEffect(() => {
+    if (!selectedComparisonChildId) {
+      return;
+    }
+
+    const comparisonVersion = versions.find(
+      (version) => version.id === selectedComparisonChildId,
+    );
+    if (!comparisonVersion || !hasTargetedEditComparison(comparisonVersion)) {
+      clearVersionComparison();
+    }
+  }, [clearVersionComparison, selectedComparisonChildId, versions]);
 
   return (
     <div className="grid gap-4">
@@ -200,20 +217,44 @@ export function PreviewPanel({ artifacts, isLoading, versions }: PreviewPanelPro
         <div className="grid gap-2">
           <p className="text-xs font-medium text-secondary-foreground">版本历史</p>
           <div className="flex gap-2 overflow-x-auto pb-1">
-            {versions.map((version) => (
-              <Button
-                aria-pressed={selectedVersion?.id === version.id}
-                key={version.id}
-                onClick={() => {
-                  setSelectedVersionId(version.id);
-                }}
-                size="sm"
-                type="button"
-                variant={selectedVersion?.id === version.id ? "default" : "outline"}
-              >
-                {version.title ?? version.id}
-              </Button>
-            ))}
+            {versions.map((version) => {
+              const title = version.title ?? version.id;
+              const isSelected = selectedVersion?.id === version.id;
+              const canCompare = hasTargetedEditComparison(version);
+              return (
+                <div className="flex shrink-0 items-center gap-1" key={version.id}>
+                  <Button
+                    aria-pressed={isSelected}
+                    onClick={() => {
+                      setSelectedVersionId(version.id);
+                    }}
+                    size="sm"
+                    type="button"
+                    variant={isSelected ? "default" : "outline"}
+                  >
+                    {title}
+                  </Button>
+                  {canCompare ? (
+                    <Button
+                      aria-label={`对比 ${title}`}
+                      aria-pressed={selectedComparisonChildId === version.id}
+                      className="px-2"
+                      onClick={() => {
+                        setSelectedComparisonChildId(version.id);
+                      }}
+                      size="sm"
+                      title={`对比 ${title}`}
+                      type="button"
+                      variant={
+                        selectedComparisonChildId === version.id ? "default" : "outline"
+                      }
+                    >
+                      <GitCompareArrows aria-hidden="true" className="h-4 w-4" />
+                    </Button>
+                  ) : null}
+                </div>
+              );
+            })}
           </div>
         </div>
       ) : null}
@@ -419,6 +460,29 @@ function readPreviewSpec(version: DesignVersionResponse | null): PreviewSpec | n
     template: readTemplate(previewSpec.template),
     warnings: readWarnings(previewSpec.warnings),
   };
+}
+
+function hasTargetedEditComparison(version: DesignVersionResponse): boolean {
+  if (!version.parent_version_id) {
+    return false;
+  }
+
+  const parameters = version.parameters;
+  if (!isRecord(parameters)) {
+    return false;
+  }
+
+  const editIntent = isRecord(parameters.edit_intent) ? parameters.edit_intent : null;
+  return Boolean(
+    readString(parameters.edit_route) ||
+      isRecord(parameters.target) ||
+      isRecord(parameters.region) ||
+      isRecord(parameters.prompt_delta) ||
+      (editIntent &&
+        (isRecord(editIntent.target) ||
+          isRecord(editIntent.region) ||
+          isRecord(editIntent.prompt_delta))),
+  );
 }
 
 function readCanvas(value: unknown): PreviewSpec["canvas"] {

@@ -167,4 +167,34 @@ describe("workbench state boundaries", () => {
       showEditMaskPreview: false,
     });
   });
+
+  it("keeps targeted comparison state local and clears it on normal version selection", () => {
+    const state = useWorkbenchStore.getState();
+
+    state.setSelectedVersionId("version-1");
+    state.setSelectedComparisonChildId("version-2");
+
+    expect(useWorkbenchStore.getState()).toMatchObject({
+      isVersionComparisonMode: true,
+      selectedComparisonChildId: "version-2",
+      selectedVersionId: "version-2",
+    });
+
+    useWorkbenchStore.getState().setSelectedVersionId("version-3");
+
+    expect(useWorkbenchStore.getState()).toMatchObject({
+      isVersionComparisonMode: false,
+      selectedComparisonChildId: null,
+      selectedVersionId: "version-3",
+    });
+
+    useWorkbenchStore.getState().setSelectedComparisonChildId("version-4");
+    useWorkbenchStore.getState().clearVersionComparison();
+
+    expect(useWorkbenchStore.getState()).toMatchObject({
+      isVersionComparisonMode: false,
+      selectedComparisonChildId: null,
+      selectedVersionId: "version-4",
+    });
+  });
 });

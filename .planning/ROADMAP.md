@@ -137,7 +137,7 @@ v2.0 MVP is successful when:
 - [x] 10-04-PLAN.md — Mask-aware generation request contract and provider capability checks.
 - [x] 10-05-PLAN.md — Worker targeted-edit pipeline with parent/child lineage and artifact ledger updates.
 - [x] 10-06-PLAN.md — Edit failure classification, retry eligibility, and rollback-safe UX.
-- [ ] 10-07-PLAN.md — Version comparison UI for targeted edits and changed-region highlighting.
+- [x] 10-07-PLAN.md — Version comparison UI for targeted edits and changed-region highlighting.
 - [ ] 10-08-PLAN.md — Phase 10 smoke, docs, regression tests, and Browser UAT.
 
 **UI hint:** yes
@@ -331,7 +331,7 @@ A single end-to-end V2 MVP UAT should prove:
 |-------|----------------|--------|-----------|
 | 8. V1 Closure And V2 Readiness Gate | 5/5 | Complete | 2026-06-18 |
 | 9. Hosted Provider Rollout MVP | 7/7 | Complete | 2026-06-18 |
-| 10. Targeted Regeneration And Masked Editing MVP | 6/8 | In Progress | - |
+| 10. Targeted Regeneration And Masked Editing MVP | 7/8 | In Progress | - |
 | 11. Reference-Guided Generation MVP | 0/7 | Not started | - |
 | 12. Lightweight 3D Preview MVP | 0/8 | Not started | - |
 | 13. Enhanced Concept Handoff Package MVP | 0/7 | Not started | - |
