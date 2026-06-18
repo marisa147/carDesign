@@ -2,7 +2,7 @@
 
 import type { ArtifactResponse, DesignVersionResponse } from "@caragent/contracts";
 import { Camera, Minus, Plus, RotateCcw, RotateCw } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { createPreview3DScreenshot } from "@/lib/api/iteration";
@@ -24,6 +24,7 @@ const scaffoldScreenshotBase64 =
 
 export function Preview3DPanel({ artifact, version }: Preview3DPanelProps) {
   const [captureStatus, setCaptureStatus] = useState<string | null>(null);
+  const captureStatusTimerRef = useRef<number | null>(null);
   const {
     preview3DCamera,
     resetPreview3DCamera,
@@ -32,6 +33,31 @@ export function Preview3DPanel({ artifact, version }: Preview3DPanelProps) {
     zoomPreview3DOut,
   } = useWorkbenchStore();
   const compatibility = buildPreview3DCompatibility({ artifact, version });
+  const previewSurfaceLabel = `概念 3D 预览，非生产贴膜参考，${
+    version.title ?? version.summary ?? "当前版本"
+  }`;
+
+  useEffect(() => {
+    return () => {
+      if (captureStatusTimerRef.current !== null) {
+        window.clearTimeout(captureStatusTimerRef.current);
+      }
+    };
+  }, []);
+
+  function showCaptureStatus(message: string, options?: { autoClear?: boolean }) {
+    if (captureStatusTimerRef.current !== null) {
+      window.clearTimeout(captureStatusTimerRef.current);
+      captureStatusTimerRef.current = null;
+    }
+    setCaptureStatus(message);
+    if (options?.autoClear) {
+      captureStatusTimerRef.current = window.setTimeout(() => {
+        setCaptureStatus(null);
+        captureStatusTimerRef.current = null;
+      }, 4000);
+    }
+  }
 
   return (
     <section aria-label="概念 3D 预览，非生产贴膜参考" className="grid gap-3">
@@ -49,8 +75,16 @@ export function Preview3DPanel({ artifact, version }: Preview3DPanelProps) {
 
       {compatibility.status === "compatible" ? (
         <>
-          <Preview3DViewer camera={preview3DCamera} compatibility={compatibility} />
-          <div className="flex flex-wrap items-center gap-2">
+          <Preview3DViewer
+            camera={preview3DCamera}
+            compatibility={compatibility}
+            surfaceLabel={previewSurfaceLabel}
+          />
+          <div
+            aria-label="3D 相机与截图控制"
+            className="flex flex-wrap items-center gap-2"
+            role="group"
+          >
             <Button
               aria-label="向左旋转"
               onClick={() => {
@@ -100,7 +134,7 @@ export function Preview3DPanel({ artifact, version }: Preview3DPanelProps) {
             </Button>
             <Button
               onClick={async () => {
-                setCaptureStatus("正在保存 3D 预览截图。");
+                showCaptureStatus("正在保存 3D 预览截图。");
                 try {
                   await createPreview3DScreenshot(version.workspace_id, version.id, {
                     content_type: "image/png",
@@ -110,9 +144,9 @@ export function Preview3DPanel({ artifact, version }: Preview3DPanelProps) {
                     preview_3d: compatibility.preview3dSpec,
                     width: 1280,
                   });
-                  setCaptureStatus("3D 预览截图已保存。");
+                  showCaptureStatus("3D 预览截图已保存。", { autoClear: true });
                 } catch {
-                  setCaptureStatus("3D 预览截图保存失败。");
+                  showCaptureStatus("3D 预览截图保存失败。", { autoClear: true });
                 }
               }}
               size="sm"

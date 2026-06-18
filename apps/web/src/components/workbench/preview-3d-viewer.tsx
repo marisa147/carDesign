@@ -10,11 +10,12 @@ import type { Preview3DCamera } from "@/lib/workbench/store";
 interface Preview3DViewerProps {
   camera: Preview3DCamera;
   compatibility: Preview3DCompatibilityResult;
+  surfaceLabel: string;
 }
 
 type ViewerStatus = "loading" | "ready" | "fallback";
 
-export function Preview3DViewer({ camera, compatibility }: Preview3DViewerProps) {
+export function Preview3DViewer({ camera, compatibility, surfaceLabel }: Preview3DViewerProps) {
   const mountRef = useRef<HTMLDivElement | null>(null);
   const [status, setStatus] = useState<ViewerStatus>("loading");
 
@@ -163,16 +164,14 @@ export function Preview3DViewer({ camera, compatibility }: Preview3DViewerProps)
 
   return (
     <div
-      aria-label={`3D preview surface for ${
-        compatibility.shell?.label ?? "unsupported shell"
-      }`}
-      className="relative min-h-64 overflow-hidden rounded-md border border-border bg-background"
+      aria-label={surfaceLabel}
+      className="relative aspect-video min-h-64 w-full overflow-hidden rounded-md border border-border bg-background"
       ref={mountRef}
+      role="img"
     >
       {status !== "ready" ? (
         <div
           className="absolute inset-0 grid place-items-center bg-muted p-4"
-          role="img"
           style={{
             transform: `scale(${camera.zoom})`,
             transformOrigin: "center",

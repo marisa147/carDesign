@@ -1,6 +1,6 @@
 import "@/test/setup";
 
-import { act, render, screen } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
@@ -809,17 +809,32 @@ describe("Phase 4 workbench shell", () => {
 
     await user.click(screen.getByRole("button", { name: "3D 预览" }));
 
+    expect(screen.getByRole("button", { name: "3D 预览" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    const preview3DRegion = screen.getByRole("region", {
+      name: "概念 3D 预览，非生产贴膜参考",
+    });
+    const preview3DControls = within(preview3DRegion);
+
+    expect(preview3DRegion).toBeVisible();
     expect(
-      screen.getByRole("region", { name: "概念 3D 预览，非生产贴膜参考" }),
+      preview3DControls.getByRole("img", {
+        name: "概念 3D 预览，非生产贴膜参考，版本 1",
+      }),
+    ).toBeVisible();
+    expect(
+      preview3DControls.getByRole("group", { name: "3D 相机与截图控制" }),
     ).toBeVisible();
     expect(screen.getByText("概念 3D 预览")).toBeVisible();
     expect(screen.getByText("非生产贴膜参考")).toBeVisible();
-    expect(screen.getByRole("button", { name: "向左旋转" })).toBeVisible();
-    expect(screen.getByRole("button", { name: "向右旋转" })).toBeVisible();
-    expect(screen.getByRole("button", { name: "缩小 3D" })).toBeVisible();
-    expect(screen.getByRole("button", { name: "放大 3D" })).toBeVisible();
-    expect(screen.getByRole("button", { name: "重置相机" })).toBeVisible();
-    expect(screen.getByRole("button", { name: "截图" })).toBeVisible();
+    for (const name of ["向左旋转", "向右旋转", "缩小 3D", "放大 3D", "重置相机", "截图"]) {
+      const control = preview3DControls.getByRole("button", { name });
+      expect(control).toBeEnabled();
+      control.focus();
+      expect(control).toHaveFocus();
+    }
     expect(screen.getByText(PREVIEW_3D_UV_WARNING_TEXT)).toBeVisible();
     expect(screen.getByText("MOON DRIVE")).toBeVisible();
     expect(screen.getAllByText("door-main").length).toBeGreaterThanOrEqual(1);
@@ -875,6 +890,7 @@ describe("Phase 4 workbench shell", () => {
     expect(screen.getByText("非生产贴膜参考")).toBeVisible();
     expect(screen.getByText(PREVIEW_3D_FALLBACK_MESSAGE)).toBeVisible();
     expect(screen.getByText(/unknown-template/)).toBeVisible();
+    expect(screen.getByRole("button", { name: "2D 预览" })).toBeEnabled();
 
     await user.click(screen.getByRole("button", { name: "2D 预览" }));
 
