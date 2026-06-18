@@ -19,6 +19,11 @@ ENV_KEYS = (
     "AI_PROVIDER_OPENAI_API_KEY",
     "AI_PROVIDER_FAL_API_KEY",
     "AI_PROVIDER_BFL_API_KEY",
+    "V2_HOSTED_PROVIDER_ROLLOUT_ENABLED",
+    "V2_TARGETED_REGENERATION_ENABLED",
+    "V2_REFERENCE_GUIDANCE_ENABLED",
+    "V2_LIGHTWEIGHT_3D_PREVIEW_ENABLED",
+    "V2_ENHANCED_HANDOFF_PACKAGE_ENABLED",
     "OPENAI_API_KEY",
     "STABILITY_API_KEY",
     "FAL_API_KEY",
@@ -162,6 +167,24 @@ def test_worker_settings_default_attempt_policy_is_safe_for_local_mode() -> None
     assert settings.ai_hosted_daily_call_limit is None
     assert settings.ai_hosted_rate_limit_per_minute is None
     assert settings.ai_max_estimated_cost_per_job is None
+
+
+def test_worker_v2_readiness_flags_default_off_in_local_mode(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    clear_worker_env(monkeypatch)
+
+    settings = WorkerSettings()
+
+    assert settings.v2_hosted_provider_rollout_enabled is False
+    assert settings.v2_targeted_regeneration_enabled is False
+    assert settings.v2_reference_guidance_enabled is False
+    assert settings.v2_lightweight_3d_preview_enabled is False
+    assert settings.v2_enhanced_handoff_package_enabled is False
+    assert settings.ai_provider_calls_enabled is False
+    assert settings.ai_provider_openai_api_key is None
+    assert settings.ai_provider_fal_api_key is None
+    assert settings.ai_provider_bfl_api_key is None
 
 
 def test_worker_settings_rejects_zero_quota_and_rate_limits() -> None:
