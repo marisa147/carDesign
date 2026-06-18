@@ -81,6 +81,26 @@ class ApiSettings(BaseSettings):
         default=None,
         validation_alias="AI_PROVIDER_BFL_API_KEY",
     )
+    v2_hosted_provider_rollout_enabled: bool = Field(
+        default=False,
+        validation_alias="V2_HOSTED_PROVIDER_ROLLOUT_ENABLED",
+    )
+    v2_targeted_regeneration_enabled: bool = Field(
+        default=False,
+        validation_alias="V2_TARGETED_REGENERATION_ENABLED",
+    )
+    v2_reference_guidance_enabled: bool = Field(
+        default=False,
+        validation_alias="V2_REFERENCE_GUIDANCE_ENABLED",
+    )
+    v2_lightweight_3d_preview_enabled: bool = Field(
+        default=False,
+        validation_alias="V2_LIGHTWEIGHT_3D_PREVIEW_ENABLED",
+    )
+    v2_enhanced_handoff_package_enabled: bool = Field(
+        default=False,
+        validation_alias="V2_ENHANCED_HANDOFF_PACKAGE_ENABLED",
+    )
 
     @field_validator("cors_origins", mode="before")
     @classmethod
