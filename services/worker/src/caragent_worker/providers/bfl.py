@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import asyncio
+from dataclasses import dataclass
 from decimal import Decimal
+from typing import Any
 
 import httpx
 from pydantic import SecretStr
@@ -18,6 +20,15 @@ from caragent_worker.providers.base import (
 )
 
 BFL_PROVIDER = "bfl"
+BFL_DEFAULT_SUBMIT_PATH = "/v1/flux-2-pro-preview"
+
+
+@dataclass(frozen=True, slots=True)
+class BflSubmitInfo:
+    request_id: str
+    polling_url: str | None
+    cost: Decimal | None
+    metadata: JsonObject
 
 
 class BflImageProvider:
@@ -30,7 +41,7 @@ class BflImageProvider:
         max_poll_attempts: int = 30,
         poll_interval_seconds: float = 1.0,
         result_path: str = "/v1/get_result",
-        submit_path: str = "/v1/flux-pro",
+        submit_path: str = BFL_DEFAULT_SUBMIT_PATH,
         timeout_seconds: float = 30.0,
     ) -> None:
         api_key_value = _secret_value(api_key)
@@ -49,8 +60,8 @@ class BflImageProvider:
     async def generate(self, request: ImageGenerationRequest) -> ImageGenerationResult:
         client = self._client or httpx.AsyncClient(base_url=self._base_url)
         try:
-            request_id = await self._submit(client, request)
-            result_payload = await self._poll_until_ready(client, request_id)
+            submit_info = await self._submit(client, request)
+            result_payload = await self._poll_until_ready(client, submit_info)
             result_url = _extract_result_url(result_payload)
             image_response = await client.get(result_url, timeout=self._timeout_seconds)
             if image_response.is_error:
@@ -59,10 +70,11 @@ class BflImageProvider:
             width, height = png_dimensions(image_response.content)
             result_metadata = result_payload.get("result")
             metadata: JsonObject = {
+                "cost": _json_safe_decimal(submit_info.cost),
                 "external_calls": True,
-                "request_id": request_id,
-                "result_url": result_url,
+                "request_id": submit_info.request_id,
             }
+            metadata.update(submit_info.metadata)
             if isinstance(result_metadata, dict):
                 metadata.update(
                     {
@@ -73,7 +85,7 @@ class BflImageProvider:
                 )
 
             return ImageGenerationResult(
-                actual_cost=Decimal("0.0000"),
+                actual_cost=submit_info.cost,
                 content_type=image_response.headers.get("content-type", "image/png"),
                 estimated_cost=request.estimated_cost,
                 height=height,
@@ -97,16 +109,11 @@ class BflImageProvider:
         self,
         client: httpx.AsyncClient,
         request: ImageGenerationRequest,
-    ) -> str:
+    ) -> BflSubmitInfo:
         response = await client.post(
             self._submit_path,
             headers=self._headers(),
-            json={
-                "model": request.model,
-                "parameters": request.parameters,
-                "prompt": request.prompt_text,
-                "prompt_payload": request.prompt_payload,
-            },
+            json=_submit_payload(request),
             timeout=self._timeout_seconds,
         )
         if response.is_error:
@@ -116,33 +123,49 @@ class BflImageProvider:
         request_id = str(payload.get("id") or payload.get("request_id") or "")
         if not request_id:
             raise ImageProviderError("BFL submit response did not include a request id")
-        return request_id
+        cost = _decimal_or_none(payload.get("cost"))
+        metadata = {
+            key: value
+            for key, value in payload.items()
+            if key in {"input_mp", "output_mp"}
+        }
+        return BflSubmitInfo(
+            cost=cost,
+            metadata=metadata,
+            polling_url=_optional_string(payload.get("polling_url")),
+            request_id=request_id,
+        )
 
     async def _poll_until_ready(
         self,
         client: httpx.AsyncClient,
-        request_id: str,
+        submit_info: BflSubmitInfo,
     ) -> JsonObject:
         for _attempt in range(self._max_poll_attempts):
-            response = await client.get(
-                self._result_path,
-                headers=self._headers(),
-                params={"id": request_id},
-                timeout=self._timeout_seconds,
-            )
+            response = await self._poll_once(client, submit_info)
             if response.is_error:
                 raise self._error_from_response("BFL poll failed", response)
 
             payload = _json_payload(response)
-            status = str(payload.get("status", "")).lower()
+            status = _normalize_status(payload.get("status"))
             if status in {"ready", "succeeded", "success", "completed"}:
                 return payload
-            if status in {"failed", "error"}:
+            if status in {
+                "content_moderated",
+                "error",
+                "failed",
+                "request_moderated",
+                "task_not_found",
+            }:
                 message = str(
                     payload.get("error") or payload.get("message") or "BFL generation failed",
                 )
                 raise ImageProviderError(
-                    sanitize_provider_error(message, secrets=[self._api_key]),
+                    sanitize_provider_error(
+                        f"BFL generation {status.replace('_', ' ')}: {message}",
+                        secrets=[self._api_key],
+                    ),
+                    provider_status=status,
                 )
             if self._poll_interval_seconds > 0:
                 await asyncio.sleep(self._poll_interval_seconds)
@@ -151,12 +174,34 @@ class BflImageProvider:
             f"BFL generation timed out after {self._max_poll_attempts} poll attempts",
         )
 
+    async def _poll_once(
+        self,
+        client: httpx.AsyncClient,
+        submit_info: BflSubmitInfo,
+    ) -> httpx.Response:
+        if submit_info.polling_url:
+            return await client.get(
+                submit_info.polling_url,
+                headers=self._headers(),
+                timeout=self._timeout_seconds,
+            )
+        return await client.get(
+            self._result_path,
+            headers=self._headers(),
+            params={"id": submit_info.request_id},
+            timeout=self._timeout_seconds,
+        )
+
     def _headers(self) -> dict[str, str]:
-        return {"Authorization": f"Bearer {self._api_key}"}
+        return {"x-key": self._api_key}
 
     def _error_from_response(self, prefix: str, response: httpx.Response) -> ImageProviderError:
         detail = sanitize_provider_error(response.text, secrets=[self._api_key])
-        return ImageProviderError(f"{prefix}: HTTP {response.status_code}: {detail}")
+        return ImageProviderError(
+            f"{prefix}: HTTP {response.status_code}: {detail}",
+            provider_status=_http_provider_status(response.status_code),
+            status_code=response.status_code,
+        )
 
 
 def _secret_value(api_key: SecretStr | str | None) -> str | None:
@@ -169,6 +214,12 @@ def _json_payload(response: httpx.Response) -> JsonObject:
     payload = response.json()
     if not isinstance(payload, dict):
         raise ImageProviderError("Provider response was not a JSON object")
+    return payload
+
+
+def _submit_payload(request: ImageGenerationRequest) -> JsonObject:
+    payload: JsonObject = {"prompt": request.prompt_text}
+    payload.update(request.parameters)
     return payload
 
 
@@ -185,3 +236,36 @@ def _extract_result_url(payload: JsonObject) -> str:
         return value
 
     raise ImageProviderError("BFL result response did not include an image URL")
+
+
+def _decimal_or_none(value: Any) -> Decimal | None:
+    if value is None:
+        return None
+    try:
+        return Decimal(str(value))
+    except Exception:
+        return None
+
+
+def _json_safe_decimal(value: Decimal | None) -> str | None:
+    if value is None:
+        return None
+    return f"{value:.4f}"
+
+
+def _normalize_status(value: object) -> str:
+    return str(value or "").strip().lower().replace(" ", "_").replace("-", "_")
+
+
+def _optional_string(value: object) -> str | None:
+    if isinstance(value, str) and value:
+        return value
+    return None
+
+
+def _http_provider_status(status_code: int) -> str:
+    if status_code == 402:
+        return "insufficient_credits"
+    if status_code == 429:
+        return "rate_limited"
+    return f"http_{status_code}"

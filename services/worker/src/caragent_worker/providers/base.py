@@ -13,6 +13,17 @@ JsonObject = dict[str, Any]
 class ImageProviderError(RuntimeError):
     """Base error for normalized image-provider failures."""
 
+    def __init__(
+        self,
+        message: str,
+        *,
+        provider_status: str | None = None,
+        status_code: int | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.provider_status = provider_status
+        self.status_code = status_code
+
 
 class ImageProviderConfigurationError(ImageProviderError):
     """Raised when provider settings are incomplete or unsafe."""

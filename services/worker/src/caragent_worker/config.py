@@ -91,7 +91,7 @@ class WorkerSettings(BaseSettings):
         validation_alias="AI_PROVIDER_BFL_BASE_URL",
     )
     ai_provider_bfl_submit_path: str = Field(
-        default="/v1/flux-pro",
+        default="/v1/flux-2-pro-preview",
         validation_alias="AI_PROVIDER_BFL_SUBMIT_PATH",
     )
     ai_provider_bfl_result_path: str = Field(
