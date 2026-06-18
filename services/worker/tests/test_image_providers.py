@@ -247,6 +247,39 @@ def test_bfl_provider_sanitizes_provider_errors() -> None:
     assert "[redacted]" in str(exc_info.value)
 
 
+@pytest.mark.parametrize(
+    ("status_code", "expected_status"),
+    [
+        (400, "provider_validation"),
+        (402, "insufficient_credits"),
+        (429, "rate_limited"),
+    ],
+)
+def test_bfl_provider_maps_http_errors_to_provider_status(
+    status_code: int,
+    expected_status: str,
+) -> None:
+    request = build_bfl_image_request()
+
+    def handler(_http_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(status_code, text="bfl-secret provider error")
+
+    client = httpx.AsyncClient(
+        base_url="https://api.test",
+        transport=httpx.MockTransport(handler),
+    )
+    provider = BflImageProvider(api_key="bfl-secret", client=client)
+
+    try:
+        with pytest.raises(ImageProviderError) as exc_info:
+            asyncio.run(provider.generate(request))
+    finally:
+        asyncio.run(client.aclose())
+
+    assert exc_info.value.provider_status == expected_status
+    assert "bfl-secret" not in str(exc_info.value)
+
+
 def test_bfl_provider_maps_moderation_status_to_sanitized_error() -> None:
     request = build_bfl_image_request()
 

@@ -208,6 +208,49 @@ def test_generation_worker_records_sanitized_provider_failure(tmp_path: Path) ->
     assert state.versions == []
 
 
+def test_generation_worker_maps_provider_status_to_failure_kind(
+    tmp_path: Path,
+) -> None:
+    seeded = seed_generation_job(
+        tmp_path,
+        provider="bfl",
+        model="flux-2-pro-preview",
+        provider_parameters={"output_format": "png"},
+    )
+
+    result = asyncio.run(
+        run_generate_2d_concept_job(
+            seeded.database_url,
+            seeded.job_id,
+            provider=RaisingProvider(
+                ImageProviderError(
+                    "bfl-secret rejected by policy",
+                    provider_status="request_moderated",
+                ),
+            ),
+            settings=WorkerSettings(
+                ai_hosted_daily_call_limit=10,
+                ai_hosted_rate_limit_per_minute=10,
+                ai_max_estimated_cost_per_job="1.0000",
+                ai_provider_bfl_api_key="bfl-secret",
+                ai_provider_calls_enabled=True,
+                ai_provider_default="disabled",
+                v2_hosted_provider_rollout_enabled=True,
+            ),
+            storage=InMemoryObjectStorage(),
+        ),
+    )
+    state = asyncio.run(read_generation_state(seeded.session_factory, seeded.job_id))
+
+    assert result["status"] == "failed"
+    operations = state.job.metadata_json["operations"]
+    assert operations["failure_category"] == "provider"
+    assert operations["provider_status"] == "request_moderated"
+    assert operations["provider_failure_kind"] == "moderation"
+    assert operations["error"] == "[redacted] rejected by policy"
+    assert "bfl-secret" not in str(operations)
+
+
 def test_generation_worker_classifies_provider_timeout_failure(tmp_path: Path) -> None:
     seeded = seed_generation_job(tmp_path)
 
