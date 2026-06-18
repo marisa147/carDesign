@@ -8,13 +8,13 @@ from pathlib import Path
 from typing import Any
 from uuid import UUID, uuid4
 
+import pytest
 from caragent_core.database import session_scope
 from caragent_core.enums import DesignVersionStatus, JobStatus
 from caragent_core.models import DesignVersion, GenerationJob, metadata
 from caragent_core.services import jobs
 from fastapi.testclient import TestClient
 from pydantic import SecretStr
-import pytest
 from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker
 
 from caragent_api.config import ApiSettings

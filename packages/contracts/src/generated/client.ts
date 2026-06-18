@@ -261,6 +261,8 @@ export interface GenerationBriefUpdateRequest {
 
 export type GenerationIterationSubmissionRequestParameterOverrides = { [key: string]: unknown };
 
+export type GenerationIterationSubmissionRequestProviderParameters = { [key: string]: unknown };
+
 export interface GenerationIterationSubmissionRequest {
   brief_id: string;
   /** @minLength 1 */
@@ -270,7 +272,10 @@ export interface GenerationIterationSubmissionRequest {
      * @maxLength 160
      */
   idempotency_key: string;
+  model?: string | null;
   parameter_overrides?: GenerationIterationSubmissionRequestParameterOverrides;
+  provider?: string | null;
+  provider_parameters?: GenerationIterationSubmissionRequestProviderParameters;
   requested_by?: string | null;
 }
 
@@ -332,6 +337,8 @@ export interface GenerationJobRetryResponse {
   retry_of_job_id: string;
 }
 
+export type GenerationJobSubmissionRequestProviderParameters = { [key: string]: unknown };
+
 export interface GenerationJobSubmissionRequest {
   brief_id: string;
   /**
@@ -339,6 +346,9 @@ export interface GenerationJobSubmissionRequest {
      * @maxLength 160
      */
   idempotency_key: string;
+  model?: string | null;
+  provider?: string | null;
+  provider_parameters?: GenerationJobSubmissionRequestProviderParameters;
   requested_by?: string | null;
 }
 

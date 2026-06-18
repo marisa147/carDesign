@@ -184,6 +184,9 @@ class GenerationQueuedTaskResponse(BaseModel):
 class GenerationJobSubmissionRequest(BaseModel):
     brief_id: UUID
     idempotency_key: str = Field(min_length=1, max_length=160)
+    model: str | None = Field(default=None, max_length=120)
+    provider: str | None = Field(default=None, max_length=80)
+    provider_parameters: dict[str, Any] = Field(default_factory=dict)
     requested_by: str | None = Field(default=None, max_length=128)
 
 
@@ -192,6 +195,9 @@ class GenerationIterationSubmissionRequest(BaseModel):
     change_request: str = Field(min_length=1)
     idempotency_key: str = Field(min_length=1, max_length=160)
     parameter_overrides: dict[str, Any] = Field(default_factory=dict)
+    model: str | None = Field(default=None, max_length=120)
+    provider: str | None = Field(default=None, max_length=80)
+    provider_parameters: dict[str, Any] = Field(default_factory=dict)
     requested_by: str | None = Field(default=None, max_length=128)
 
 

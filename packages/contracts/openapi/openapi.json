@@ -1417,9 +1417,38 @@
             "title": "Idempotency Key",
             "type": "string"
           },
+          "model": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
           "parameter_overrides": {
             "additionalProperties": true,
             "title": "Parameter Overrides",
+            "type": "object"
+          },
+          "provider": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider"
+          },
+          "provider_parameters": {
+            "additionalProperties": true,
+            "title": "Provider Parameters",
             "type": "object"
           },
           "requested_by": {
@@ -1701,6 +1730,35 @@
             "minLength": 1,
             "title": "Idempotency Key",
             "type": "string"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "provider": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider"
+          },
+          "provider_parameters": {
+            "additionalProperties": true,
+            "title": "Provider Parameters",
+            "type": "object"
           },
           "requested_by": {
             "anyOf": [

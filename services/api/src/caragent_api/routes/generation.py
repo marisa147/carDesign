@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import Annotated
+from dataclasses import dataclass
+from typing import Annotated, Any
 from uuid import UUID
 
 from caragent_core.enums import JobStatus
@@ -10,10 +11,18 @@ from caragent_core.generation import (
     refresh_generation_brief_warnings,
 )
 from caragent_core.models import DesignBrief, GenerationJob
+from caragent_core.provider_capabilities import (
+    BFL_ALIASES,
+    BFL_PROVIDER,
+    LOCAL_DEFAULT_MODEL,
+    LOCAL_PROVIDER,
+    normalize_provider_name,
+)
 from caragent_core.services import jobs, workspaces
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from caragent_api.config import ApiSettings
 from caragent_api.dependencies import get_db_session, get_queue_client
 from caragent_api.queue import GENERATION_QUEUE, QueueClient, QueuedGenerationTask
 from caragent_api.schemas import (
@@ -35,6 +44,22 @@ router = APIRouter(tags=["generation"])
 
 SessionDependency = Annotated[AsyncSession, Depends(get_db_session)]
 QueueDependency = Annotated[QueueClient, Depends(get_queue_client)]
+LOCAL_PROVIDER_NAMES = {"local", LOCAL_PROVIDER}
+
+
+@dataclass(frozen=True, slots=True)
+class ProviderIntent:
+    provider: str
+    model: str
+    parameters: dict[str, Any]
+
+    @property
+    def metadata(self) -> dict[str, Any]:
+        return {
+            "model": self.model,
+            "parameters": dict(self.parameters),
+            "provider": self.provider,
+        }
 
 
 def workspace_not_found(error: Exception) -> HTTPException:
@@ -133,18 +158,25 @@ async def update_generation_brief_route(
 async def submit_generation_job(
     workspace_id: UUID,
     payload: GenerationJobSubmissionRequest,
+    request: Request,
     session: SessionDependency,
     queue: QueueDependency,
 ) -> GenerationJobSubmissionResponse:
     brief = await _get_workspace_brief(session, workspace_id, payload.brief_id)
+    provider_intent = _provider_intent_from_submission(payload, _settings_from_request(request))
+    metadata: dict[str, Any] = {"source": "generation-api"}
+    if provider_intent is not None:
+        metadata["provider_intent"] = provider_intent.metadata
     try:
         result = await jobs.create_job(
             session,
             workspace_id,
             brief_id=brief.id,
             idempotency_key=payload.idempotency_key,
-            metadata={"source": "generation-api"},
+            metadata=metadata,
+            model=provider_intent.model if provider_intent is not None else None,
             operation=GENERATION_OPERATION,
+            provider=provider_intent.provider if provider_intent is not None else None,
             requested_by=payload.requested_by,
         )
     except (workspaces.WorkspaceNotFoundError, jobs.JobValidationError) as error:
@@ -172,25 +204,32 @@ async def submit_generation_iteration_job(
     workspace_id: UUID,
     version_id: UUID,
     payload: GenerationIterationSubmissionRequest,
+    request: Request,
     session: SessionDependency,
     queue: QueueDependency,
 ) -> GenerationJobSubmissionResponse:
     brief = await _get_workspace_brief(session, workspace_id, payload.brief_id)
+    provider_intent = _provider_intent_from_submission(payload, _settings_from_request(request))
+    metadata: dict[str, Any] = {
+        "change_request": payload.change_request,
+        "iteration": True,
+        "parameter_overrides": payload.parameter_overrides,
+        "source": "generation-iteration-api",
+    }
+    if provider_intent is not None:
+        metadata["provider_intent"] = provider_intent.metadata
     try:
         parent_version = await jobs.get_workspace_version(session, workspace_id, version_id)
+        metadata["parent_version_id"] = str(parent_version.id)
         result = await jobs.create_job(
             session,
             workspace_id,
             brief_id=brief.id,
             idempotency_key=payload.idempotency_key,
-            metadata={
-                "change_request": payload.change_request,
-                "iteration": True,
-                "parameter_overrides": payload.parameter_overrides,
-                "parent_version_id": str(parent_version.id),
-                "source": "generation-iteration-api",
-            },
+            metadata=metadata,
+            model=provider_intent.model if provider_intent is not None else None,
             operation=GENERATION_OPERATION,
+            provider=provider_intent.provider if provider_intent is not None else None,
             requested_by=payload.requested_by,
         )
     except (workspaces.WorkspaceNotFoundError, jobs.JobValidationError) as error:
@@ -280,3 +319,60 @@ async def _persist_queued_task_metadata(
         },
     }
     await session.flush()
+
+
+def _settings_from_request(request: Request) -> ApiSettings:
+    settings = getattr(request.app.state, "settings", None)
+    if isinstance(settings, ApiSettings):
+        return settings
+    return ApiSettings()
+
+
+def _provider_intent_from_submission(
+    payload: GenerationJobSubmissionRequest | GenerationIterationSubmissionRequest,
+    settings: ApiSettings,
+) -> ProviderIntent | None:
+    provider = normalize_provider_name(payload.provider)
+    if provider == "disabled":
+        return None
+    if provider in LOCAL_PROVIDER_NAMES:
+        model = _requested_model(payload.model, default=LOCAL_DEFAULT_MODEL)
+        if model != LOCAL_DEFAULT_MODEL:
+            raise generation_validation_failed(
+                ValueError(f"Unsupported model for provider {LOCAL_PROVIDER}: {model}"),
+            )
+        return ProviderIntent(
+            model=LOCAL_DEFAULT_MODEL,
+            parameters=dict(payload.provider_parameters),
+            provider=LOCAL_PROVIDER,
+        )
+    if provider in BFL_ALIASES:
+        return _bfl_provider_intent(payload, settings)
+    raise generation_validation_failed(ValueError(f"Unsupported provider: {provider}"))
+
+
+def _bfl_provider_intent(
+    payload: GenerationJobSubmissionRequest | GenerationIterationSubmissionRequest,
+    settings: ApiSettings,
+) -> ProviderIntent:
+    capability = settings.provider_capability_map()[BFL_PROVIDER]
+    blocked_reasons = [str(reason) for reason in capability["blocked_reasons"]]
+    if blocked_reasons:
+        raise generation_validation_failed(ValueError("; ".join(blocked_reasons)))
+
+    model = _requested_model(payload.model, default=str(capability["default_model"]))
+    allowed_models = {str(model_name) for model_name in capability.get("allowed_models", [])}
+    if model not in allowed_models:
+        raise generation_validation_failed(
+            ValueError(f"Unsupported model for provider bfl: {model}"),
+        )
+    return ProviderIntent(
+        model=model,
+        parameters=dict(payload.provider_parameters),
+        provider=BFL_PROVIDER,
+    )
+
+
+def _requested_model(value: str | None, *, default: str) -> str:
+    model = (value or "").strip()
+    return model or default
