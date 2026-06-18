@@ -43,6 +43,7 @@ import {
   uploadWorkspaceAsset,
 } from "@/lib/api/assets";
 import {
+  buildProviderIntentPayload,
   createGenerationBrief,
   loadGenerationState,
   retryGenerationJob,
@@ -55,7 +56,12 @@ import {
   submitChildIteration,
 } from "@/lib/api/iteration";
 import { cancelGenerationJob, listWorkspaceJobs } from "@/lib/api/jobs";
-import { getProviderStatus } from "@/lib/api/operations";
+import {
+  LOCAL_PROVIDER_ID,
+  getProviderOption,
+  getProviderStatus,
+  normalizeProviderStatus,
+} from "@/lib/api/operations";
 import {
   createWorkspace,
   createWorkspaceMessage,
@@ -81,6 +87,7 @@ export function WorkbenchApp() {
   const [generationState, setGenerationState] = useState<GenerationState | null>(null);
   const [operationsStatus, setOperationsStatus] =
     useState<OperationsProviderStatusResponse | null>(null);
+  const [selectedProviderId, setSelectedProviderId] = useState(LOCAL_PROVIDER_ID);
   const [selectedReferenceAssetIds, setSelectedReferenceAssetIds] = useState<string[]>([]);
   const [isCancelingGeneration, setIsCancelingGeneration] = useState(false);
   const [isLoadingGeneration, setIsLoadingGeneration] = useState(false);
@@ -110,6 +117,14 @@ export function WorkbenchApp() {
   const artifacts = generationState?.artifacts ?? [];
   const selectedVersion = selectSelectedVersion(versions, selectedVersionId);
   const selectedArtifact = selectArtifactForVersion(artifacts, selectedVersion);
+  const providerStatus = normalizeProviderStatus(operationsStatus);
+  const requestedProviderOption = getProviderOption(providerStatus, selectedProviderId);
+  const effectiveProviderId =
+    requestedProviderOption?.enabled === false ? LOCAL_PROVIDER_ID : selectedProviderId;
+  const selectedProviderOption =
+    getProviderOption(providerStatus, effectiveProviderId) ??
+    getProviderOption(providerStatus, LOCAL_PROVIDER_ID) ??
+    providerStatus.options[0];
 
   useEffect(() => {
     const storedWorkspaceId = readStoredId(WORKBENCH_WORKSPACE_ID_KEY);
@@ -361,6 +376,7 @@ export function WorkbenchApp() {
         change_request: changeRequest,
         idempotency_key: `iteration-${selectedVersion.id}-${Date.now()}`,
         parameter_overrides: {},
+        ...buildProviderIntentPayload(selectedProviderOption),
         requested_by: "web-workbench",
       });
 
@@ -586,7 +602,10 @@ export function WorkbenchApp() {
           isLoading={isLoadingSession}
           key={`${currentBrief?.id ?? "empty-brief"}:${selectedReferenceAssetIds.join(",")}`}
           onSave={handleParameterSave}
+          onProviderChange={setSelectedProviderId}
+          providerStatus={providerStatus}
           selectedReferenceAssetIds={selectedReferenceAssetIds}
+          selectedProviderId={selectedProviderOption?.id ?? LOCAL_PROVIDER_ID}
         />
       }
       preview={

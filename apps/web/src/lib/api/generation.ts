@@ -25,6 +25,7 @@ import {
 } from "@caragent/contracts";
 
 import { publicEnv } from "@/lib/config/public-env";
+import { LOCAL_PROVIDER_ID } from "@/lib/api/operations";
 
 export interface GenerationApiOptions {
   apiBaseUrl?: string;
@@ -39,6 +40,13 @@ export interface GenerationState {
   feedback: FeedbackResponse[];
   job: GenerationJobResponse;
   versions: DesignVersionResponse[];
+}
+
+export interface ProviderIntentSelection {
+  enabled: boolean;
+  id: string;
+  model?: string | null;
+  providerParameters?: Record<string, unknown>;
 }
 
 export async function createGenerationBrief(
@@ -78,6 +86,46 @@ export async function submitGenerationJob(
     payload,
     options,
   );
+}
+
+export function buildGenerationSubmissionPayload(
+  basePayload: GenerationJobSubmissionRequest,
+  providerSelection?: ProviderIntentSelection | null,
+): GenerationJobSubmissionRequest {
+  return {
+    ...basePayload,
+    ...buildProviderIntentPayload(providerSelection),
+  };
+}
+
+export function buildProviderIntentPayload(
+  providerSelection?: ProviderIntentSelection | null,
+): Pick<GenerationJobSubmissionRequest, "model" | "provider" | "provider_parameters"> {
+  if (
+    !providerSelection ||
+    !providerSelection.enabled ||
+    providerSelection.id === LOCAL_PROVIDER_ID
+  ) {
+    return {};
+  }
+
+  const payload: Pick<
+    GenerationJobSubmissionRequest,
+    "model" | "provider" | "provider_parameters"
+  > = {
+    provider: providerSelection.id,
+  };
+  if (providerSelection.model) {
+    payload.model = providerSelection.model;
+  }
+  if (
+    providerSelection.providerParameters &&
+    Object.keys(providerSelection.providerParameters).length > 0
+  ) {
+    payload.provider_parameters = providerSelection.providerParameters;
+  }
+
+  return payload;
 }
 
 export async function retryGenerationJob(

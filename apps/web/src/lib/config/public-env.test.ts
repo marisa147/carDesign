@@ -10,8 +10,8 @@ const v2PublicEnvKeys = [
 
 const loadPublicEnv = async () => {
   vi.resetModules();
-  const module = await import("./public-env");
-  return module.publicEnv;
+  const publicEnvModule = await import("./public-env");
+  return publicEnvModule.publicEnv;
 };
 
 afterEach(() => {

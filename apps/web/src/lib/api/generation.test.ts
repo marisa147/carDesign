@@ -23,6 +23,8 @@ import {
 } from "@caragent/contracts";
 
 import {
+  buildGenerationSubmissionPayload,
+  buildProviderIntentPayload,
   createGenerationBrief,
   loadGenerationState,
   retryGenerationJob,
@@ -168,6 +170,67 @@ const exportFixture: ExportResponse = {
 };
 
 describe("generation API wrappers", () => {
+  it("builds local-default and hosted provider submission payloads safely", () => {
+    const localPayload = buildGenerationSubmissionPayload(
+      {
+        brief_id: "brief-1",
+        idempotency_key: "phase9-local",
+        requested_by: "web-workbench",
+      },
+      {
+        enabled: true,
+        id: "local-deterministic",
+        model: "local-concept-v1",
+      },
+    );
+    expect(localPayload).toEqual({
+      brief_id: "brief-1",
+      idempotency_key: "phase9-local",
+      requested_by: "web-workbench",
+    });
+
+    const hostedIntent = buildProviderIntentPayload({
+      enabled: true,
+      id: "bfl",
+      model: "flux-2-pro-preview",
+      providerParameters: { safety_tolerance: 2 },
+    });
+    expect(hostedIntent).toEqual({
+      model: "flux-2-pro-preview",
+      provider: "bfl",
+      provider_parameters: { safety_tolerance: 2 },
+    });
+
+    expect(
+      buildGenerationSubmissionPayload(
+        {
+          brief_id: "brief-1",
+          idempotency_key: "phase9-hosted",
+          requested_by: "web-workbench",
+        },
+        {
+          enabled: true,
+          id: "bfl",
+          model: "flux-2-pro-preview",
+        },
+      ),
+    ).toEqual({
+      brief_id: "brief-1",
+      idempotency_key: "phase9-hosted",
+      model: "flux-2-pro-preview",
+      provider: "bfl",
+      requested_by: "web-workbench",
+    });
+
+    expect(
+      buildProviderIntentPayload({
+        enabled: false,
+        id: "bfl",
+        model: "flux-2-pro-preview",
+      }),
+    ).toEqual({});
+  });
+
   it("creates and updates structured briefs with generated route helpers", async () => {
     const fetchMock = vi
       .fn()

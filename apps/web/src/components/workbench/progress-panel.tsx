@@ -9,6 +9,7 @@ import { Ban, Loader2, RefreshCw, RotateCcw } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { BFL_PROVIDER_ID, getProviderOption, normalizeProviderStatus } from "@/lib/api/operations";
 
 interface ProgressPanelProps {
   events: JobEventResponse[];
@@ -181,6 +182,8 @@ function OperationsStatusSummary({
   const provider = operationsStatus?.provider;
   const worker = operationsStatus?.worker;
   const queue = operationsStatus?.queue;
+  const normalizedStatus = normalizeProviderStatus(operationsStatus);
+  const recentFailure = normalizedStatus.recentFailures[0];
 
   return (
     <div className="grid gap-2 rounded-md border border-border bg-background p-3 text-xs">
@@ -194,8 +197,13 @@ function OperationsStatusSummary({
         <div className="grid gap-1 text-secondary-foreground">
           <span>Provider {sanitizeDiagnosticText(provider?.active_mode ?? "unknown")}</span>
           <span>Worker {sanitizeDiagnosticText(worker?.status ?? "unknown")}</span>
-          <span>{formatGuardSummary(operationsStatus)}</span>
+          <span>{formatGuardSummary(operationsStatus, normalizedStatus)}</span>
           <span>Queue {sanitizeDiagnosticText(queue?.status ?? "unknown")}</span>
+          {recentFailure ? (
+            <span>
+              最近失败 {recentFailure.failureKind ?? recentFailure.failureCategory}
+            </span>
+          ) : null}
         </div>
       ) : (
         <span className="text-secondary-foreground">未刷新</span>
@@ -204,14 +212,21 @@ function OperationsStatusSummary({
   );
 }
 
-function formatGuardSummary(status: OperationsProviderStatusResponse): string {
+function formatGuardSummary(
+  status: OperationsProviderStatusResponse,
+  normalizedStatus: ReturnType<typeof normalizeProviderStatus>,
+): string {
   const provider = status.provider;
   if (provider.hosted_quota_guard_enabled) {
-    return `Guard ${provider.hosted_daily_call_limit ?? "?"}/day · ${provider.hosted_rate_limit_per_minute ?? "?"}/min · <= ${provider.max_estimated_cost_per_job ?? "?"}`;
+    return `Guard ${normalizedStatus.guardLabel} · ${normalizedStatus.maxCostLabel.replace(
+      " / job",
+      "",
+    )}`;
   }
 
-  if (provider.hosted_calls_blocked_reason) {
-    return `Guard ${sanitizeDiagnosticText(provider.hosted_calls_blocked_reason)}`;
+  const bflOption = getProviderOption(normalizedStatus, BFL_PROVIDER_ID);
+  if (bflOption?.blockedReasons.length) {
+    return `Guard ${bflOption.blockedReasons[0]}`;
   }
 
   return "Guard local bypass";

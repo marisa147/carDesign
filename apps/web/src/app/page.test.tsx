@@ -253,8 +253,39 @@ const operationsStatusFixture: OperationsProviderStatusResponse = {
   provider: {
     active_mode: "local-deterministic",
     bfl_key_configured: false,
+    capabilities: [
+      {
+        blocked_reasons: [],
+        credential_configured: true,
+        credential_required: false,
+        default_model: "local-concept-v1",
+        display_name: "Local deterministic",
+        enabled: true,
+        estimated_cost: null,
+        provider: "local-deterministic",
+      },
+      {
+        blocked_reasons: [
+          "AI_PROVIDER_CALLS_ENABLED is disabled",
+          "AI_PROVIDER_BFL_API_KEY is missing",
+        ],
+        credential_configured: false,
+        credential_required: true,
+        default_model: "flux-2-pro-preview",
+        display_name: "BFL",
+        enabled: false,
+        estimated_cost: { max_per_job: null },
+        provider: "bfl",
+      },
+    ],
     calls_enabled: false,
     default_provider: "disabled",
+    guard_state: {
+      daily_call_limit: null,
+      hosted_quota_guard_enabled: false,
+      max_estimated_cost_per_job: null,
+      rate_limit_per_minute: null,
+    },
     hosted_calls_blocked_reason: null,
     hosted_daily_call_limit: null,
     hosted_provider_configured: false,
@@ -287,8 +318,27 @@ const guardedHostedOperationsStatusFixture: OperationsProviderStatusResponse = {
   provider: {
     active_mode: "bfl",
     bfl_key_configured: true,
+    capabilities: [
+      operationsStatusFixture.provider.capabilities?.[0] ?? {},
+      {
+        blocked_reasons: [],
+        credential_configured: true,
+        credential_required: true,
+        default_model: "flux-2-pro-preview",
+        display_name: "BFL",
+        enabled: true,
+        estimated_cost: { max_per_job: "0.7500" },
+        provider: "bfl",
+      },
+    ],
     calls_enabled: true,
     default_provider: "bfl",
+    guard_state: {
+      daily_call_limit: 25,
+      hosted_quota_guard_enabled: true,
+      max_estimated_cost_per_job: "0.7500",
+      rate_limit_per_minute: 4,
+    },
     hosted_calls_blocked_reason: null,
     hosted_daily_call_limit: 25,
     hosted_provider_configured: true,
@@ -908,6 +958,143 @@ describe("Phase 4 workbench shell", () => {
       `http://localhost:8000${getProviderStatusOperationsProviderStatusGetUrl()}`,
       expect.objectContaining({ method: "GET" }),
     );
+  });
+
+  it("renders blocked hosted provider state while keeping local mode available", async () => {
+    const user = userEvent.setup();
+    localStorage.setItem("caragent.workbench.workspaceId", "workspace-1");
+    localStorage.setItem("caragent.workbench.briefId", "brief-1");
+    const succeededJob = {
+      ...generationJobFixture,
+      status: "succeeded",
+      updated_at: "2026-06-17T00:25:00Z",
+    } satisfies GenerationJobResponse;
+    const fetchMock = mockResumeWithGenerationState({
+      artifacts: [artifactFixture, secondArtifactFixture],
+      job: succeededJob,
+      versions: [versionFixture, secondVersionFixture],
+    })
+      .mockResolvedValueOnce(jsonResponse([succeededJob]))
+      .mockResolvedValueOnce(jsonResponse(succeededJob))
+      .mockResolvedValueOnce(jsonResponse([jobEventFixture]))
+      .mockResolvedValueOnce(jsonResponse([artifactFixture, secondArtifactFixture]))
+      .mockResolvedValueOnce(jsonResponse([versionFixture, secondVersionFixture]))
+      .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse(operationsStatusFixture));
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<Home />);
+
+    expect(await screen.findByText("2D 概念预览")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "刷新状态" }));
+
+    expect(await screen.findByText("生成模式")).toBeVisible();
+    expect(screen.getByRole("button", { name: "本地概念" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(screen.getByRole("button", { name: "本地概念" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "BFL 托管" })).toBeDisabled();
+    expect(screen.getByText("托管调用开关关闭")).toBeVisible();
+    expect(screen.getByText("BFL 凭据未配置")).toBeVisible();
+    expect(document.body.textContent).not.toMatch(/api[_-]?key|secret|[A-Z]:\\/i);
+  });
+
+  it("submits selected hosted provider intent for child iterations", async () => {
+    const user = userEvent.setup();
+    localStorage.setItem("caragent.workbench.workspaceId", "workspace-1");
+    localStorage.setItem("caragent.workbench.briefId", "brief-1");
+    const succeededJob = {
+      ...generationJobFixture,
+      status: "succeeded",
+      updated_at: "2026-06-17T00:25:00Z",
+    } satisfies GenerationJobResponse;
+    const iterationJob = {
+      ...generationJobFixture,
+      id: "job-hosted-iteration-1",
+      idempotency_key: "iteration-version-1-123",
+      model: "flux-2-pro-preview",
+      provider: "bfl",
+      status: "queued",
+      updated_at: "2026-06-17T00:36:00Z",
+    } satisfies GenerationJobResponse;
+    const iterationResult: GenerationJobSubmissionResponse = {
+      idempotent_reused: false,
+      job: iterationJob,
+      queued: {
+        job_id: "job-hosted-iteration-1",
+        task_id: null,
+        task_name: "caragent_worker.generate_2d_concept_job",
+      },
+    };
+    const fetchMock = mockResumeWithGenerationState({
+      artifacts: [artifactFixture, secondArtifactFixture],
+      events: [
+        {
+          ...jobEventFixture,
+          event_type: "completed",
+          message: "Artifact ready.",
+          progress: "100",
+          status: "succeeded",
+        },
+      ],
+      job: succeededJob,
+      versions: [versionFixture, secondVersionFixture],
+    })
+      .mockResolvedValueOnce(jsonResponse([succeededJob]))
+      .mockResolvedValueOnce(jsonResponse(succeededJob))
+      .mockResolvedValueOnce(jsonResponse([jobEventFixture]))
+      .mockResolvedValueOnce(jsonResponse([artifactFixture, secondArtifactFixture]))
+      .mockResolvedValueOnce(jsonResponse([versionFixture, secondVersionFixture]))
+      .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse(guardedHostedOperationsStatusFixture))
+      .mockResolvedValueOnce(jsonResponse(iterationResult, 201))
+      .mockResolvedValueOnce(jsonResponse([iterationJob, succeededJob]))
+      .mockResolvedValueOnce(jsonResponse(iterationJob))
+      .mockResolvedValueOnce(jsonResponse([{ ...jobEventFixture, job_id: "job-hosted-iteration-1" }]))
+      .mockResolvedValueOnce(jsonResponse([artifactFixture, secondArtifactFixture]))
+      .mockResolvedValueOnce(jsonResponse([versionFixture, secondVersionFixture]))
+      .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse(guardedHostedOperationsStatusFixture));
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<Home />);
+
+    expect(await screen.findByText("2D 概念预览")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "刷新状态" }));
+
+    expect(await screen.findByText("BFL 托管")).toBeVisible();
+    expect(screen.getByText("25/day · 4/min")).toBeVisible();
+    expect(screen.getByText("<= 0.7500 / job")).toBeVisible();
+    expect(screen.getAllByText("概念预览").length).toBeGreaterThanOrEqual(1);
+    await user.click(screen.getByRole("button", { name: "BFL 托管" }));
+    expect(screen.getByRole("button", { name: "BFL 托管" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+
+    await user.type(screen.getByRole("textbox", { name: "迭代需求" }), "加强车门光影");
+    await user.click(screen.getByRole("button", { name: "生成子迭代" }));
+
+    expect(
+      await screen.findByText("子迭代已提交，父版本仍保留。"),
+    ).toBeVisible();
+    const iterationCall = fetchMock.mock.calls.find(([url]) =>
+      String(url).includes("/versions/version-1/iterations"),
+    );
+    const iterationBody = JSON.parse(String((iterationCall?.[1] as RequestInit).body));
+    expect(iterationBody).toMatchObject({
+      brief_id: "brief-1",
+      change_request: "加强车门光影",
+      model: "flux-2-pro-preview",
+      provider: "bfl",
+      requested_by: "web-workbench",
+    });
+    expect(iterationBody).not.toHaveProperty("estimated_cost");
+    expect(document.body.textContent).not.toMatch(/api[_-]?key|secret|[A-Z]:\\/i);
   });
 
   it("cancels queued generation jobs and removes cancel for terminal states", async () => {

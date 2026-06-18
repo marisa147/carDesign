@@ -5,18 +5,36 @@ import type {
   GenerationBriefResponse,
   GenerationBriefUpdateRequest,
 } from "@caragent/contracts";
-import { AlertTriangle, CheckCircle2, Loader2, Save, SlidersHorizontal } from "lucide-react";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Cloud,
+  Cpu,
+  Loader2,
+  Save,
+  ShieldAlert,
+  SlidersHorizontal,
+} from "lucide-react";
 import { useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { WorkbenchBrief } from "@/components/workbench/chat-panel";
+import {
+  BFL_PROVIDER_ID,
+  LOCAL_PROVIDER_ID,
+  type WorkbenchProviderOption,
+  type WorkbenchProviderStatus,
+} from "@/lib/api/operations";
 
 interface ParameterPanelProps {
   currentBrief: WorkbenchBrief | null;
   isLoading: boolean;
   onSave: (payload: GenerationBriefUpdateRequest) => Promise<GenerationBriefResponse>;
+  onProviderChange: (providerId: string) => void;
+  providerStatus: WorkbenchProviderStatus;
   selectedReferenceAssetIds: string[];
+  selectedProviderId: string;
 }
 
 interface ParameterDraft {
@@ -54,7 +72,10 @@ export function ParameterPanel({
   currentBrief,
   isLoading,
   onSave,
+  onProviderChange,
+  providerStatus,
   selectedReferenceAssetIds,
+  selectedProviderId,
 }: ParameterPanelProps) {
   const [draft, setDraft] = useState(() =>
     createDraft(currentBrief, selectedReferenceAssetIds),
@@ -105,6 +126,11 @@ export function ParameterPanel({
         <InfoRow label="视角" value={readString(payload, "view") || "-"} />
       </div>
       <InfoRow label="画布" value={formatCanvas(payload)} />
+      <ProviderSelector
+        onProviderChange={onProviderChange}
+        providerStatus={providerStatus}
+        selectedProviderId={selectedProviderId}
+      />
 
       <TextInput
         id="parameter-character-theme"
@@ -234,6 +260,97 @@ export function ParameterPanel({
 
       <Warnings warnings={readStringArray(payload, "warnings")} />
     </div>
+  );
+}
+
+function ProviderSelector({
+  onProviderChange,
+  providerStatus,
+  selectedProviderId,
+}: {
+  onProviderChange: (providerId: string) => void;
+  providerStatus: WorkbenchProviderStatus;
+  selectedProviderId: string;
+}) {
+  const selectedOption =
+    providerStatus.options.find((option) => option.id === selectedProviderId) ??
+    providerStatus.options.find((option) => option.id === LOCAL_PROVIDER_ID) ??
+    providerStatus.options[0];
+  const bflOption = providerStatus.options.find((option) => option.id === BFL_PROVIDER_ID);
+  const blockedBflOption = providerStatus.options.find(
+    (option) => option.id === BFL_PROVIDER_ID && option.blockedReasons.length > 0,
+  );
+
+  return (
+    <section className="grid gap-3 rounded-md border border-border bg-card p-3">
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="text-sm font-semibold">生成模式</h3>
+        {selectedOption ? <Badge variant="muted">{selectedOption.conceptLabel}</Badge> : null}
+      </div>
+      <div aria-label="生成模式" className="grid grid-cols-2 gap-2" role="group">
+        {providerStatus.options.map((option) => (
+          <ProviderButton
+            key={option.id}
+            onSelect={onProviderChange}
+            option={option}
+            selected={option.id === selectedProviderId}
+          />
+        ))}
+      </div>
+      {selectedOption ? (
+        <div className="grid grid-cols-2 gap-2">
+          <InfoRow label="护栏" value={selectedOption.guardLabel} />
+          <InfoRow label="成本" value={selectedOption.maxCostLabel} />
+        </div>
+      ) : null}
+      {bflOption?.enabled && selectedOption?.id !== BFL_PROVIDER_ID ? (
+        <div className="grid grid-cols-2 gap-2">
+          <InfoRow label="BFL 配额" value={bflOption.guardLabel} />
+          <InfoRow label="BFL 成本" value={bflOption.maxCostLabel} />
+        </div>
+      ) : null}
+      {blockedBflOption ? (
+        <div className="grid gap-1 rounded-md border border-warning/30 bg-warning/10 p-2 text-xs text-warning">
+          <div className="flex items-center gap-1 font-medium">
+            <ShieldAlert aria-hidden="true" className="h-4 w-4" />
+            托管调用已阻断
+          </div>
+          {blockedBflOption.blockedReasons.map((reason) => (
+            <span key={reason}>{reason}</span>
+          ))}
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function ProviderButton({
+  onSelect,
+  option,
+  selected,
+}: {
+  onSelect: (providerId: string) => void;
+  option: WorkbenchProviderOption;
+  selected: boolean;
+}) {
+  const Icon = option.id === BFL_PROVIDER_ID ? Cloud : Cpu;
+
+  return (
+    <Button
+      aria-label={option.label}
+      aria-pressed={selected}
+      className={selected ? "border-primary bg-primary/10" : undefined}
+      disabled={!option.enabled}
+      onClick={() => {
+        onSelect(option.id);
+      }}
+      type="button"
+      variant="outline"
+    >
+      <Icon aria-hidden="true" className="h-4 w-4" />
+      <span className="min-w-0 truncate">{option.label}</span>
+      <Badge variant={option.enabled ? "primary" : "muted"}>{option.statusLabel}</Badge>
+    </Button>
   );
 }
 
