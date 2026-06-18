@@ -351,6 +351,23 @@ async def _run_generate_2d_concept_job(
                     input_artifact_ids=input_artifact_ids,
                     provider_name=settings.ai_provider_fallback_name,
                 )
+                fallback_metadata = {
+                    "fallback_from_provider": request.provider,
+                    "fallback_reason": sanitized_attempt_error,
+                    "fallback_to_provider": fallback_request.provider,
+                    "provider_attempt": total_attempts,
+                    "provider_attempt_count": total_attempts,
+                    "worker_version": __version__,
+                }
+                await jobs.append_event(
+                    session,
+                    job_id,
+                    event_type=JobEventType.STATUS.value,
+                    message="Fallback provider started.",
+                    metadata=fallback_metadata,
+                    source="worker-generation",
+                    status=JobStatus.RUNNING.value,
+                )
                 model_run = await jobs.create_model_run(
                     session,
                     job_id,
@@ -361,8 +378,7 @@ async def _run_generate_2d_concept_job(
                         **prompt_plan.parameters,
                         **iteration_parameters,
                         **preview_spec_summary,
-                        "fallback_from_provider": request.provider,
-                        "fallback_reason": sanitized_attempt_error,
+                        **fallback_metadata,
                         "provider_attempt": total_attempts,
                         "provider_route": fallback_request.provider,
                     },
@@ -405,6 +421,7 @@ async def _run_generate_2d_concept_job(
                     attempt_metadata = {
                         "fallback_from_provider": prompt_plan.provider,
                         "fallback_reason": sanitized_attempt_error,
+                        "fallback_to_provider": fallback_request.provider,
                         "provider_attempt_count": total_attempts,
                     }
                     break
@@ -423,8 +440,10 @@ async def _run_generate_2d_concept_job(
         if provider_result is None or request is None or model_run is None:
             raise RuntimeError("Generation provider did not produce a result")
 
+        provider_trace_metadata = _provider_trace_metadata(request, provider_result)
         artifact_metadata = {
             **provider_result.metadata,
+            **provider_trace_metadata,
             **preview_spec_summary,
             **attempt_metadata,
             "concept_label": request.concept_label,
@@ -455,6 +474,7 @@ async def _run_generate_2d_concept_job(
                 **iteration_parameters,
                 **attempt_metadata,
                 "model": provider_result.model,
+                **provider_trace_metadata,
                 "preview_spec": preview_spec,
                 "provider": provider_result.provider,
                 **preview_spec_summary,
@@ -521,6 +541,7 @@ async def _run_generate_2d_concept_job(
             message="Generation completed.",
             metadata={
                 **attempt_metadata,
+                **provider_trace_metadata,
                 "external_calls": bool(provider_result.metadata.get("external_calls", True)),
                 "model": provider_result.model,
                 "provider": provider_result.provider,
@@ -931,6 +952,25 @@ def _image_request_from_prompt_plan(
         prompt_text=request.prompt_text,
         provider=provider_name or request.provider,
     )
+
+
+def _provider_trace_metadata(
+    request: ImageGenerationRequest,
+    result: ImageGenerationResult,
+) -> dict[str, object]:
+    return {
+        "actual_cost": _decimal_metadata(result.actual_cost),
+        "estimated_cost": _decimal_metadata(result.estimated_cost),
+        "model": result.model,
+        "provider": result.provider,
+        "provider_parameters": dict(request.parameters),
+    }
+
+
+def _decimal_metadata(value: Decimal | None) -> str | None:
+    if value is None:
+        return None
+    return f"{value:.4f}"
 
 
 def _preview_spec_from_prompt_payload(prompt_payload: dict[str, object]) -> dict[str, object]:
