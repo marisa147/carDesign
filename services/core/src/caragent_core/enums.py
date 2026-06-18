@@ -87,6 +87,7 @@ class ArtifactKind(StrEnum):
     THUMBNAIL = "thumbnail"
     GENERATED_IMAGE = "generated_image"
     PREVIEW = "preview"
+    PREVIEW_3D_SCREENSHOT = "preview_3d_screenshot"
     EXPORT = "export"
 
 
