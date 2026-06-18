@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: V2 MVP
 status: executing
-stopped_at: Completed 09-01-PLAN.md
-last_updated: "2026-06-18T08:29:22Z"
-last_activity: "2026-06-18 -- Completed Phase 09 Plan 01 provider capability configuration"
+stopped_at: Completed 09-02-PLAN.md
+last_updated: "2026-06-18T08:37:55Z"
+last_activity: "2026-06-18 -- Completed Phase 09 Plan 02 BFL hosted provider adapter"
 progress:
   total_phases: 7
   completed_phases: 1
   total_plans: 48
-  completed_plans: 6
-  percent: 13
+  completed_plans: 7
+  percent: 15
 ---
 
 # Project State
@@ -27,11 +27,11 @@ See: .planning/PROJECT.md (updated 2026-06-18)
 
 Milestone: v2.0 V2 MVP — PHASE 9 EXECUTING
 Phase: 09 (Hosted Provider Rollout MVP) — EXECUTING
-Plan: 2 of 7
-Status: Ready for `09-02-PLAN.md`
-Last activity: 2026-06-18 -- Completed Phase 09 Plan 01 provider capability configuration
+Plan: 3 of 7
+Status: Ready for `09-03-PLAN.md`
+Last activity: 2026-06-18 -- Completed Phase 09 Plan 02 BFL hosted provider adapter
 
-Progress: [#---------] 13%
+Progress: [##--------] 15%
 
 ## Milestone Archives
 
@@ -49,7 +49,7 @@ v2.0 MVP is scoped to the following phase sequence:
 | Phase | Focus | Plans | Requirements |
 |-------|-------|-------|--------------|
 | Phase 8 | V1 Closure And V2 Readiness Gate | 5/5 | V2-READY-01..04 |
-| Phase 9 | Hosted Provider Rollout MVP | 1/7 | V2-PROVIDER-01..05 |
+| Phase 9 | Hosted Provider Rollout MVP | 2/7 | V2-PROVIDER-01..05 |
 | Phase 10 | Targeted Regeneration And Masked Editing MVP | 0/8 | V2-EDIT-01..05 |
 | Phase 11 | Reference-Guided Generation MVP | 0/7 | V2-REF-01..05 |
 | Phase 12 | Lightweight 3D Preview MVP | 0/8 | V2-3D-01..05 |
@@ -119,8 +119,8 @@ Items acknowledged and deferred beyond v2.0 MVP:
 
 ## Session Continuity
 
-Last session: 2026-06-18T08:29:22Z
-Stopped at: Completed 09-01-PLAN.md
+Last session: 2026-06-18T08:37:55Z
+Stopped at: Completed 09-02-PLAN.md
 Resume files:
 
 - `.planning/PROJECT.md`
@@ -134,6 +134,7 @@ Resume files:
 - `.planning/phases/09-hosted-provider-rollout-mvp/09-01-PLAN.md`
 - `.planning/phases/09-hosted-provider-rollout-mvp/09-01-SUMMARY.md`
 - `.planning/phases/09-hosted-provider-rollout-mvp/09-02-PLAN.md`
+- `.planning/phases/09-hosted-provider-rollout-mvp/09-02-SUMMARY.md`
 - `.planning/phases/09-hosted-provider-rollout-mvp/09-03-PLAN.md`
 - `.planning/phases/09-hosted-provider-rollout-mvp/09-04-PLAN.md`
 - `.planning/phases/09-hosted-provider-rollout-mvp/09-05-PLAN.md`
