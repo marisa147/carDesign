@@ -63,7 +63,8 @@ function runPnpm(args) {
 
 function corepackCommand() {
   if (process.platform === "win32") {
-    return resolve(dirname(process.execPath), "corepack.cmd");
+    const bundledCorepack = resolve(dirname(process.execPath), "corepack.cmd");
+    return existsSync(bundledCorepack) ? bundledCorepack : "corepack";
   }
 
   return "corepack";
