@@ -272,6 +272,22 @@ const operationsStatusFixture: OperationsProviderStatusResponse = {
         enabled: true,
         estimated_cost: null,
         provider: "local-deterministic",
+        reference_input: {
+          accepted: false,
+          blocked_reason:
+            "Local deterministic provider records references as prompt guidance metadata only.",
+          content_types: [],
+          prompt_guidance_roles: [
+            "character",
+            "style",
+            "vehicle",
+            "logo",
+            "palette",
+            "inspiration",
+          ],
+          supported_roles: [],
+          unsupported_roles: [],
+        },
       },
       {
         blocked_reasons: [
@@ -285,6 +301,21 @@ const operationsStatusFixture: OperationsProviderStatusResponse = {
         enabled: false,
         estimated_cost: { max_per_job: null },
         provider: "bfl",
+        reference_input: {
+          accepted: false,
+          blocked_reason: "Reference image input is not verified for the current FLUX.2 adapter route.",
+          content_types: [],
+          prompt_guidance_roles: [],
+          supported_roles: [],
+          unsupported_roles: [
+            "character",
+            "style",
+            "vehicle",
+            "logo",
+            "palette",
+            "inspiration",
+          ],
+        },
       },
     ],
     calls_enabled: false,
@@ -338,6 +369,21 @@ const guardedHostedOperationsStatusFixture: OperationsProviderStatusResponse = {
         enabled: true,
         estimated_cost: { max_per_job: "0.7500" },
         provider: "bfl",
+        reference_input: {
+          accepted: false,
+          blocked_reason: "Reference image input is not verified for the current FLUX.2 adapter route.",
+          content_types: [],
+          prompt_guidance_roles: [],
+          supported_roles: [],
+          unsupported_roles: [
+            "character",
+            "style",
+            "vehicle",
+            "logo",
+            "palette",
+            "inspiration",
+          ],
+        },
       },
     ],
     calls_enabled: true,
@@ -479,6 +525,22 @@ const referenceTraceFixture = {
   unsupported_reference_roles: [],
 };
 
+const referenceDesignBriefFixture = {
+  ...designBriefFixture,
+  payload: {
+    ...designBriefFixture.payload,
+    reference_asset_ids: ["asset-2"],
+    reference_usage: [
+      {
+        asset_id: "asset-2",
+        enabled: true,
+        role: "character",
+        schema_version: 1,
+      },
+    ],
+  },
+} satisfies DesignBriefResponse;
+
 const feedbackFixture: FeedbackResponse = {
   approval_state: "approved",
   comment: "这个方向可以继续。",
@@ -583,14 +645,18 @@ const exportFixture: ExportResponse = {
 };
 
 function mockResumeWithGenerationState({
+  assets = [],
   artifacts = [],
+  brief = designBriefFixture,
   events = [jobEventFixture],
   exports = [],
   feedback = [],
   job = generationJobFixture,
   versions = [],
 }: {
+  assets?: AssetResponse[];
   artifacts?: ArtifactResponse[];
+  brief?: DesignBriefResponse;
   events?: JobEventResponse[];
   exports?: ExportResponse[];
   feedback?: FeedbackResponse[];
@@ -601,8 +667,8 @@ function mockResumeWithGenerationState({
     .fn()
     .mockResolvedValueOnce(jsonResponse(workspaceFixture))
     .mockResolvedValueOnce(jsonResponse([messageFixture]))
-    .mockResolvedValueOnce(jsonResponse([designBriefFixture]))
-    .mockResolvedValueOnce(jsonResponse([]))
+    .mockResolvedValueOnce(jsonResponse([brief]))
+    .mockResolvedValueOnce(jsonResponse(assets))
     .mockResolvedValueOnce(jsonResponse([job]))
     .mockResolvedValueOnce(jsonResponse(job))
     .mockResolvedValueOnce(jsonResponse(events))
@@ -1013,7 +1079,7 @@ describe("Phase 4 workbench shell", () => {
           {
             asset_id: "asset-2",
             enabled: true,
-            role: "style",
+            role: "character",
             schema_version: 1,
           },
         ],
@@ -1047,11 +1113,12 @@ describe("Phase 4 workbench shell", () => {
 
     await user.selectOptions(
       screen.getByRole("combobox", { name: "引用角色 confirmed-reference.png" }),
-      "style",
+      "character",
     );
     await user.click(
       screen.getByRole("checkbox", { name: "用于生成 confirmed-reference.png" }),
     );
+    expect(screen.getByText("可用于生成")).toBeVisible();
     await user.click(screen.getByRole("button", { name: "保存参数" }));
 
     expect(await screen.findByText("参数已保存")).toBeVisible();
@@ -1062,10 +1129,38 @@ describe("Phase 4 workbench shell", () => {
         {
           asset_id: "asset-2",
           enabled: true,
-          role: "style",
+          role: "character",
         },
       ],
     });
+  });
+
+  it("shows unsupported BFL reference roles before submission", async () => {
+    const user = userEvent.setup();
+    localStorage.setItem("caragent.workbench.workspaceId", "workspace-1");
+    localStorage.setItem("caragent.workbench.briefId", "brief-1");
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse(workspaceFixture))
+      .mockResolvedValueOnce(jsonResponse([messageFixture]))
+      .mockResolvedValueOnce(jsonResponse([referenceDesignBriefFixture]))
+      .mockResolvedValueOnce(jsonResponse([confirmedCharacterAssetFixture]))
+      .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse(guardedHostedOperationsStatusFixture));
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<Home />);
+
+    expect(await screen.findByText("confirmed-reference.png")).toBeVisible();
+    expect(screen.getByText("可用于生成")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "刷新状态" }));
+    await user.click(await screen.findByRole("button", { name: "BFL 托管" }));
+
+    expect(screen.getByText("引用受限")).toBeVisible();
+    expect(screen.getByText("供应商不支持")).toBeVisible();
+    expect(screen.getByText("供应商不支持 角色")).toBeVisible();
+    expect(document.body.textContent).not.toMatch(/api[_-]?key|secret|[A-Z]:\\/i);
   });
 
   it.each([
@@ -1233,6 +1328,7 @@ describe("Phase 4 workbench shell", () => {
     };
     const fetchMock = mockResumeWithGenerationState({
       artifacts: [artifactFixture, secondArtifactFixture],
+      brief: referenceDesignBriefFixture,
       events: [
         {
           ...jobEventFixture,
@@ -1385,6 +1481,49 @@ describe("Phase 4 workbench shell", () => {
     expect(screen.getByText("失败分类 timeout")).toBeVisible();
     expect(screen.getByText("阶段 provider_generate")).toBeVisible();
     expect(screen.getByText("Provider bfl")).toBeVisible();
+    expect(document.body.textContent).not.toMatch(/api[_-]?key|secret|[A-Z]:\\/i);
+  });
+
+  it("renders sanitized reference warning diagnostics in progress", async () => {
+    localStorage.setItem("caragent.workbench.workspaceId", "workspace-1");
+    localStorage.setItem("caragent.workbench.briefId", "brief-1");
+    const failedJob = {
+      ...failedJobFixture,
+      metadata: {
+        operations: {
+          failure_category: "provider_configuration",
+          omitted_reference_asset_ids: ["asset-2"],
+          provider: "bfl",
+          reference_warning_count: 1,
+          stage: "reference_preflight",
+          unsupported_reference_roles: ["character"],
+        },
+      },
+    } satisfies GenerationJobResponse;
+    const failedEvent = {
+      ...jobEventFixture,
+      event_type: "error",
+      message: "Reference image input is not verified for this provider.",
+      metadata: {
+        omitted_reference_asset_ids: ["asset-2"],
+        reference_warning_count: 1,
+        unsupported_reference_roles: ["character"],
+      },
+      status: "failed",
+    } satisfies JobEventResponse;
+    const fetchMock = mockResumeWithGenerationState({
+      events: [failedEvent],
+      job: failedJob,
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<Home />);
+
+    expect(await screen.findByText("失败")).toBeVisible();
+    expect(screen.getByText("引用受限")).toBeVisible();
+    expect(screen.getByText("不支持角色 角色")).toBeVisible();
+    expect(screen.getByText("省略引用 1")).toBeVisible();
+    expect(screen.getByText("警告 1")).toBeVisible();
     expect(document.body.textContent).not.toMatch(/api[_-]?key|secret|[A-Z]:\\/i);
   });
 
@@ -1547,6 +1686,49 @@ describe("Phase 4 workbench shell", () => {
     ).toBe(false);
   });
 
+  it("shows compact reference trace evidence for generated versions", async () => {
+    const user = userEvent.setup();
+    localStorage.setItem("caragent.workbench.workspaceId", "workspace-1");
+    localStorage.setItem("caragent.workbench.briefId", "brief-1");
+    const succeededJob = {
+      ...generationJobFixture,
+      status: "succeeded",
+      updated_at: "2026-06-17T00:25:00Z",
+    } satisfies GenerationJobResponse;
+    const referenceVersion = {
+      ...secondVersionFixture,
+      parameters: {
+        ...secondVersionFixture.parameters,
+        ...referenceTraceFixture,
+      },
+    } satisfies DesignVersionResponse;
+    const fetchMock = mockResumeWithGenerationState({
+      artifacts: [artifactFixture, secondArtifactFixture],
+      events: [
+        {
+          ...jobEventFixture,
+          event_type: "completed",
+          message: "Artifact ready.",
+          progress: "100",
+          status: "succeeded",
+        },
+      ],
+      job: succeededJob,
+      versions: [versionFixture, referenceVersion],
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<Home />);
+
+    expect(await screen.findByText("2D 概念预览")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "版本 2" }));
+
+    expect(screen.getByText("引用追踪")).toBeVisible();
+    expect(screen.getByText("已用引用 1")).toBeVisible();
+    expect(screen.getByText("角色 1")).toBeVisible();
+    expect(screen.getByText("警告 0")).toBeVisible();
+  });
+
   it("shows metadata lineage comparison and submits child iterations without overwriting parent", async () => {
     const user = userEvent.setup();
     localStorage.setItem("caragent.workbench.workspaceId", "workspace-1");
@@ -1631,9 +1813,19 @@ describe("Phase 4 workbench shell", () => {
     expect(iterationBody).toMatchObject({
       brief_id: "brief-1",
       change_request: "把门板角色放大",
-      parameter_overrides: {},
+      parameter_overrides: {
+        reference_asset_ids: ["asset-2"],
+        reference_usage: [
+          {
+            asset_id: "asset-2",
+            enabled: true,
+            role: "character",
+          },
+        ],
+      },
       requested_by: "web-workbench",
     });
+    expect(JSON.stringify(iterationBody).match(/reference_usage/g)).toHaveLength(1);
     expect(iterationBody).not.toHaveProperty("edit_intent");
     expect(iterationBody.idempotency_key).toMatch(/^iteration-version-2-\d+$/);
     expect(

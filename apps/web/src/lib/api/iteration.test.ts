@@ -12,6 +12,7 @@ import {
 } from "@caragent/contracts";
 
 import {
+  buildIterationSubmissionPayload,
   createConceptExport,
   createVersionFeedback,
   listWorkspaceExports,
@@ -83,6 +84,55 @@ const exportFixture: ExportResponse = {
 };
 
 describe("iteration API wrappers", () => {
+  it("builds child iteration payloads with current reference usage and provider intent", () => {
+    const payload = buildIterationSubmissionPayload(
+      {
+        brief_id: "brief-1",
+        change_request: "Make the door character larger.",
+        idempotency_key: "iterate-version-1",
+        parameter_overrides: { coverage: "door focus" },
+        requested_by: "web-proof",
+      },
+      {
+        providerSelection: {
+          enabled: true,
+          id: "bfl",
+          model: "flux-2-pro-preview",
+          providerParameters: { safety_tolerance: 2 },
+        },
+        referenceAssignments: [
+          {
+            assetId: "asset-2",
+            enabled: true,
+            role: "character",
+          },
+        ],
+      },
+    );
+
+    expect(payload).toEqual({
+      brief_id: "brief-1",
+      change_request: "Make the door character larger.",
+      idempotency_key: "iterate-version-1",
+      model: "flux-2-pro-preview",
+      parameter_overrides: {
+        coverage: "door focus",
+        reference_asset_ids: ["asset-2"],
+        reference_usage: [
+          {
+            asset_id: "asset-2",
+            enabled: true,
+            role: "character",
+          },
+        ],
+      },
+      provider: "bfl",
+      provider_parameters: { safety_tolerance: 2 },
+      requested_by: "web-proof",
+    });
+    expect(JSON.stringify(payload).match(/reference_usage/g)).toHaveLength(1);
+  });
+
   it("submits child iteration jobs with exact generated URLs and bodies", async () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse(iterationSubmissionFixture, 201));
 
