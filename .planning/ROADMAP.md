@@ -108,7 +108,7 @@ v2.0 MVP is successful when:
 - [x] 09-03-PLAN.md — Hosted preflight integration with quota, rate-limit, runtime mode, and provider health.
 - [x] 09-04-PLAN.md — Provider request/response trace persistence, cost recording, and secret redaction.
 - [x] 09-05-PLAN.md — Moderation/validation rejection mapping and user-safe failure messages.
-- [ ] 09-06-PLAN.md — Workbench provider selector, hosted-call warning, and cost/quota visibility.
+- [x] 09-06-PLAN.md — Workbench provider selector, hosted-call warning, and cost/quota visibility.
 - [ ] 09-07-PLAN.md — Phase 9 smoke, provider-off/provider-on tests, docs, and UAT evidence.
 
 **UI hint:** yes
