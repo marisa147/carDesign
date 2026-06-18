@@ -35,6 +35,6 @@
 - `.planning/milestones/v1.0-REQUIREMENTS.md`
 - `.planning/milestones/v1.0-MILESTONE-AUDIT.md`
 
-**What's next:** Start `$gsd-new-milestone` to define fresh v1.1 requirements from the shipped MVP.
+**What's next:** v2.0 V2 MVP planning has been initialized from `C:/Users/25858/Downloads/V2_MVP_ROADMAP (1).md`; start Phase 8 with `$gsd-discuss-phase 8` or `$gsd-plan-phase 8`.
 
 ---

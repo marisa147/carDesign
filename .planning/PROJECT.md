@@ -10,6 +10,20 @@ v1.0 的边界是概念设计闭环，不承诺生产级印刷交付、完整 3D
 
 用户能用自然语言快速得到一套可预览、可迭代、可导出的高质量痛车设计方案。
 
+## Current Milestone: v2.0 V2 MVP
+
+**Goal:** 将 v1.0 已验证的概念设计闭环升级为更实用的设计辅助产品：在受控 guardrail 下接入 hosted provider，支持局部编辑、参考引导、轻量 3D 预览和增强概念交付包，同时继续明确区分 concept preview、3D preview 和 production-ready wrap。
+
+**Target features:**
+
+- V1 closure and V2 readiness gate: 锁定 v1.0 基线，加入默认关闭的 V2 feature flags，并验证本地-only 模式仍可运行。
+- Hosted provider rollout MVP: 在既有 provider adapter 边界后接入至少一个真实 hosted image provider，保留 quota、cost、fallback、moderation 和失败可视性。
+- Targeted regeneration and masked editing MVP: 用户可以选择局部区域或图层做定向修改，并保存 mask、edit intent、父子版本和生成方式。
+- Reference-guided generation MVP: 上传素材可以标注 character/style/vehicle/logo/palette/inspiration 等参考角色，并带 rights/source gate 与 provider capability checks。
+- Lightweight 3D preview MVP: 以现有 PreviewSpec 和模板资产驱动一个轻量 3D 或 pseudo-3D 预览，不承诺生产级 UV 精度。
+- Enhanced concept handoff package MVP: 导出包含预览图、overlay、manifest、prompt/provider trace、warnings、handoff notes 和 concept-only disclaimer 的 ZIP 包。
+- V2 hardening, docs, smoke, and UAT: 关闭验证、文档、回归、Browser UAT、feature flag 和 release evidence。
+
 ## Current State
 
 **Shipped:** v1.0 MVP on 2026-06-18.
@@ -40,7 +54,13 @@ v1.0 的边界是概念设计闭环，不承诺生产级印刷交付、完整 3D
 
 ### Active
 
-No active requirements are open after v1.0. The next milestone should create a fresh `REQUIREMENTS.md` via `$gsd-new-milestone`.
+- [ ] V2 readiness gate protects the shipped v1.0 baseline before new capabilities are enabled.
+- [ ] Hosted provider generation can be tested safely through config-driven adapters, preflight guards, durable trace records, and visible failure/cost/quota state.
+- [ ] Targeted edits can update selected regions or layers while preserving immutable artifacts and parent-child version lineage.
+- [ ] Reference-guided generation can use uploaded assets with explicit roles, rights/source snapshots, and provider capability warnings.
+- [ ] Lightweight 3D preview can consume existing PreviewSpec/template assets and remain labeled as non-production.
+- [ ] Enhanced concept handoff export can package concept assets, overlays, traces, warnings, notes, and disclaimers without claiming print readiness.
+- [ ] V2 MVP can be validated through aggregate tests, Docker smoke, hosted-provider manual smoke, Browser UAT, docs, and release notes.
 
 ### Out of Scope
 
@@ -66,15 +86,14 @@ Shipped v1.0 experience:
 - 顶部/局部状态能力显示 provider、worker、queue、hosted guard、失败分类、取消状态和 future gates。
 - 导出能力保持 concept preview 定位，不伪装成印刷级交付。
 
-## Next Milestone Goals
+## Future Candidate Promotions After v2.0
 
-Candidates for v1.1 planning:
-
-- Hosted-provider production readiness: current provider quality, pricing, moderation, account access, quota behavior, fallback policy, and commercial-rights constraints.
-- More useful design quality loop: prompt/brief evaluation, richer style controls, better artifact comparison, and stronger warning quality.
-- Template expansion: one or two additional vehicle templates with safe zones, preview specs, and acceptance fixtures.
-- Print handoff spike: define minimum viable production handoff contract without claiming full wrap-shop readiness too early.
-- True 3D preview spike: verify whether React Three Fiber/Three.js can consume v1 PreviewSpec without destabilizing the core workflow.
+- Full print-ready PSD/AI/PDF-style handoff with verified scale, bleed, color profile, DPI, and installer notes.
+- Verified vehicle-specific UV mapping and broad template library coverage.
+- Marketplace, template store, public gallery, payment, quoting, ordering, installer network, and collaboration workflows.
+- Fully automated copyright/licensing verification.
+- Fully consistent multi-view generation across side/front/rear/hood with guaranteed physical alignment.
+- Advanced multi-agent orchestration beyond the typed generation and worker pipeline.
 
 ## Constraints
 
@@ -99,6 +118,7 @@ Candidates for v1.1 planning:
 | Keep Redis as queue/cache/progress, not canonical state | Redis task state alone is not enough for traceability | ✓ Good — API status reads durable job/event rows |
 | Concept preview before production handoff | Print-ready wrap delivery has real template, scale, bleed, color, and installer risks | ✓ Good — exports are clearly labeled concept preview |
 | Hosted provider rollout remains opt-in | Provider model availability, costs, moderation, and rights constraints change quickly | ⚠ Revisit — needs current validation before real hosted generation |
+| V2 MVP follows the external roadmap file | User supplied `C:/Users/25858/Downloads/V2_MVP_ROADMAP (1).md` as the milestone source of truth | — Pending — v2.0 planning initialized from that file |
 
 ## Evolution
 
@@ -120,4 +140,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state.
 
 ---
-*Last updated: 2026-06-18 after v1.0 milestone*
+*Last updated: 2026-06-18 after v2.0 milestone start*
