@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: V2 MVP
 status: executing
-stopped_at: Completed 10-02-PLAN.md
-last_updated: "2026-06-18T12:25:39Z"
-last_activity: "2026-06-18 -- Completed Phase 10 Plan 02 workbench target selection and payload flow"
+stopped_at: Completed 10-03-PLAN.md
+last_updated: "2026-06-18T12:39:09Z"
+last_activity: "2026-06-18 -- Completed Phase 10 Plan 03 deterministic recomposition worker route"
 progress:
   total_phases: 7
   completed_phases: 2
   total_plans: 48
-  completed_plans: 14
-  percent: 29
+  completed_plans: 15
+  percent: 31
 ---
 
 # Project State
@@ -27,11 +27,11 @@ See: .planning/PROJECT.md (updated 2026-06-18)
 
 Milestone: v2.0 V2 MVP — PHASE 10 EXECUTING
 Phase: 10 (Targeted Regeneration And Masked Editing MVP) — IN PROGRESS
-Plan: 10-03-PLAN.md
-Status: Ready to execute Phase 10 Plan 03
-Last activity: 2026-06-18 -- Completed Phase 10 Plan 02 workbench target selection and payload flow
+Plan: 10-04-PLAN.md
+Status: Ready to execute Phase 10 Plan 04
+Last activity: 2026-06-18 -- Completed Phase 10 Plan 03 deterministic recomposition worker route
 
-Progress: [###-------] 29%
+Progress: [###-------] 31%
 
 ## Milestone Archives
 
@@ -50,7 +50,7 @@ v2.0 MVP is scoped to the following phase sequence:
 |-------|-------|-------|--------------|
 | Phase 8 | V1 Closure And V2 Readiness Gate | 5/5 | V2-READY-01..04 |
 | Phase 9 | Hosted Provider Rollout MVP | 7/7 | V2-PROVIDER-01..05 |
-| Phase 10 | Targeted Regeneration And Masked Editing MVP | 2/8 | V2-EDIT-01..05 |
+| Phase 10 | Targeted Regeneration And Masked Editing MVP | 3/8 | V2-EDIT-01..05 |
 | Phase 11 | Reference-Guided Generation MVP | 0/7 | V2-REF-01..05 |
 | Phase 12 | Lightweight 3D Preview MVP | 0/8 | V2-3D-01..05 |
 | Phase 13 | Enhanced Concept Handoff Package MVP | 0/7 | V2-HANDOFF-01..05 |
@@ -93,6 +93,7 @@ Recent decisions affecting v2.0:
 - [Milestone v2.0]: Continue phase numbering from v1.0, so V2 work starts at Phase 8.
 - [Phase 10 Plan 01]: Targeted edits use shared `caragent_core.editing` Pydantic schemas; iteration jobs persist `edit_intent` with route-derived parent version id.
 - [Phase 10 Plan 02]: Workbench targeted edits use selected-version PreviewSpec safe zones and overlay layers; stale target drafts are cleared on selected version changes, and submitted payloads reference the selected generated artifact as mask metadata.
+- [Phase 10 Plan 03]: Deterministic recomposition is a local worker route for safe overlay-layer edits; it validates parent PreviewSpec targets, bypasses hosted providers, and writes child version/artifact/model-run trace metadata.
 
 ### Pending Todos
 
@@ -123,7 +124,7 @@ Items acknowledged and deferred beyond v2.0 MVP:
 ## Session Continuity
 
 Last session: 2026-06-18T09:57:54Z
-Stopped at: Completed 10-02-PLAN.md
+Stopped at: Completed 10-03-PLAN.md
 Resume files:
 
 - `.planning/PROJECT.md`
@@ -140,6 +141,8 @@ Resume files:
 - `.planning/phases/10-targeted-regeneration-and-masked-editing-mvp/10-02-PLAN.md`
 - `.planning/phases/10-targeted-regeneration-and-masked-editing-mvp/10-02-SUMMARY.md`
 - `.planning/phases/10-targeted-regeneration-and-masked-editing-mvp/10-03-PLAN.md`
+- `.planning/phases/10-targeted-regeneration-and-masked-editing-mvp/10-03-SUMMARY.md`
+- `.planning/phases/10-targeted-regeneration-and-masked-editing-mvp/10-04-PLAN.md`
 
 Next recommended command: `$gsd-execute-phase 10 --auto`
 Alternative: `$gsd-progress --next`

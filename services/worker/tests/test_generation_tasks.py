@@ -165,7 +165,8 @@ def test_generation_worker_creates_child_version_from_iteration_metadata(
     assert parent.id == seeded.parent_version_id
     assert parent.parent_version_id is None
     assert parent.lineage_depth == 0
-    assert parent.parameters == {"concept_label": "parent_preview"}
+    assert parent.parameters["concept_label"] == "parent_preview"
+    assert parent.parameters["preview_spec"]["overlay_layers"][0]["text"] == "MOON DRIVE"
     assert child.parent_version_id == parent.id
     assert child.lineage_depth == 1
     assert child.parameters["parent_version_id"] == str(parent.id)
@@ -175,6 +176,107 @@ def test_generation_worker_creates_child_version_from_iteration_metadata(
     assert state.model_runs[0].parameters["parent_version_id"] == str(parent.id)
     assert state.model_runs[0].parameters["change_request"] == "Make the side stripe bolder."
     assert state.model_runs[0].parameters["parameter_overrides"] == {"coverage": "door focus"}
+
+
+def test_generation_worker_recomposes_safe_targeted_edit_without_provider_call(
+    tmp_path: Path,
+) -> None:
+    provider = RecordingSuccessProvider()
+    seeded = seed_generation_job(
+        tmp_path,
+        iteration_parent=True,
+        targeted_edit_instruction="text=STAR RUN; move up",
+    )
+    output_storage = InMemoryObjectStorage()
+
+    result = asyncio.run(
+        run_generate_2d_concept_job(
+            seeded.database_url,
+            seeded.job_id,
+            provider=provider,
+            settings=WorkerSettings(
+                ai_provider_calls_enabled=True,
+                ai_provider_default="bfl",
+                v2_targeted_regeneration_enabled=True,
+            ),
+            storage=output_storage,
+        ),
+    )
+    state = asyncio.run(read_generation_state(seeded.session_factory, seeded.job_id))
+
+    assert seeded.parent_version_id is not None
+    assert result["status"] == "succeeded"
+    assert result["external_calls"] is False
+    assert result["provider"] == "deterministic-recomposition"
+    assert result["model"] == "preview-spec-recomposer-v1"
+    assert provider.requests == []
+
+    parent, child = state.versions
+    assert parent.id == seeded.parent_version_id
+    assert child.parent_version_id == parent.id
+    assert child.lineage_depth == parent.lineage_depth + 1
+
+    parent_layer = parent.parameters["preview_spec"]["overlay_layers"][0]
+    child_layer = child.parameters["preview_spec"]["overlay_layers"][0]
+    assert parent_layer == {
+        "id": "text-1",
+        "kind": "text",
+        "text": "MOON DRIVE",
+        "zone_id": "door-main",
+    }
+    assert child_layer["text"] == "STAR RUN"
+    assert child_layer["y"] < 0.47
+    assert child.parameters["recomposition_route"] == "deterministic_recomposition"
+    assert child.parameters["target"] == {"id": "text-1", "type": "overlay_layer"}
+    assert set(child.parameters["changed_fields"]) >= {"text", "y"}
+
+    assert len(state.model_runs) == 1
+    model_run = state.model_runs[0]
+    assert model_run.status == ModelRunStatus.SUCCEEDED.value
+    assert model_run.provider == "deterministic-recomposition"
+    assert model_run.model == "preview-spec-recomposer-v1"
+    assert model_run.parameters["recomposition_route"] == "deterministic_recomposition"
+    assert model_run.parameters["parent_version_id"] == str(parent.id)
+    assert model_run.output_artifact_id == state.artifacts[1].id
+
+    child_artifact = state.artifacts[1]
+    assert child_artifact.metadata_json["recomposition_route"] == "deterministic_recomposition"
+    assert child_artifact.metadata_json["parent_version_id"] == str(parent.id)
+    assert child_artifact.metadata_json["target"] == {"id": "text-1", "type": "overlay_layer"}
+    assert child_artifact.object_key in output_storage.objects
+    assert state.job.metadata_json["operations"]["recomposition_route"] == (
+        "deterministic_recomposition"
+    )
+
+
+def test_generation_worker_rejects_invalid_recomposition_without_partial_child(
+    tmp_path: Path,
+) -> None:
+    provider = RecordingSuccessProvider()
+    seeded = seed_generation_job(
+        tmp_path,
+        iteration_parent=True,
+        targeted_edit_instruction="text=STAR RUN",
+        targeted_edit_target_id="missing-layer",
+    )
+
+    result = asyncio.run(
+        run_generate_2d_concept_job(
+            seeded.database_url,
+            seeded.job_id,
+            provider=provider,
+            settings=WorkerSettings(v2_targeted_regeneration_enabled=True),
+            storage=InMemoryObjectStorage(),
+        ),
+    )
+    state = asyncio.run(read_generation_state(seeded.session_factory, seeded.job_id))
+
+    assert result["status"] == "failed"
+    assert "target not found" in (state.job.latest_error or "")
+    assert provider.requests == []
+    assert len(state.versions) == 1
+    assert len(state.artifacts) == 1
+    assert state.model_runs == []
 
 
 def test_generation_worker_records_sanitized_provider_failure(tmp_path: Path) -> None:
@@ -1108,6 +1210,8 @@ def seed_generation_job(
     model: str | None = None,
     provider: str | None = None,
     provider_parameters: dict[str, object] | None = None,
+    targeted_edit_instruction: str | None = None,
+    targeted_edit_target_id: str = "text-1",
 ) -> SeededGenerationJob:
     database_url = f"sqlite+aiosqlite:///{(tmp_path / 'generation.db').as_posix()}"
     engine = create_engine(database_url)
@@ -1122,6 +1226,8 @@ def seed_generation_job(
             model=model,
             provider=provider,
             provider_parameters=provider_parameters,
+            targeted_edit_instruction=targeted_edit_instruction,
+            targeted_edit_target_id=targeted_edit_target_id,
         ),
     )
     asyncio.run(engine.dispose())
@@ -1143,6 +1249,8 @@ async def seed_database(
     model: str | None,
     provider: str | None,
     provider_parameters: dict[str, object] | None,
+    targeted_edit_instruction: str | None,
+    targeted_edit_target_id: str,
 ) -> tuple[UUID, UUID | None]:
     async with engine.begin() as connection:
         await connection.run_sync(metadata.create_all)
@@ -1189,17 +1297,36 @@ async def seed_database(
             title="Generation brief",
         )
         parent_version_id: UUID | None = None
+        parent_artifact_id: UUID | None = None
         if iteration_parent:
+            parent_parameters = parent_version_parameters()
             parent = await jobs.create_design_version(
                 session,
                 workspace.id,
                 brief_id=brief.id,
-                parameters={"concept_label": "parent_preview"},
+                parameters=parent_parameters,
                 status=DesignVersionStatus.GENERATED.value,
                 summary="Parent concept.",
                 title="Parent concept",
             )
             parent_version_id = parent.id
+            parent_artifact = await jobs.create_artifact(
+                session,
+                workspace.id,
+                byte_size=len(PARENT_IMAGE_BYTES),
+                checksum_sha256=hashlib.sha256(PARENT_IMAGE_BYTES).hexdigest(),
+                content_type="image/png",
+                height=768,
+                kind=ArtifactKind.GENERATED_IMAGE.value,
+                metadata={
+                    **parent_parameters,
+                    "preview_spec": parent_parameters["preview_spec"],
+                },
+                object_key=f"workspaces/{workspace.id}/generated_image/{parent.id}/parent.png",
+                version_id=parent.id,
+                width=1536,
+            )
+            parent_artifact_id = parent_artifact.id
         job_metadata = (
             {
                 "change_request": "Make the side stripe bolder.",
@@ -1211,6 +1338,15 @@ async def seed_database(
             if parent_version_id is not None
             else {}
         )
+        if targeted_edit_instruction is not None:
+            if parent_version_id is None or parent_artifact_id is None:
+                raise AssertionError("Targeted edit test jobs require an iteration parent")
+            job_metadata["edit_intent"] = targeted_edit_intent_metadata(
+                parent_artifact_id=parent_artifact_id,
+                parent_version_id=parent_version_id,
+                target_id=targeted_edit_target_id,
+                instruction=targeted_edit_instruction,
+            )
         if provider is not None or model is not None or provider_parameters:
             job_metadata["provider_intent"] = {
                 "model": model,
@@ -1228,6 +1364,92 @@ async def seed_database(
             provider=provider,
         )
         return created.job.id, parent_version_id
+
+
+def targeted_edit_intent_metadata(
+    *,
+    parent_artifact_id: UUID,
+    parent_version_id: UUID,
+    target_id: str,
+    instruction: str,
+) -> dict[str, object]:
+    return {
+        "mask": {
+            "artifact_id": str(parent_artifact_id),
+            "content_type": "image/png",
+            "height": 768,
+            "width": 1536,
+        },
+        "mode": "targeted_edit",
+        "parent_version_id": str(parent_version_id),
+        "prompt_delta": {
+            "instructions": [instruction],
+            "summary": instruction,
+        },
+        "region": {
+            "height": 0.24,
+            "type": "rectangle",
+            "unit": "normalized",
+            "width": 0.34,
+            "x": 0.32,
+            "y": 0.47,
+        },
+        "route_preference": "deterministic_recomposition",
+        "schema_version": 1,
+        "target": {"id": target_id, "type": "overlay_layer"},
+    }
+
+
+def parent_version_parameters() -> dict[str, object]:
+    preview_spec = parent_preview_spec()
+    return {
+        "concept_label": "parent_preview",
+        "model": "local-concept-v1",
+        "overlay_layer_count": 2,
+        "preview_spec": preview_spec,
+        "provider": "local-deterministic",
+        "safe_zone_count": 2,
+        "warning_count": 0,
+    }
+
+
+def parent_preview_spec() -> dict[str, object]:
+    return {
+        "canvas": {"height": 768, "width": 1536},
+        "overlay_layers": [
+            {"id": "text-1", "kind": "text", "text": "MOON DRIVE", "zone_id": "door-main"},
+            {"asset_id": "logo-1", "id": "logo-1", "kind": "logo", "zone_id": "rear-quarter"},
+        ],
+        "safe_zones": [
+            {
+                "height": 0.24,
+                "id": "door-main",
+                "kind": "body",
+                "label": "Door / main side panel",
+                "width": 0.34,
+                "x": 0.32,
+                "y": 0.47,
+            },
+            {
+                "height": 0.2,
+                "id": "rear-quarter",
+                "kind": "body",
+                "label": "Rear quarter panel",
+                "width": 0.18,
+                "x": 0.64,
+                "y": 0.43,
+            },
+        ],
+        "template": {
+            "id": "generic-side-coupe",
+            "label": "Generic side-view coupe",
+            "view": "side",
+        },
+        "warnings": [],
+    }
+
+
+PARENT_IMAGE_BYTES = b"\x89PNG\r\n\x1a\n" + b"parent-preview"
 
 
 async def cancel_seeded_job(

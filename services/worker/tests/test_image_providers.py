@@ -8,6 +8,7 @@ from decimal import Decimal
 
 import httpx
 import pytest
+from caragent_core.editing import EditIntent
 from caragent_core.generation import build_prompt_plan, create_generation_brief
 
 from caragent_worker.config import WorkerSettings
@@ -19,6 +20,10 @@ from caragent_worker.providers import (
     ImageProviderTimeoutError,
     LocalDeterministicImageProvider,
     select_image_provider,
+)
+from caragent_worker.recomposition import (
+    DeterministicRecompositionError,
+    recompose_targeted_edit,
 )
 
 
@@ -58,6 +63,48 @@ def test_local_provider_mirrors_preview_spec_metadata_and_overlay_output() -> No
     assert result.metadata["safe_zone_count"] >= 5
     assert result.metadata["warning_count"] == 0
     assert result.image_bytes != changed.image_bytes
+
+
+@pytest.mark.parametrize(
+    ("instruction", "target_id", "expected"),
+    [
+        ("move x=0.40 y=0.42", "text-1", {"x": 0.4, "y": 0.42}),
+        ("scale=1.25 opacity=0.50", "text-1", {"opacity": 0.5}),
+        ("visible=false", "text-1", {"visible": False}),
+        ("text=STAR RUN", "text-1", {"text": "STAR RUN"}),
+        ("logo=logo-2", "logo-1", {"asset_id": "logo-2"}),
+    ],
+)
+def test_recomposition_helper_applies_safe_overlay_changes(
+    instruction: str,
+    target_id: str,
+    expected: dict[str, object],
+) -> None:
+    intent = build_edit_intent(target_id=target_id, instruction=instruction)
+
+    result = recompose_targeted_edit(
+        parent_preview_spec(),
+        intent,
+        height=160,
+        width=320,
+    )
+
+    layer = next(
+        item for item in result.preview_spec["overlay_layers"] if item["id"] == target_id
+    )
+    for key, value in expected.items():
+        assert layer[key] == value
+    assert result.image_bytes.startswith(b"\x89PNG\r\n\x1a\n")
+    assert result.metadata["recomposition_route"] == "deterministic_recomposition"
+    assert result.metadata["target"] == {"id": target_id, "type": "overlay_layer"}
+    assert set(result.metadata["changed_fields"])
+
+
+def test_recomposition_helper_rejects_unknown_overlay_target() -> None:
+    intent = build_edit_intent(target_id="missing-layer", instruction="text=STAR RUN")
+
+    with pytest.raises(DeterministicRecompositionError, match="target not found"):
+        recompose_targeted_edit(parent_preview_spec(), intent, height=160, width=320)
 
 
 def test_hosted_provider_is_not_selected_when_provider_calls_are_disabled() -> None:
@@ -331,6 +378,71 @@ def build_image_request(*, text: list[str] | None = None) -> ImageGenerationRequ
         text=text or ["MOON DRIVE"],
     )
     return ImageGenerationRequest.from_prompt_plan(build_prompt_plan(brief))
+
+
+def build_edit_intent(*, target_id: str, instruction: str) -> EditIntent:
+    return EditIntent.model_validate(
+        {
+            "mask": {
+                "artifact_id": "11111111-1111-1111-1111-111111111111",
+                "content_type": "image/png",
+                "height": 160,
+                "width": 320,
+            },
+            "mode": "targeted_edit",
+            "prompt_delta": {
+                "instructions": [instruction],
+                "summary": instruction,
+            },
+            "region": {
+                "height": 0.24,
+                "type": "rectangle",
+                "unit": "normalized",
+                "width": 0.34,
+                "x": 0.32,
+                "y": 0.47,
+            },
+            "route_preference": "deterministic_recomposition",
+            "schema_version": 1,
+            "target": {"id": target_id, "type": "overlay_layer"},
+        },
+    )
+
+
+def parent_preview_spec() -> dict[str, object]:
+    return {
+        "canvas": {"height": 768, "width": 1536},
+        "overlay_layers": [
+            {"id": "text-1", "kind": "text", "text": "MOON DRIVE", "zone_id": "door-main"},
+            {"asset_id": "logo-1", "id": "logo-1", "kind": "logo", "zone_id": "rear-quarter"},
+        ],
+        "safe_zones": [
+            {
+                "height": 0.24,
+                "id": "door-main",
+                "kind": "body",
+                "label": "Door / main side panel",
+                "width": 0.34,
+                "x": 0.32,
+                "y": 0.47,
+            },
+            {
+                "height": 0.2,
+                "id": "rear-quarter",
+                "kind": "body",
+                "label": "Rear quarter panel",
+                "width": 0.18,
+                "x": 0.64,
+                "y": 0.43,
+            },
+        ],
+        "template": {
+            "id": "generic-side-coupe",
+            "label": "Generic side-view coupe",
+            "view": "side",
+        },
+        "warnings": [],
+    }
 
 
 def build_bfl_image_request() -> ImageGenerationRequest:

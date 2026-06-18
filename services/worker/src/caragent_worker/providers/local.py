@@ -60,6 +60,15 @@ class LocalDeterministicImageProvider:
         )
 
 
+def render_local_concept_preview(
+    request: ImageGenerationRequest,
+    *,
+    width: int,
+    height: int,
+) -> bytes:
+    return _render_concept_preview(request, width=width, height=height)
+
+
 def _render_concept_preview(
     request: ImageGenerationRequest,
     *,
@@ -178,12 +187,13 @@ def _draw_preview_overlays(
     for layer in _json_list(preview_spec.get("overlay_layers")):
         if not isinstance(layer, dict):
             continue
+        if layer.get("visible") is False:
+            continue
 
-        zone = safe_zones.get(str(layer.get("zone_id", "")))
-        if zone is None:
-            zone = {"height": 0.18, "width": 0.3, "x": 0.35, "y": 0.5}
+        zone = _layer_zone(layer, safe_zones)
         box = _zone_box(zone, width, height)
         kind = str(layer.get("kind", ""))
+        opacity = _normalized_float(layer.get("opacity"), fallback=1.0)
 
         if kind == "text":
             text = str(layer.get("text", "")).strip()
@@ -191,7 +201,7 @@ def _draw_preview_overlays(
                 draw.rounded_rectangle(
                     box,
                     radius=max(4, height // 80),
-                    fill=(35, 42, 48),
+                    fill=_blend_color((35, 42, 48), (248, 248, 244), opacity),
                     outline=(248, 248, 244),
                     width=max(1, width // 260),
                 )
@@ -204,7 +214,7 @@ def _draw_preview_overlays(
             draw.rounded_rectangle(
                 box,
                 radius=max(4, height // 80),
-                fill=(248, 248, 244),
+                fill=_blend_color((248, 248, 244), (244, 244, 239), opacity),
                 outline=(32, 38, 42),
                 width=max(1, width // 260),
             )
@@ -213,6 +223,20 @@ def _draw_preview_overlays(
                 "LOGO",
                 fill=(32, 38, 42),
             )
+
+
+def _layer_zone(layer: JsonObject, safe_zones: dict[str, JsonObject]) -> JsonObject:
+    if all(_is_number(layer.get(field)) for field in ("x", "y", "width", "height")):
+        return {
+            "height": float(layer["height"]),
+            "width": float(layer["width"]),
+            "x": float(layer["x"]),
+            "y": float(layer["y"]),
+        }
+    zone = safe_zones.get(str(layer.get("zone_id", "")))
+    if zone is not None:
+        return zone
+    return {"height": 0.18, "width": 0.3, "x": 0.35, "y": 0.5}
 
 
 def _safe_zone_lookup(preview_spec: JsonObject) -> dict[str, JsonObject]:
@@ -242,6 +266,22 @@ def _normalized_float(value: object, *, fallback: float) -> float:
     if isinstance(value, int | float):
         return min(1.0, max(0.0, float(value)))
     return fallback
+
+
+def _is_number(value: object) -> bool:
+    return isinstance(value, int | float)
+
+
+def _blend_color(
+    foreground: tuple[int, int, int],
+    background: tuple[int, int, int],
+    opacity: float,
+) -> tuple[int, int, int]:
+    return (
+        int(background[0] + (foreground[0] - background[0]) * opacity),
+        int(background[1] + (foreground[1] - background[1]) * opacity),
+        int(background[2] + (foreground[2] - background[2]) * opacity),
+    )
 
 
 def _json_list(value: object) -> list[object]:

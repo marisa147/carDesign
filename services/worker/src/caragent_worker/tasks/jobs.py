@@ -10,6 +10,7 @@ from typing import TypedDict
 from uuid import UUID, uuid4
 
 from caragent_core.database import create_engine, create_session_factory, session_scope
+from caragent_core.editing import EditIntent
 from caragent_core.enums import (
     ArtifactKind,
     DesignVersionStatus,
@@ -24,9 +25,17 @@ from caragent_core.generation import (
     PromptProviderSettings,
     build_prompt_plan,
 )
-from caragent_core.models import DesignBrief, GenerationJob, ModelRun, utc_now
+from caragent_core.models import (
+    Artifact,
+    DesignBrief,
+    DesignVersion,
+    GenerationJob,
+    ModelRun,
+    utc_now,
+)
 from caragent_core.services import assets, jobs
 from caragent_core.storage import FileObjectStorage, ObjectStorage, build_object_key
+from pydantic import ValidationError
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -43,6 +52,13 @@ from caragent_worker.providers import (
     select_image_provider,
 )
 from caragent_worker.providers.base import sanitize_provider_error
+from caragent_worker.recomposition import (
+    RECOMPOSITION_MODEL,
+    RECOMPOSITION_PROVIDER,
+    RECOMPOSITION_ROUTE,
+    DeterministicRecompositionError,
+    recompose_targeted_edit,
+)
 
 LOCAL_SIMULATION_PROVIDER = "local-simulation"
 LOCAL_SIMULATION_MODEL = "phase-2-no-provider"
@@ -52,7 +68,7 @@ WORKER_CANCELED_MESSAGE = "Worker observed canceled job."
 HOSTED_GUARD_REQUIRED_MESSAGE = (
     "Hosted calls require daily, per-minute, and per-job cost limits."
 )
-LOCAL_PROVIDER_NAMES = {"disabled", "local", "local-deterministic"}
+LOCAL_PROVIDER_NAMES = {"disabled", "local", "local-deterministic", RECOMPOSITION_PROVIDER}
 BFL_PROVIDER_NAMES = {"bfl", "black-forest-labs"}
 
 
@@ -225,6 +241,28 @@ async def _run_generate_2d_concept_job(
         )
         if canceled_result is not None:
             return canceled_result
+
+        edit_intent = _job_edit_intent(job)
+        if edit_intent is not None:
+            if not settings.v2_targeted_regeneration_enabled:
+                failure_stage = "targeted_regeneration_flag"
+                raise ImageProviderConfigurationError(
+                    "V2_TARGETED_REGENERATION_ENABLED is disabled.",
+                )
+            if edit_intent.route_preference == RECOMPOSITION_ROUTE:
+                failure_stage = "recomposition_validation"
+                failure_provider = RECOMPOSITION_PROVIDER
+                failure_model = RECOMPOSITION_MODEL
+                return await _run_deterministic_recomposition(
+                    session,
+                    job=job,
+                    job_id=job_id,
+                    parent_version_id=parent_version_id,
+                    edit_intent=edit_intent,
+                    iteration_parameters=iteration_parameters,
+                    storage=storage,
+                    settings=settings,
+                )
 
         provider_result: ImageGenerationResult | None = None
         request: ImageGenerationRequest | None = None
@@ -597,6 +635,202 @@ async def _run_generate_2d_concept_job(
         }
 
 
+async def _run_deterministic_recomposition(
+    session: AsyncSession,
+    *,
+    edit_intent: EditIntent,
+    iteration_parameters: dict[str, object],
+    job: GenerationJob,
+    job_id: UUID,
+    parent_version_id: UUID | None,
+    settings: WorkerSettings,
+    storage: ObjectStorage,
+) -> Generate2DConceptResult:
+    model_run_id: UUID | None = None
+    try:
+        parent_version, parent_artifact, parent_preview_spec = (
+            await _load_recomposition_parent_context(
+                session,
+                edit_intent=edit_intent,
+                parent_version_id=parent_version_id,
+                workspace_id=job.workspace_id,
+            )
+        )
+        recomposition = recompose_targeted_edit(
+            parent_preview_spec,
+            edit_intent,
+            height=settings.ai_local_image_height,
+            width=settings.ai_local_image_width,
+        )
+        preview_spec_summary = _preview_spec_summary(recomposition.preview_spec)
+        trace_metadata: dict[str, object] = {
+            **preview_spec_summary,
+            "changed_fields": list(recomposition.metadata["changed_fields"]),
+            "external_calls": False,
+            "parent_artifact_id": str(parent_artifact.id),
+            "parent_version_id": str(parent_version.id),
+            "provider_route": RECOMPOSITION_ROUTE,
+            "recomposition_route": RECOMPOSITION_ROUTE,
+            "target": recomposition.metadata["target"],
+            "worker_version": __version__,
+        }
+        model_run = await jobs.create_model_run(
+            session,
+            job_id,
+            actual_cost=Decimal("0.0000"),
+            estimated_cost=Decimal("0.0000"),
+            input_artifact_ids=[str(parent_artifact.id)],
+            model=RECOMPOSITION_MODEL,
+            parameters={
+                **iteration_parameters,
+                **trace_metadata,
+            },
+            prompt_payload={
+                "edit_intent": edit_intent.model_dump(mode="json"),
+                "parent_preview_spec": parent_preview_spec,
+                "preview_spec": recomposition.preview_spec,
+            },
+            prompt_text=edit_intent.prompt_delta.summary,
+            provider=RECOMPOSITION_PROVIDER,
+            status=ModelRunStatus.RUNNING.value,
+        )
+        model_run_id = model_run.id
+        await jobs.append_event(
+            session,
+            job_id,
+            event_type=JobEventType.STATUS.value,
+            message="Deterministic recomposition started.",
+            metadata=trace_metadata,
+            source="worker-generation",
+            status=JobStatus.RUNNING.value,
+        )
+        canceled_result = await _return_if_canceled(
+            session,
+            job_id,
+            external_calls=False,
+            model_run_id=model_run_id,
+            stage="before_recomposition",
+        )
+        if canceled_result is not None:
+            return canceled_result
+
+        object_key = build_object_key(
+            filename="concept.png",
+            kind=ArtifactKind.GENERATED_IMAGE.value,
+            record_id=uuid4(),
+            workspace_id=job.workspace_id,
+        )
+        await storage.put_object(
+            object_key,
+            recomposition.image_bytes,
+            recomposition.content_type,
+        )
+        version = await jobs.create_design_version(
+            session,
+            job.workspace_id,
+            brief_id=job.brief_id,
+            job_id=job_id,
+            parent_version_id=parent_version.id,
+            parameters={
+                "concept_label": "targeted_recomposition",
+                **iteration_parameters,
+                **trace_metadata,
+                "model": RECOMPOSITION_MODEL,
+                "preview_spec": recomposition.preview_spec,
+                "provider": RECOMPOSITION_PROVIDER,
+            },
+            status=DesignVersionStatus.GENERATED.value,
+            summary="Recomposed targeted 2D concept preview.",
+            title="Targeted recomposition preview",
+        )
+        artifact = await jobs.create_artifact(
+            session,
+            job.workspace_id,
+            byte_size=len(recomposition.image_bytes),
+            checksum_sha256=hashlib.sha256(recomposition.image_bytes).hexdigest(),
+            content_type=recomposition.content_type,
+            height=recomposition.height,
+            job_id=job_id,
+            kind=ArtifactKind.GENERATED_IMAGE.value,
+            metadata={
+                **recomposition.metadata,
+                **iteration_parameters,
+                **trace_metadata,
+            },
+            object_key=object_key,
+            version_id=version.id,
+            width=recomposition.width,
+        )
+        await jobs.append_event(
+            session,
+            job_id,
+            event_type=JobEventType.STATUS.value,
+            status=JobStatus.RUNNING.value,
+            message="Generated artifact stored.",
+            source="worker-generation",
+        )
+        await jobs.append_event(
+            session,
+            job_id,
+            event_type=JobEventType.STATUS.value,
+            status=JobStatus.RUNNING.value,
+            message="Design version created.",
+            source="worker-generation",
+        )
+        await jobs.complete_model_run(
+            session,
+            model_run.id,
+            actual_cost=Decimal("0.0000"),
+            output_artifact_id=artifact.id,
+        )
+        await jobs.update_job_costs(
+            session,
+            job_id,
+            actual_cost=Decimal("0.0000"),
+            estimated_cost=Decimal("0.0000"),
+        )
+        canceled_result = await _return_if_canceled(
+            session,
+            job_id,
+            external_calls=False,
+            model_run_id=model_run_id,
+            stage="before_success",
+        )
+        if canceled_result is not None:
+            return canceled_result
+        await jobs.transition_job_status(
+            session,
+            job_id,
+            status=JobStatus.SUCCEEDED.value,
+            message="Generation completed.",
+            metadata={
+                **trace_metadata,
+                "model": RECOMPOSITION_MODEL,
+                "provider": RECOMPOSITION_PROVIDER,
+                "stage": "completed",
+            },
+            source="worker-generation",
+        )
+        return {
+            "artifact_id": str(artifact.id),
+            "external_calls": False,
+            "job_id": str(job_id),
+            "model": RECOMPOSITION_MODEL,
+            "model_run_id": str(model_run.id),
+            "provider": RECOMPOSITION_PROVIDER,
+            "status": JobStatus.SUCCEEDED.value,
+            "version_id": str(version.id),
+        }
+    except Exception:
+        if model_run_id is not None:
+            await jobs.fail_model_run(
+                session,
+                model_run_id,
+                error_message="Deterministic recomposition failed.",
+            )
+        raise
+
+
 async def _simulate_local_generation_job(
     database_url: str,
     job_id: UUID,
@@ -677,6 +911,8 @@ def _result(job_id: UUID, status: str) -> LocalSimulationResult:
 def _classify_generation_failure(exc: Exception, *, stage: str) -> FailureCategory:
     if isinstance(exc, ImageProviderTimeoutError):
         return FailureCategory.TIMEOUT
+    if isinstance(exc, DeterministicRecompositionError):
+        return FailureCategory.UNKNOWN
     if isinstance(exc, ImageProviderConfigurationError):
         return FailureCategory.PROVIDER_CONFIGURATION
     if isinstance(exc, ImageProviderError):
@@ -940,6 +1176,78 @@ def _job_provider_intent(job: GenerationJob) -> JobProviderIntent | None:
         },
         provider=normalized_provider,
     )
+
+
+def _job_edit_intent(job: GenerationJob) -> EditIntent | None:
+    metadata = job.metadata_json if isinstance(job.metadata_json, dict) else {}
+    raw_intent = metadata.get("edit_intent")
+    if raw_intent is None:
+        return None
+    if not isinstance(raw_intent, dict):
+        raise ImageProviderConfigurationError("Invalid targeted edit intent metadata.")
+    try:
+        return EditIntent.model_validate(raw_intent)
+    except ValidationError as exc:
+        raise ImageProviderConfigurationError(
+            "Invalid targeted edit intent metadata.",
+        ) from exc
+
+
+async def _load_recomposition_parent_context(
+    session: AsyncSession,
+    *,
+    edit_intent: EditIntent,
+    parent_version_id: UUID | None,
+    workspace_id: UUID,
+) -> tuple[DesignVersion, Artifact, dict[str, object]]:
+    if parent_version_id is None:
+        raise DeterministicRecompositionError("targeted recomposition requires parent version")
+    if (
+        edit_intent.parent_version_id is not None
+        and edit_intent.parent_version_id != parent_version_id
+    ):
+        raise DeterministicRecompositionError("edit intent parent version does not match job")
+
+    parent_version = await session.get(DesignVersion, parent_version_id)
+    if parent_version is None or parent_version.workspace_id != workspace_id:
+        raise DeterministicRecompositionError(f"parent version not found: {parent_version_id}")
+
+    result = await session.execute(
+        select(Artifact)
+        .where(
+            Artifact.kind == ArtifactKind.GENERATED_IMAGE.value,
+            Artifact.version_id == parent_version_id,
+            Artifact.workspace_id == workspace_id,
+        )
+        .order_by(Artifact.created_at.desc()),
+    )
+    parent_artifact = result.scalars().first()
+    if parent_artifact is None:
+        raise DeterministicRecompositionError(
+            f"parent generated artifact not found: {parent_version_id}",
+        )
+
+    preview_spec = _parent_preview_spec(parent_version, parent_artifact)
+    if not preview_spec:
+        raise DeterministicRecompositionError("parent PreviewSpec not found")
+    return parent_version, parent_artifact, preview_spec
+
+
+def _parent_preview_spec(
+    parent_version: DesignVersion,
+    parent_artifact: Artifact,
+) -> dict[str, object]:
+    version_parameters = (
+        parent_version.parameters if isinstance(parent_version.parameters, dict) else {}
+    )
+    artifact_metadata = (
+        parent_artifact.metadata_json if isinstance(parent_artifact.metadata_json, dict) else {}
+    )
+    for source in (version_parameters, artifact_metadata):
+        preview_spec = source.get("preview_spec")
+        if isinstance(preview_spec, dict):
+            return dict(preview_spec)
+    return {}
 
 
 def _optional_text(value: object) -> str | None:
