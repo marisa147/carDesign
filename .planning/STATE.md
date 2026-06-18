@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: V2 MVP
 status: executing
-stopped_at: Phase 11 complete; ready to plan Phase 12
-last_updated: "2026-06-18T15:28:37Z"
-last_activity: "2026-06-18 -- Completed Phase 11 Plan 07 smoke, docs, rights-gate validation, and UAT checklist"
+stopped_at: Phase 12 planned; ready to execute 12-01
+last_updated: "2026-06-18T15:40:00Z"
+last_activity: "2026-06-18 -- Generated Phase 12 lightweight 3D preview context, research, UI contract, pattern map, validation strategy, and 8 execution plans"
 progress:
   total_phases: 7
   completed_phases: 4
@@ -25,11 +25,11 @@ See: .planning/PROJECT.md (updated 2026-06-18)
 
 ## Current Position
 
-Milestone: v2.0 V2 MVP — PHASE 12 READY
-Phase: 12 (Lightweight 3D Preview MVP) — READY FOR PLANNING
-Plan: Phase 12 planning not generated yet
-Status: Ready to plan Phase 12
-Last activity: 2026-06-18 -- Completed Phase 11 Plan 07 smoke, docs, rights-gate validation, and UAT checklist
+Milestone: v2.0 V2 MVP — PHASE 12 PLANNED
+Phase: 12 (Lightweight 3D Preview MVP) — READY TO EXECUTE
+Plan: 12-01-PLAN.md — Preview3DSpec schema, compatibility mapping, and artifact contract
+Status: Ready to execute Phase 12 Plan 01
+Last activity: 2026-06-18 -- Generated Phase 12 lightweight 3D preview context, research, UI contract, pattern map, validation strategy, and 8 execution plans
 
 Progress: [######----] 56%
 
@@ -52,7 +52,7 @@ v2.0 MVP is scoped to the following phase sequence:
 | Phase 9 | Hosted Provider Rollout MVP | 7/7 | V2-PROVIDER-01..05 |
 | Phase 10 | Targeted Regeneration And Masked Editing MVP | 8/8 | V2-EDIT-01..05 |
 | Phase 11 | Reference-Guided Generation MVP | 7/7 complete | V2-REF-01..05 |
-| Phase 12 | Lightweight 3D Preview MVP | 0/8 | V2-3D-01..05 |
+| Phase 12 | Lightweight 3D Preview MVP | 0/8 planned | V2-3D-01..05 |
 | Phase 13 | Enhanced Concept Handoff Package MVP | 0/7 | V2-HANDOFF-01..05 |
 | Phase 14 | V2 MVP Hardening, Docs, Smoke, And UAT | 0/6 | V2-REL-01..05 |
 
@@ -107,6 +107,7 @@ Recent decisions affecting v2.0:
 - [Phase 11 Plan 05]: Reference trace metadata now snapshots roles and rights/source evidence across model runs, artifacts, versions, job metadata/events, and concept export manifests.
 - [Phase 11 Plan 06]: Workbench reference UX now shows pre-submit provider role limitations, progress/reference trace diagnostics, generated-version trace evidence, and child iteration reference reuse.
 - [Phase 11 Plan 07]: Phase 11 focused validation, provider-off smoke dry run, contracts check, aggregate validation, docs, UAT checklist, and milestone notes now close V2-REF-01..05.
+- [Phase 12 Planning]: Lightweight 3D preview is planned around a typed `Preview3DSpec`, one `generic-side-coupe` shell fixture, client-only Three.js viewer, screenshot artifact persistence, explicit 2D fallback, browser canvas-pixel evidence, and persistent non-production labels.
 
 ### Pending Todos
 
@@ -136,8 +137,8 @@ Items acknowledged and deferred beyond v2.0 MVP:
 
 ## Session Continuity
 
-Last session: 2026-06-18T15:28:37Z
-Stopped at: Phase 11 complete; ready to plan Phase 12
+Last session: 2026-06-18T15:40:00Z
+Stopped at: Phase 12 planned; ready to execute 12-01
 Resume files:
 
 - `.planning/PROJECT.md`
@@ -189,6 +190,12 @@ Resume files:
 - `.planning/phases/11-reference-guided-generation-mvp/11-VERIFICATION.md`
 - `.planning/phases/11-reference-guided-generation-mvp/11-HUMAN-UAT.md`
 - `.planning/phases/11-reference-guided-generation-mvp/11-MILESTONE-NOTES.md`
+- `.planning/phases/12-lightweight-3d-preview-mvp/12-CONTEXT.md`
+- `.planning/phases/12-lightweight-3d-preview-mvp/12-RESEARCH.md`
+- `.planning/phases/12-lightweight-3d-preview-mvp/12-UI-SPEC.md`
+- `.planning/phases/12-lightweight-3d-preview-mvp/12-PATTERNS.md`
+- `.planning/phases/12-lightweight-3d-preview-mvp/12-VALIDATION.md`
+- `.planning/phases/12-lightweight-3d-preview-mvp/12-01-PLAN.md`
 
-Next recommended command: `$gsd-plan-phase 12 --auto`
+Next recommended command: `$gsd-execute-phase 12 --auto`
 Alternative: `$gsd-progress --next`
