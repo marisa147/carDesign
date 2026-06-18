@@ -2732,6 +2732,17 @@
             ],
             "title": "Provider"
           },
+          "provider_failure_kind": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider Failure Kind"
+          },
           "provider_status": {
             "anyOf": [
               {

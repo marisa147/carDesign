@@ -517,6 +517,7 @@ export interface RecentFailureResponse {
   message: string | null;
   model: string | null;
   provider: string | null;
+  provider_failure_kind?: string | null;
   provider_status?: string | null;
   stage: string | null;
   status: string;

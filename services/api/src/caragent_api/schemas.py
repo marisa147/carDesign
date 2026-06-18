@@ -292,6 +292,7 @@ class RecentFailureResponse(BaseModel):
     message: str | None
     model: str | None
     provider: str | None
+    provider_failure_kind: str | None = None
     provider_status: str | None = None
     stage: str | None
     status: str
