@@ -2,6 +2,7 @@ import { create } from "zustand";
 
 export type WorkbenchView = "front" | "rear" | "side" | "top";
 export type WorkbenchTab = "assets" | "history" | "parameters";
+export type PreviewMode = "2d" | "3d";
 export type TargetedEditRoutePreference =
   | "deterministic_recomposition"
   | "provider_masked_generation";
@@ -10,6 +11,11 @@ export type TargetedEditTargetType = "safe_zone" | "overlay_layer";
 export interface PreviewPan {
   x: number;
   y: number;
+}
+
+export interface Preview3DCamera {
+  rotationY: number;
+  zoom: number;
 }
 
 export interface TargetedEditRegion {
@@ -38,6 +44,8 @@ interface WorkbenchUiState {
   editRoutePreference: TargetedEditRoutePreference;
   isTargetedEditMode: boolean;
   isVersionComparisonMode: boolean;
+  preview3DCamera: Preview3DCamera;
+  previewMode: PreviewMode;
   previewPan: PreviewPan;
   previewZoom: number;
   selectedComparisonChildId: string | null;
@@ -50,12 +58,15 @@ interface WorkbenchUiState {
   clearVersionComparison: () => void;
   clearTargetedEditDraft: () => void;
   panPreview: (pan: PreviewPan) => void;
+  resetPreview3DCamera: () => void;
   resetPreviewTransform: () => void;
   resetWorkbenchUi: () => void;
+  rotatePreview3D: (deltaDegrees: number) => void;
   setActiveInspectorTab: (tab: WorkbenchTab) => void;
   setSelectedComparisonChildId: (versionId: string | null) => void;
   setEditPromptDelta: (value: string) => void;
   setEditRoutePreference: (routePreference: TargetedEditRoutePreference) => void;
+  setPreviewMode: (mode: PreviewMode) => void;
   setPreviewZoom: (zoom: number) => void;
   setSelectedEditTarget: (target: TargetedEditTarget | null) => void;
   setSelectedVersionId: (versionId: string | null) => void;
@@ -65,6 +76,8 @@ interface WorkbenchUiState {
   toggleEditMaskPreview: () => void;
   toggleOverlayLayers: () => void;
   toggleSafeZones: () => void;
+  zoomPreview3DIn: () => void;
+  zoomPreview3DOut: () => void;
   zoomPreviewIn: () => void;
   zoomPreviewOut: () => void;
 }
@@ -75,6 +88,8 @@ const initialWorkbenchUiState = {
   editRoutePreference: "deterministic_recomposition" as TargetedEditRoutePreference,
   isTargetedEditMode: false,
   isVersionComparisonMode: false,
+  preview3DCamera: { rotationY: 0, zoom: 1 },
+  previewMode: "2d" as PreviewMode,
   previewPan: { x: 0, y: 0 },
   previewZoom: 1,
   selectedComparisonChildId: null,
@@ -89,6 +104,9 @@ const initialWorkbenchUiState = {
 const previewZoomStep = 0.25;
 const minPreviewZoom = 0.5;
 const maxPreviewZoom = 3;
+const preview3DZoomStep = 0.25;
+const minPreview3DZoom = 0.5;
+const maxPreview3DZoom = 3;
 
 export const useWorkbenchStore = create<WorkbenchUiState>()((set) => ({
   ...initialWorkbenchUiState,
@@ -101,6 +119,9 @@ export const useWorkbenchStore = create<WorkbenchUiState>()((set) => ({
   panPreview: (previewPan) => {
     set({ previewPan });
   },
+  resetPreview3DCamera: () => {
+    set({ preview3DCamera: initialWorkbenchUiState.preview3DCamera });
+  },
   resetPreviewTransform: () => {
     set({
       previewPan: initialWorkbenchUiState.previewPan,
@@ -109,6 +130,14 @@ export const useWorkbenchStore = create<WorkbenchUiState>()((set) => ({
   },
   resetWorkbenchUi: () => {
     set(initialWorkbenchUiState);
+  },
+  rotatePreview3D: (deltaDegrees) => {
+    set((state) => ({
+      preview3DCamera: {
+        ...state.preview3DCamera,
+        rotationY: normalizeRotation(state.preview3DCamera.rotationY + deltaDegrees),
+      },
+    }));
   },
   setActiveInspectorTab: (activeInspectorTab) => {
     set({ activeInspectorTab });
@@ -128,6 +157,9 @@ export const useWorkbenchStore = create<WorkbenchUiState>()((set) => ({
   },
   setEditRoutePreference: (editRoutePreference) => {
     set({ editRoutePreference });
+  },
+  setPreviewMode: (previewMode) => {
+    set({ previewMode });
   },
   setPreviewZoom: (previewZoom) => {
     set({ previewZoom });
@@ -168,6 +200,22 @@ export const useWorkbenchStore = create<WorkbenchUiState>()((set) => ({
   toggleSafeZones: () => {
     set((state) => ({ showSafeZones: !state.showSafeZones }));
   },
+  zoomPreview3DIn: () => {
+    set((state) => ({
+      preview3DCamera: {
+        ...state.preview3DCamera,
+        zoom: clamp3DZoom(state.preview3DCamera.zoom + preview3DZoomStep),
+      },
+    }));
+  },
+  zoomPreview3DOut: () => {
+    set((state) => ({
+      preview3DCamera: {
+        ...state.preview3DCamera,
+        zoom: clamp3DZoom(state.preview3DCamera.zoom - preview3DZoomStep),
+      },
+    }));
+  },
   zoomPreviewIn: () => {
     set((state) => ({
       previewZoom: clampZoom(state.previewZoom + previewZoomStep),
@@ -194,4 +242,13 @@ const versionComparisonDefaults = {
 
 function clampZoom(value: number): number {
   return Math.min(maxPreviewZoom, Math.max(minPreviewZoom, value));
+}
+
+function clamp3DZoom(value: number): number {
+  return Math.min(maxPreview3DZoom, Math.max(minPreview3DZoom, value));
+}
+
+function normalizeRotation(value: number): number {
+  const normalized = ((((value + 180) % 360) + 360) % 360) - 180;
+  return Object.is(normalized, -0) ? 0 : normalized;
 }

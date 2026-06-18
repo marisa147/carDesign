@@ -1,12 +1,8 @@
-import { Box, Download, Store } from "lucide-react";
+import { Download, Store } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 
 const gates = [
-  {
-    icon: Box,
-    label: "3D 预览后续开放",
-  },
   {
     icon: Download,
     label: "生产导出后续开放",

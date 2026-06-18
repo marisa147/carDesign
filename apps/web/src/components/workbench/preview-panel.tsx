@@ -22,6 +22,8 @@ import {
   type WorkbenchView,
 } from "@/lib/workbench/store";
 
+import { Preview3DPanel } from "./preview-3d-panel";
+
 interface PreviewPanelProps {
   artifacts: ArtifactResponse[];
   isLoading: boolean;
@@ -39,6 +41,7 @@ export function PreviewPanel({ artifacts, isLoading, versions }: PreviewPanelPro
   const {
     clearVersionComparison,
     isTargetedEditMode,
+    previewMode,
     resetPreviewTransform,
     selectedComparisonChildId,
     selectedEditTarget,
@@ -46,6 +49,7 @@ export function PreviewPanel({ artifacts, isLoading, versions }: PreviewPanelPro
     selectedView,
     setSelectedComparisonChildId,
     setSelectedEditTarget,
+    setPreviewMode,
     setSelectedVersionId,
     setSelectedView,
     setTargetedEditMode,
@@ -85,105 +89,138 @@ export function PreviewPanel({ artifacts, isLoading, versions }: PreviewPanelPro
       <div className="flex min-h-[420px] items-center justify-center rounded-md border border-dashed border-border bg-muted">
         {selectedArtifact && selectedVersion ? (
           <div className="grid w-full gap-3 p-5">
-            <div>
-              <h3 className="text-lg font-semibold">2D 概念预览</h3>
-              <p className="mt-1 text-sm text-secondary-foreground">
-                {selectedVersion.summary ?? selectedVersion.title ?? "Generated 2D concept preview."}
-              </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                aria-pressed={previewMode === "2d"}
+                onClick={() => {
+                  setPreviewMode("2d");
+                }}
+                size="sm"
+                type="button"
+                variant={previewMode === "2d" ? "default" : "outline"}
+              >
+                2D 预览
+              </Button>
+              <Button
+                aria-pressed={previewMode === "3d"}
+                onClick={() => {
+                  setPreviewMode("3d");
+                }}
+                size="sm"
+                type="button"
+                variant={previewMode === "3d" ? "default" : "outline"}
+              >
+                3D 预览
+              </Button>
             </div>
-            <div className="rounded-md border border-border bg-background p-4">
-              <p className="text-xs font-medium text-secondary-foreground">对象键</p>
-              <p className="mt-1 break-all text-sm">{selectedArtifact.object_key}</p>
-              <p className="mt-3 text-xs text-secondary-foreground">
-                {selectedArtifact.width ?? "-"} x {selectedArtifact.height ?? "-"} ·{" "}
-                {selectedArtifact.content_type ?? "unknown"}
-              </p>
-            </div>
-            {previewSpec ? (
+
+            {previewMode === "3d" ? (
+              <Preview3DPanel artifact={selectedArtifact} version={selectedVersion} />
+            ) : (
               <>
-                <PreviewSpecSummary previewSpec={previewSpec} />
+                <div>
+                  <h3 className="text-lg font-semibold">2D 概念预览</h3>
+                  <p className="mt-1 text-sm text-secondary-foreground">
+                    {selectedVersion.summary ??
+                      selectedVersion.title ??
+                      "Generated 2D concept preview."}
+                  </p>
+                </div>
+                <div className="rounded-md border border-border bg-background p-4">
+                  <p className="text-xs font-medium text-secondary-foreground">对象键</p>
+                  <p className="mt-1 break-all text-sm">{selectedArtifact.object_key}</p>
+                  <p className="mt-3 text-xs text-secondary-foreground">
+                    {selectedArtifact.width ?? "-"} x {selectedArtifact.height ?? "-"} ·{" "}
+                    {selectedArtifact.content_type ?? "unknown"}
+                  </p>
+                </div>
+                {previewSpec ? (
+                  <>
+                    <PreviewSpecSummary previewSpec={previewSpec} />
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Button
+                        aria-pressed={showOverlayLayers}
+                        onClick={toggleOverlayLayers}
+                        size="sm"
+                        type="button"
+                        variant={showOverlayLayers ? "default" : "outline"}
+                      >
+                        <ImageIcon aria-hidden="true" className="h-4 w-4" />
+                        文字/Logo 图层
+                      </Button>
+                      <Button
+                        aria-pressed={showSafeZones}
+                        onClick={toggleSafeZones}
+                        size="sm"
+                        type="button"
+                        variant={showSafeZones ? "default" : "outline"}
+                      >
+                        <ImageIcon aria-hidden="true" className="h-4 w-4" />
+                        安全区
+                      </Button>
+                      <Button
+                        aria-pressed={isTargetedEditMode}
+                        onClick={() => {
+                          setTargetedEditMode(!isTargetedEditMode);
+                        }}
+                        size="sm"
+                        type="button"
+                        variant={isTargetedEditMode ? "default" : "outline"}
+                      >
+                        <Crosshair aria-hidden="true" className="h-4 w-4" />
+                        局部编辑
+                      </Button>
+                      <Button
+                        aria-pressed={showEditMaskPreview}
+                        disabled={!isTargetedEditMode || selectedEditTarget === null}
+                        onClick={toggleEditMaskPreview}
+                        size="sm"
+                        type="button"
+                        variant={showEditMaskPreview ? "default" : "outline"}
+                      >
+                        {showEditMaskPreview ? (
+                          <EyeOff aria-hidden="true" className="h-4 w-4" />
+                        ) : (
+                          <Eye aria-hidden="true" className="h-4 w-4" />
+                        )}
+                        {showEditMaskPreview ? "隐藏编辑遮罩" : "显示编辑遮罩"}
+                      </Button>
+                    </div>
+                    {isTargetedEditMode && selectedEditTarget ? (
+                      <p className="text-xs font-medium text-primary">
+                        已选 {selectedEditTarget.type}: {selectedEditTarget.id}
+                      </p>
+                    ) : null}
+                    <PreviewSpecCanvas
+                      isTargetedEditMode={isTargetedEditMode}
+                      onSelectEditTarget={setSelectedEditTarget}
+                      previewSpec={previewSpec}
+                      previewZoom={previewZoom}
+                      selectedEditTarget={selectedEditTarget}
+                      showEditMaskPreview={showEditMaskPreview}
+                      showOverlayLayers={showOverlayLayers}
+                      showSafeZones={showSafeZones}
+                    />
+                    <TemplateLegend previewSpec={previewSpec} showSafeZones={showSafeZones} />
+                  </>
+                ) : null}
                 <div className="flex flex-wrap items-center gap-2">
-                  <Button
-                    aria-pressed={showOverlayLayers}
-                    onClick={toggleOverlayLayers}
-                    size="sm"
-                    type="button"
-                    variant={showOverlayLayers ? "default" : "outline"}
-                  >
-                    <ImageIcon aria-hidden="true" className="h-4 w-4" />
-                    文字/Logo 图层
+                  <Button aria-label="缩小预览" onClick={zoomPreviewOut} size="sm" type="button" variant="outline">
+                    <Minus aria-hidden="true" className="h-4 w-4" />
                   </Button>
-                  <Button
-                    aria-pressed={showSafeZones}
-                    onClick={toggleSafeZones}
-                    size="sm"
-                    type="button"
-                    variant={showSafeZones ? "default" : "outline"}
-                  >
-                    <ImageIcon aria-hidden="true" className="h-4 w-4" />
-                    安全区
+                  <span className="min-w-14 text-center text-sm font-medium">
+                    {Math.round(previewZoom * 100)}%
+                  </span>
+                  <Button aria-label="放大预览" onClick={zoomPreviewIn} size="sm" type="button" variant="outline">
+                    <Plus aria-hidden="true" className="h-4 w-4" />
                   </Button>
-                  <Button
-                    aria-pressed={isTargetedEditMode}
-                    onClick={() => {
-                      setTargetedEditMode(!isTargetedEditMode);
-                    }}
-                    size="sm"
-                    type="button"
-                    variant={isTargetedEditMode ? "default" : "outline"}
-                  >
-                    <Crosshair aria-hidden="true" className="h-4 w-4" />
-                    局部编辑
-                  </Button>
-                  <Button
-                    aria-pressed={showEditMaskPreview}
-                    disabled={!isTargetedEditMode || selectedEditTarget === null}
-                    onClick={toggleEditMaskPreview}
-                    size="sm"
-                    type="button"
-                    variant={showEditMaskPreview ? "default" : "outline"}
-                  >
-                    {showEditMaskPreview ? (
-                      <EyeOff aria-hidden="true" className="h-4 w-4" />
-                    ) : (
-                      <Eye aria-hidden="true" className="h-4 w-4" />
-                    )}
-                    {showEditMaskPreview ? "隐藏编辑遮罩" : "显示编辑遮罩"}
+                  <Button onClick={resetPreviewTransform} type="button" variant="outline">
+                    <RotateCcw aria-hidden="true" className="h-4 w-4" />
+                    重置预览
                   </Button>
                 </div>
-                {isTargetedEditMode && selectedEditTarget ? (
-                  <p className="text-xs font-medium text-primary">
-                    已选 {selectedEditTarget.type}: {selectedEditTarget.id}
-                  </p>
-                ) : null}
-                <PreviewSpecCanvas
-                  isTargetedEditMode={isTargetedEditMode}
-                  onSelectEditTarget={setSelectedEditTarget}
-                  previewSpec={previewSpec}
-                  previewZoom={previewZoom}
-                  selectedEditTarget={selectedEditTarget}
-                  showEditMaskPreview={showEditMaskPreview}
-                  showOverlayLayers={showOverlayLayers}
-                  showSafeZones={showSafeZones}
-                />
-                <TemplateLegend previewSpec={previewSpec} showSafeZones={showSafeZones} />
               </>
-            ) : null}
-            <div className="flex flex-wrap items-center gap-2">
-              <Button aria-label="缩小预览" onClick={zoomPreviewOut} size="sm" type="button" variant="outline">
-                <Minus aria-hidden="true" className="h-4 w-4" />
-              </Button>
-              <span className="min-w-14 text-center text-sm font-medium">
-                {Math.round(previewZoom * 100)}%
-              </span>
-              <Button aria-label="放大预览" onClick={zoomPreviewIn} size="sm" type="button" variant="outline">
-                <Plus aria-hidden="true" className="h-4 w-4" />
-              </Button>
-              <Button onClick={resetPreviewTransform} type="button" variant="outline">
-                <RotateCcw aria-hidden="true" className="h-4 w-4" />
-                重置预览
-              </Button>
-            </div>
+            )}
           </div>
         ) : (
           <div className="px-6 text-center">
