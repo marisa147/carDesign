@@ -326,6 +326,7 @@ async def _run_generate_2d_concept_job(
                         "provider": failure_provider,
                         "provider_attempt": attempt_index,
                         "provider_attempt_count": total_attempts,
+                        **_provider_failure_metadata(exc),
                         "stage": failure_stage,
                         "worker_version": __version__,
                     },
@@ -569,6 +570,7 @@ async def _run_generate_2d_concept_job(
             "failure_category": failure_category.value,
             "model": failure_model,
             "provider": failure_provider,
+            **_provider_failure_metadata(exc),
             "stage": failure_stage,
             "worker_version": __version__,
         }
@@ -684,6 +686,43 @@ def _classify_generation_failure(exc: Exception, *, stage: str) -> FailureCatego
     if stage == "storage_put" or isinstance(exc, OSError):
         return FailureCategory.STORAGE
     return FailureCategory.UNKNOWN
+
+
+def _provider_failure_metadata(exc: Exception) -> dict[str, object]:
+    metadata: dict[str, object] = {}
+    if isinstance(exc, ImageProviderError):
+        if exc.provider_status:
+            metadata["provider_status"] = exc.provider_status
+        if exc.status_code is not None:
+            metadata["provider_status_code"] = exc.status_code
+    failure_kind = _provider_failure_kind(exc)
+    if failure_kind is not None:
+        metadata["provider_failure_kind"] = failure_kind
+    return metadata
+
+
+def _provider_failure_kind(exc: Exception) -> str | None:
+    if isinstance(exc, ImageProviderTimeoutError):
+        return "timeout"
+    if isinstance(exc, ImageProviderConfigurationError):
+        return "provider_configuration"
+    if not isinstance(exc, ImageProviderError):
+        return None
+
+    status = (exc.provider_status or "").strip().lower()
+    if status in {"request_moderated", "content_moderated"}:
+        return "moderation"
+    if status == "provider_validation":
+        return "provider_validation"
+    if status == "insufficient_credits":
+        return "insufficient_credits"
+    if status == "rate_limited":
+        return "rate_limit"
+    if status in {"task_not_found"}:
+        return "provider_not_found"
+    if status:
+        return "provider_error"
+    return "provider_error"
 
 
 def _should_retry_provider_attempt(

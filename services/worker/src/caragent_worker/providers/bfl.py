@@ -264,6 +264,8 @@ def _optional_string(value: object) -> str | None:
 
 
 def _http_provider_status(status_code: int) -> str:
+    if status_code in {400, 422}:
+        return "provider_validation"
     if status_code == 402:
         return "insufficient_credits"
     if status_code == 429:
