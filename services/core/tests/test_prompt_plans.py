@@ -127,3 +127,32 @@ def test_prompt_plan_is_deterministic_and_json_serializable() -> None:
     assert first.model == "local-concept-v1"
     assert first.parameters == {"size": "1536x768", "quality": "concept"}
     assert first.model_dump(mode="json")["estimated_cost"] is None
+
+
+def test_generation_brief_accepts_structured_reference_usage() -> None:
+    reference_id = str(uuid4())
+
+    brief = create_generation_brief(
+        original_request="White coupe with heroine reference and palette board.",
+        character_theme="heroine reference",
+        reference_asset_ids=[reference_id],
+        reference_usage=[
+            {
+                "asset_id": reference_id,
+                "enabled": True,
+                "role": "character",
+            },
+        ],
+    )
+
+    dumped = brief.model_dump(mode="json")
+    assert dumped["reference_asset_ids"] == [reference_id]
+    assert dumped["reference_usage"] == [
+        {
+            "asset_id": reference_id,
+            "enabled": True,
+            "role": "character",
+            "schema_version": 1,
+        },
+    ]
+    assert "binary" not in str(dumped).lower()

@@ -204,6 +204,15 @@ def test_operations_provider_status_exposes_safe_capabilities_and_guard_state(
     assert capabilities["local-deterministic"]["enabled"] is True
     assert capabilities["local-deterministic"]["credential_required"] is False
     assert capabilities["local-deterministic"]["mask_input"]["accepted"] is False
+    reference_roles = ["character", "style", "vehicle", "logo", "palette", "inspiration"]
+    local_reference = capabilities["local-deterministic"]["reference_input"]
+    assert capabilities["local-deterministic"]["supports"]["references"] is True
+    assert capabilities["local-deterministic"]["supports"]["reference_image_inputs"] is False
+    assert local_reference["accepted"] is False
+    assert local_reference["supported_roles"] == []
+    assert local_reference["prompt_guidance_roles"] == reference_roles
+    assert local_reference["unsupported_roles"] == []
+    assert "prompt guidance" in local_reference["blocked_reason"]
     assert capabilities["local-deterministic"]["supported_edit_routes"] == [
         "deterministic_recomposition",
     ]
@@ -213,7 +222,15 @@ def test_operations_provider_status_exposes_safe_capabilities_and_guard_state(
     assert capabilities["bfl"]["blocked_reasons"] == []
     assert capabilities["bfl"]["supports"]["input_image_editing"] is True
     assert capabilities["bfl"]["supports"]["mask_aware_generation"] is False
+    assert capabilities["bfl"]["supports"]["references"] is False
+    assert capabilities["bfl"]["supports"]["reference_image_inputs"] is False
     assert capabilities["bfl"]["mask_input"]["accepted"] is False
+    bfl_reference = capabilities["bfl"]["reference_input"]
+    assert bfl_reference["accepted"] is False
+    assert bfl_reference["supported_roles"] == []
+    assert bfl_reference["prompt_guidance_roles"] == []
+    assert bfl_reference["unsupported_roles"] == reference_roles
+    assert "not verified" in bfl_reference["blocked_reason"]
     assert capabilities["bfl"]["supported_edit_routes"] == []
     assert "provider_masked_generation" in capabilities["bfl"]["unsupported_edit_routes"]
     rendered = json.dumps(provider, sort_keys=True)

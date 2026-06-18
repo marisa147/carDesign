@@ -134,3 +134,88 @@ def test_phase_10_edit_intent_schema_round_trips_to_json() -> None:
             "type": "safe_zone",
         },
     }
+
+
+def test_phase_11_reference_roles_and_snapshots_round_trip_to_json() -> None:
+    from caragent_core.references import (
+        ReferenceAssignment,
+        ReferenceRightsSnapshot,
+        ReferenceUsageItem,
+        ReferenceUsageSnapshot,
+    )
+
+    role_values = {role.value for role in enums.ReferenceRole}
+    assert role_values == {
+        "character",
+        "style",
+        "vehicle",
+        "logo",
+        "palette",
+        "inspiration",
+    }
+
+    asset_id = "11111111-1111-1111-1111-111111111111"
+    assignment = ReferenceAssignment.model_validate(
+        {
+            "asset_id": asset_id,
+            "enabled": True,
+            "role": "character",
+        },
+    )
+    assert assignment.model_dump(mode="json") == {
+        "asset_id": asset_id,
+        "enabled": True,
+        "role": "character",
+        "schema_version": 1,
+    }
+
+    rights = ReferenceRightsSnapshot.model_validate(
+        {
+            "asset_id": asset_id,
+            "checksum_sha256": "a" * 64,
+            "content_type": "image/png",
+            "object_key": "workspaces/ws/assets/reference.png",
+            "original_filename": "reference.png",
+            "rights_confirmed_at": None,
+            "rights_notes": "artist permission recorded",
+            "rights_status": "confirmed",
+            "source_label": "Artist upload",
+            "source_url": "https://example.test/reference",
+        },
+    )
+    item = ReferenceUsageItem.model_validate(
+        {
+            "asset_id": asset_id,
+            "enabled": True,
+            "rights": rights.model_dump(mode="json"),
+            "role": "character",
+        },
+    )
+    usage = ReferenceUsageSnapshot.model_validate({"items": [item.model_dump(mode="json")]})
+
+    dumped = usage.model_dump(mode="json")
+    assert dumped == {
+        "items": [
+            {
+                "asset_id": asset_id,
+                "enabled": True,
+                "rights": {
+                    "asset_id": asset_id,
+                    "checksum_sha256": "a" * 64,
+                    "content_type": "image/png",
+                    "object_key": "workspaces/ws/assets/reference.png",
+                    "original_filename": "reference.png",
+                    "rights_confirmed_at": None,
+                    "rights_notes": "artist permission recorded",
+                    "rights_status": "confirmed",
+                    "schema_version": 1,
+                    "source_label": "Artist upload",
+                    "source_url": "https://example.test/reference",
+                },
+                "role": "character",
+                "schema_version": 1,
+            },
+        ],
+        "schema_version": 1,
+    }
+    assert "binary" not in str(dumped).lower()

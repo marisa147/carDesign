@@ -176,6 +176,92 @@ def test_update_generation_brief_recomputes_quality_warnings(tmp_path: Path) -> 
     )
 
 
+def test_generation_brief_reference_usage_round_trips_through_api(tmp_path: Path) -> None:
+    client, _app, _queue = create_generation_client(tmp_path)
+    workspace_id = client.post("/workspaces", json={"title": "References"}).json()["id"]
+    character_asset_id = str(uuid4())
+    palette_asset_id = str(uuid4())
+    legacy_asset_id = str(uuid4())
+
+    created = client.post(
+        f"/workspaces/{workspace_id}/generation/briefs",
+        json={
+            "character_theme": "Sakura heroine",
+            "original_request": "White coupe with Sakura heroine and teal palette.",
+            "palette": ["white", "teal"],
+            "reference_asset_ids": [legacy_asset_id],
+            "reference_usage": [
+                {
+                    "asset_id": character_asset_id,
+                    "enabled": True,
+                    "role": "character",
+                },
+                {
+                    "asset_id": palette_asset_id,
+                    "enabled": False,
+                    "role": "palette",
+                },
+            ],
+            "text": ["MOON DRIVE"],
+        },
+    )
+
+    assert created.status_code == 201
+    payload = created.json()["payload"]
+    assert payload["reference_asset_ids"] == [legacy_asset_id]
+    assert payload["reference_usage"] == [
+        {
+            "asset_id": character_asset_id,
+            "enabled": True,
+            "role": "character",
+            "schema_version": 1,
+        },
+        {
+            "asset_id": palette_asset_id,
+            "enabled": False,
+            "role": "palette",
+            "schema_version": 1,
+        },
+    ]
+
+    updated = client.patch(
+        f"/generation/briefs/{created.json()['id']}",
+        json={
+            "reference_asset_ids": [],
+            "reference_usage": [
+                {
+                    "asset_id": legacy_asset_id,
+                    "enabled": True,
+                    "role": "style",
+                },
+            ],
+        },
+    )
+
+    assert updated.status_code == 200
+    assert updated.json()["payload"]["reference_asset_ids"] == []
+    assert updated.json()["payload"]["reference_usage"] == [
+        {
+            "asset_id": legacy_asset_id,
+            "enabled": True,
+            "role": "style",
+            "schema_version": 1,
+        },
+    ]
+
+    legacy = client.post(
+        f"/workspaces/{workspace_id}/generation/briefs",
+        json={
+            "character_theme": "Sakura heroine",
+            "original_request": "White coupe with only legacy references.",
+            "reference_asset_ids": [legacy_asset_id],
+        },
+    )
+    assert legacy.status_code == 201
+    assert legacy.json()["payload"]["reference_asset_ids"] == [legacy_asset_id]
+    assert legacy.json()["payload"]["reference_usage"] == []
+
+
 def test_submit_generation_job_enqueues_worker_task_and_reuses_idempotency(
     tmp_path: Path,
 ) -> None:
