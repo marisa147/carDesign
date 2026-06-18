@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import re
 from dataclasses import dataclass
+from decimal import Decimal
 from pathlib import Path
 from typing import Any
 from uuid import UUID, uuid4
@@ -12,6 +13,8 @@ from caragent_core.enums import DesignVersionStatus, JobStatus
 from caragent_core.models import DesignVersion, GenerationJob, metadata
 from caragent_core.services import jobs
 from fastapi.testclient import TestClient
+from pydantic import SecretStr
+import pytest
 from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker
 
 from caragent_api.config import ApiSettings
@@ -64,10 +67,16 @@ class FakeQueueClient:
         }
 
 
-def create_generation_client(tmp_path: Path) -> tuple[TestClient, Any, FakeQueueClient]:
+def create_generation_client(
+    tmp_path: Path,
+    *,
+    settings: ApiSettings | None = None,
+) -> tuple[TestClient, Any, FakeQueueClient]:
     database_path = tmp_path / "generation-api.db"
-    settings = ApiSettings(database_url=f"sqlite+aiosqlite:///{database_path.as_posix()}")
-    app = create_app(settings)
+    active_settings = settings or ApiSettings(
+        database_url=f"sqlite+aiosqlite:///{database_path.as_posix()}",
+    )
+    app = create_app(active_settings)
     fake_queue = FakeQueueClient()
     app.state.queue_client = fake_queue
     asyncio.run(create_schema(app.state.database_engine))
@@ -194,6 +203,9 @@ def test_submit_generation_job_enqueues_worker_task_and_reuses_idempotency(
     assert first.status_code == 201
     assert duplicate.status_code == 201
     assert first.json()["job"]["operation"] == "generate_2d_concept"
+    assert first.json()["job"]["provider"] is None
+    assert first.json()["job"]["model"] is None
+    assert first.json()["job"]["estimated_cost"] is None
     assert first.json()["job"]["status"] == "queued"
     assert first.json()["job"]["metadata"]["queue"] == {
         "task_id": "task-1",
@@ -206,6 +218,138 @@ def test_submit_generation_job_enqueues_worker_task_and_reuses_idempotency(
     assert len(queue.enqueued) == 1
     assert queue.enqueued[0]["job_id"] == first.json()["job"]["id"]
     assert "secret" not in str(queue.enqueued[0]).lower()
+
+
+@pytest.mark.parametrize(
+    ("settings_kwargs", "expected_reason"),
+    [
+        ({}, "V2_HOSTED_PROVIDER_ROLLOUT_ENABLED is disabled"),
+        (
+            {"v2_hosted_provider_rollout_enabled": True},
+            "AI_PROVIDER_CALLS_ENABLED is disabled",
+        ),
+        (
+            {
+                "ai_provider_calls_enabled": True,
+                "v2_hosted_provider_rollout_enabled": True,
+            },
+            "AI_PROVIDER_BFL_API_KEY is missing",
+        ),
+        (
+            {
+                "ai_provider_bfl_api_key": SecretStr("bfl-secret"),
+                "ai_provider_calls_enabled": True,
+                "v2_hosted_provider_rollout_enabled": True,
+            },
+            "Hosted quota/rate/cost guards are incomplete",
+        ),
+    ],
+)
+def test_submit_hosted_generation_blocks_unmet_preflight(
+    tmp_path: Path,
+    settings_kwargs: dict[str, Any],
+    expected_reason: str,
+) -> None:
+    client, _app, queue = create_generation_client(
+        tmp_path,
+        settings=api_settings(tmp_path, **settings_kwargs),
+    )
+    workspace_id = client.post("/workspaces", json={"title": "Generation"}).json()["id"]
+    brief_id = create_brief(client, workspace_id)
+
+    response = client.post(
+        f"/workspaces/{workspace_id}/generation/jobs",
+        json={
+            "brief_id": brief_id,
+            "idempotency_key": f"hosted-blocked-{expected_reason}",
+            "model": "flux-2-pro-preview",
+            "provider": "bfl",
+            "provider_parameters": {"output_format": "png"},
+            "requested_by": "local-user",
+        },
+    )
+
+    assert response.status_code == 422
+    assert expected_reason in response.json()["detail"]
+    assert queue.enqueued == []
+    assert "bfl-secret" not in response.text
+
+
+def test_submit_hosted_generation_rejects_unsupported_model_before_enqueue(
+    tmp_path: Path,
+) -> None:
+    client, _app, queue = create_generation_client(
+        tmp_path,
+        settings=hosted_api_settings(tmp_path),
+    )
+    workspace_id = client.post("/workspaces", json={"title": "Generation"}).json()["id"]
+    brief_id = create_brief(client, workspace_id)
+
+    response = client.post(
+        f"/workspaces/{workspace_id}/generation/jobs",
+        json={
+            "brief_id": brief_id,
+            "idempotency_key": "hosted-unsupported-model",
+            "model": "flux-1-dev",
+            "provider": "bfl",
+            "requested_by": "local-user",
+        },
+    )
+
+    assert response.status_code == 422
+    assert "Unsupported model for provider bfl" in response.json()["detail"]
+    assert queue.enqueued == []
+
+
+def test_submit_hosted_generation_persists_provider_intent_when_allowed(
+    tmp_path: Path,
+) -> None:
+    client, app, queue = create_generation_client(
+        tmp_path,
+        settings=hosted_api_settings(tmp_path),
+    )
+    workspace_id = client.post("/workspaces", json={"title": "Generation"}).json()["id"]
+    brief_id = create_brief(client, workspace_id)
+
+    response = client.post(
+        f"/workspaces/{workspace_id}/generation/jobs",
+        json={
+            "brief_id": brief_id,
+            "estimated_cost": "99.9900",
+            "idempotency_key": "hosted-allowed",
+            "model": "flux-2-pro-preview",
+            "provider": "bfl",
+            "provider_parameters": {
+                "aspect_ratio": "16:9",
+                "output_format": "png",
+            },
+            "requested_by": "local-user",
+        },
+    )
+
+    assert response.status_code == 201
+    payload = response.json()
+    assert payload["job"]["provider"] == "bfl"
+    assert payload["job"]["model"] == "flux-2-pro-preview"
+    assert payload["job"]["estimated_cost"] is None
+    assert payload["job"]["metadata"]["provider_intent"] == {
+        "model": "flux-2-pro-preview",
+        "parameters": {
+            "aspect_ratio": "16:9",
+            "output_format": "png",
+        },
+        "provider": "bfl",
+    }
+    assert payload["job"]["metadata"]["source"] == "generation-api"
+    assert len(queue.enqueued) == 1
+    assert queue.enqueued[0]["job_id"] == payload["job"]["id"]
+    assert "bfl-secret" not in response.text
+
+    stored_job = asyncio.run(read_job(app.state.session_factory, UUID(payload["job"]["id"])))
+    assert stored_job.provider == "bfl"
+    assert stored_job.model == "flux-2-pro-preview"
+    assert stored_job.estimated_cost is None
+    assert stored_job.metadata_json["provider_intent"]["provider"] == "bfl"
 
 
 def test_cancel_generation_job_marks_canceled_and_revokes_queue_task(
@@ -437,6 +581,28 @@ def create_brief(client: TestClient, workspace_id: str) -> str:
     )
     assert response.status_code == 201
     return str(response.json()["id"])
+
+
+def api_settings(tmp_path: Path, **overrides: Any) -> ApiSettings:
+    return ApiSettings(
+        database_url=f"sqlite+aiosqlite:///{(tmp_path / 'generation-api.db').as_posix()}",
+        **overrides,
+    )
+
+
+def hosted_api_settings(tmp_path: Path, **overrides: Any) -> ApiSettings:
+    settings: dict[str, Any] = {
+        "ai_hosted_daily_call_limit": 10,
+        "ai_hosted_rate_limit_per_minute": 5,
+        "ai_max_estimated_cost_per_job": Decimal("0.5000"),
+        "ai_provider_bfl_api_key": SecretStr("bfl-secret"),
+        "ai_provider_calls_enabled": True,
+        "ai_provider_default": "bfl",
+        "ai_provider_model": "flux-2-pro-preview",
+        "v2_hosted_provider_rollout_enabled": True,
+    }
+    settings.update(overrides)
+    return api_settings(tmp_path, **settings)
 
 
 async def mark_job_failed(
