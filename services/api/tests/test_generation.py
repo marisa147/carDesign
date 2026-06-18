@@ -438,6 +438,61 @@ def test_submit_hosted_generation_persists_provider_intent_when_allowed(
     assert stored_job.metadata_json["provider_intent"]["provider"] == "bfl"
 
 
+def test_submit_hosted_generation_records_unsupported_reference_warnings(
+    tmp_path: Path,
+) -> None:
+    client, _app, queue = create_generation_client(
+        tmp_path,
+        settings=hosted_api_settings(tmp_path),
+    )
+    workspace_id = client.post("/workspaces", json={"title": "Reference warnings"}).json()["id"]
+    reference_asset_id = str(uuid4())
+    brief = client.post(
+        f"/workspaces/{workspace_id}/generation/briefs",
+        json={
+            "character_theme": "Sakura heroine",
+            "original_request": "White coupe with a character reference.",
+            "reference_usage": [
+                {
+                    "asset_id": reference_asset_id,
+                    "enabled": True,
+                    "role": "character",
+                },
+            ],
+        },
+    )
+    assert brief.status_code == 201
+
+    response = client.post(
+        f"/workspaces/{workspace_id}/generation/jobs",
+        json={
+            "brief_id": brief.json()["id"],
+            "idempotency_key": "hosted-reference-warning",
+            "model": "flux-2-pro-preview",
+            "provider": "bfl",
+            "requested_by": "local-user",
+        },
+    )
+
+    assert response.status_code == 201
+    metadata = response.json()["job"]["metadata"]
+    assert metadata["reference_usage"] == {
+        "included_reference_asset_ids": [],
+        "omitted_reference_asset_ids": [reference_asset_id],
+        "reference_warning_count": 1,
+        "reference_warnings": [
+            {
+                "asset_id": reference_asset_id,
+                "reason": "unsupported_by_provider",
+                "role": "character",
+            },
+        ],
+        "unsupported_reference_roles": ["character"],
+    }
+    assert len(queue.enqueued) == 1
+    assert "bfl-secret" not in response.text
+
+
 def test_cancel_generation_job_marks_canceled_and_revokes_queue_task(
     tmp_path: Path,
 ) -> None:

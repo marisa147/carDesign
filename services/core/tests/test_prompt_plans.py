@@ -156,3 +156,130 @@ def test_generation_brief_accepts_structured_reference_usage() -> None:
         },
     ]
     assert "binary" not in str(dumped).lower()
+
+
+def test_prompt_plan_captures_role_aware_reference_usage_and_provider_warnings() -> None:
+    character_id = str(uuid4())
+    palette_id = str(uuid4())
+    inspiration_id = str(uuid4())
+    brief = create_generation_brief(
+        original_request="White coupe using character, palette, and inspiration refs.",
+        character_theme="heroine with teal palette",
+        reference_usage=[
+            {"asset_id": character_id, "enabled": True, "role": "character"},
+            {"asset_id": palette_id, "enabled": True, "role": "palette"},
+            {"asset_id": inspiration_id, "enabled": True, "role": "inspiration"},
+        ],
+    )
+
+    local_plan = build_prompt_plan(brief)
+    local_payload = local_plan.prompt_payload
+
+    assert local_plan.input_artifact_ids == [character_id, palette_id, inspiration_id]
+    assert "character reference" in local_plan.prompt_text
+    assert "palette reference" in local_plan.prompt_text
+    assert "inspiration reference" in local_plan.prompt_text
+    assert local_payload["reference_usage"] == {
+        "requested": [
+            {
+                "asset_id": character_id,
+                "enabled": True,
+                "role": "character",
+                "schema_version": 1,
+            },
+            {
+                "asset_id": palette_id,
+                "enabled": True,
+                "role": "palette",
+                "schema_version": 1,
+            },
+            {
+                "asset_id": inspiration_id,
+                "enabled": True,
+                "role": "inspiration",
+                "schema_version": 1,
+            },
+        ],
+        "schema_version": 1,
+    }
+    assert local_payload["included_reference_asset_ids"] == [
+        character_id,
+        palette_id,
+        inspiration_id,
+    ]
+    assert local_payload["omitted_reference_asset_ids"] == []
+    assert local_payload["unsupported_reference_roles"] == []
+    assert local_payload["reference_warning_count"] == 0
+    assert local_plan.model_dump(mode="json") == build_prompt_plan(brief).model_dump(
+        mode="json",
+    )
+
+    bfl_plan = build_prompt_plan(
+        brief,
+        provider_settings=PromptProviderSettings(
+            provider="bfl",
+            model="flux-2-pro-preview",
+            parameters={"output_format": "png"},
+        ),
+    )
+    bfl_payload = bfl_plan.prompt_payload
+
+    assert bfl_plan.input_artifact_ids == []
+    assert bfl_payload["included_reference_asset_ids"] == []
+    assert bfl_payload["omitted_reference_asset_ids"] == [
+        character_id,
+        palette_id,
+        inspiration_id,
+    ]
+    assert bfl_payload["unsupported_reference_roles"] == [
+        "character",
+        "palette",
+        "inspiration",
+    ]
+    assert bfl_payload["reference_warning_count"] == 3
+    assert bfl_payload["reference_warnings"] == [
+        {
+            "asset_id": character_id,
+            "reason": "unsupported_by_provider",
+            "role": "character",
+        },
+        {
+            "asset_id": palette_id,
+            "reason": "unsupported_by_provider",
+            "role": "palette",
+        },
+        {
+            "asset_id": inspiration_id,
+            "reason": "unsupported_by_provider",
+            "role": "inspiration",
+        },
+    ]
+
+
+def test_prompt_plan_legacy_reference_ids_use_default_inspiration_role() -> None:
+    legacy_id = str(uuid4())
+    brief = create_generation_brief(
+        original_request="White coupe with a legacy reference id.",
+        character_theme="legacy heroine",
+        reference_asset_ids=[legacy_id],
+    )
+
+    first = build_prompt_plan(brief)
+    second = build_prompt_plan(brief)
+
+    assert first.input_artifact_ids == [legacy_id]
+    assert first.prompt_payload["reference_usage"] == {
+        "requested": [
+            {
+                "asset_id": legacy_id,
+                "enabled": True,
+                "role": "inspiration",
+                "schema_version": 1,
+            },
+        ],
+        "schema_version": 1,
+    }
+    assert first.prompt_payload["included_reference_asset_ids"] == [legacy_id]
+    assert first.prompt_payload["omitted_reference_asset_ids"] == []
+    assert first.prompt_payload["unsupported_reference_roles"] == []
+    assert first.model_dump(mode="json") == second.model_dump(mode="json")
