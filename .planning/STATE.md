@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: V2 MVP
 status: executing
-stopped_at: Completed 09-06-PLAN.md
-last_updated: "2026-06-18T09:24:14Z"
-last_activity: "2026-06-18 -- Completed Phase 09 Plan 06 workbench provider selector"
+stopped_at: Completed 09-07-PLAN.md
+last_updated: "2026-06-18T09:35:11Z"
+last_activity: "2026-06-18 -- Completed Phase 09 Plan 07 smoke docs and UAT evidence"
 progress:
   total_phases: 7
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 48
-  completed_plans: 11
-  percent: 23
+  completed_plans: 12
+  percent: 25
 ---
 
 # Project State
@@ -21,17 +21,17 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-18)
 
 **Core value:** 用户能用自然语言快速得到一套可预览、可迭代、可导出的高质量痛车设计方案。
-**Current focus:** Phase 09 — Hosted Provider Rollout MVP
+**Current focus:** Phase 10 — Targeted Regeneration And Masked Editing MVP
 
 ## Current Position
 
-Milestone: v2.0 V2 MVP — PHASE 9 EXECUTING
-Phase: 09 (Hosted Provider Rollout MVP) — EXECUTING
-Plan: 7 of 7
-Status: Ready for `09-07-PLAN.md`
-Last activity: 2026-06-18 -- Completed Phase 09 Plan 06 workbench provider selector
+Milestone: v2.0 V2 MVP — PHASE 10 PLANNING
+Phase: 10 (Targeted Regeneration And Masked Editing MVP) — PLANNING
+Plan: Not generated
+Status: Ready to create Phase 10 plans from `.planning/ROADMAP.md`
+Last activity: 2026-06-18 -- Completed Phase 09 Plan 07 smoke docs and UAT evidence
 
-Progress: [##--------] 23%
+Progress: [###-------] 25%
 
 ## Milestone Archives
 
@@ -49,7 +49,7 @@ v2.0 MVP is scoped to the following phase sequence:
 | Phase | Focus | Plans | Requirements |
 |-------|-------|-------|--------------|
 | Phase 8 | V1 Closure And V2 Readiness Gate | 5/5 | V2-READY-01..04 |
-| Phase 9 | Hosted Provider Rollout MVP | 6/7 | V2-PROVIDER-01..05 |
+| Phase 9 | Hosted Provider Rollout MVP | 7/7 | V2-PROVIDER-01..05 |
 | Phase 10 | Targeted Regeneration And Masked Editing MVP | 0/8 | V2-EDIT-01..05 |
 | Phase 11 | Reference-Guided Generation MVP | 0/7 | V2-REF-01..05 |
 | Phase 12 | Lightweight 3D Preview MVP | 0/8 | V2-3D-01..05 |
@@ -119,8 +119,8 @@ Items acknowledged and deferred beyond v2.0 MVP:
 
 ## Session Continuity
 
-Last session: 2026-06-18T09:24:14Z
-Stopped at: Completed 09-06-PLAN.md
+Last session: 2026-06-18T09:35:11Z
+Stopped at: Completed 09-07-PLAN.md
 Resume files:
 
 - `.planning/PROJECT.md`
@@ -144,6 +144,10 @@ Resume files:
 - `.planning/phases/09-hosted-provider-rollout-mvp/09-06-PLAN.md`
 - `.planning/phases/09-hosted-provider-rollout-mvp/09-06-SUMMARY.md`
 - `.planning/phases/09-hosted-provider-rollout-mvp/09-07-PLAN.md`
+- `.planning/phases/09-hosted-provider-rollout-mvp/09-07-SUMMARY.md`
+- `.planning/phases/09-hosted-provider-rollout-mvp/09-VERIFICATION.md`
+- `.planning/phases/09-hosted-provider-rollout-mvp/09-HUMAN-UAT.md`
+- `.planning/phases/09-hosted-provider-rollout-mvp/09-MILESTONE-NOTES.md`
 
-Next recommended command: `$gsd-execute-phase 9 --auto`
+Next recommended command: `$gsd-plan-phase 10 --auto`
 Alternative: `$gsd-progress --next`

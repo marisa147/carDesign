@@ -21,6 +21,8 @@
 - [x] **V2-PROVIDER-04**: User and operator can inspect hosted provider failures without exposing secrets.
 - [x] **V2-PROVIDER-05**: User and developer can keep the local deterministic provider available as a test and fallback path.
 
+Completion evidence: `.planning/phases/09-hosted-provider-rollout-mvp/09-VERIFICATION.md`, `.planning/phases/09-hosted-provider-rollout-mvp/09-HUMAN-UAT.md`, and `.planning/phases/09-hosted-provider-rollout-mvp/09-MILESTONE-NOTES.md`. Live provider-on BFL smoke is documented as manual-only and skipped in the agent run because no real credential/cost approval was provided.
+
 ### Targeted Editing
 
 - [ ] **V2-EDIT-01**: User can select a concept region or layer and request a targeted edit such as character size, style accent, text placement, decal density, or palette change.

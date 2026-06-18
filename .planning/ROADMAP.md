@@ -50,7 +50,7 @@ v2.0 MVP is successful when:
 ## Phases
 
 - [x] **Phase 8: V1 Closure And V2 Readiness Gate** — Close remaining V1 operational work, freeze the V1 release baseline, and confirm V2 can build on stable contracts.
-- [ ] **Phase 9: Hosted Provider Rollout MVP** — Enable controlled real hosted image generation with provider routing, quota, cost, failure, and moderation visibility.
+- [x] **Phase 9: Hosted Provider Rollout MVP** — Enable controlled real hosted image generation with provider routing, quota, cost, failure, and moderation visibility.
 - [ ] **Phase 10: Targeted Regeneration And Masked Editing MVP** — Add editable regions, mask-aware regeneration requests, and layer-level iteration without full concept overwrite.
 - [ ] **Phase 11: Reference-Guided Generation MVP** — Improve character/style/vehicle consistency using uploaded reference assets, rights gates, and provider-specific capability checks.
 - [ ] **Phase 12: Lightweight 3D Preview MVP** — Add a simple interactive 3D or pseudo-3D preview that consumes existing PreviewSpec and remains clearly labeled non-production.
@@ -109,7 +109,7 @@ v2.0 MVP is successful when:
 - [x] 09-04-PLAN.md — Provider request/response trace persistence, cost recording, and secret redaction.
 - [x] 09-05-PLAN.md — Moderation/validation rejection mapping and user-safe failure messages.
 - [x] 09-06-PLAN.md — Workbench provider selector, hosted-call warning, and cost/quota visibility.
-- [ ] 09-07-PLAN.md — Phase 9 smoke, provider-off/provider-on tests, docs, and UAT evidence.
+- [x] 09-07-PLAN.md — Phase 9 smoke, provider-off/provider-on tests, docs, and UAT evidence.
 
 **UI hint:** yes
 
