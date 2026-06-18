@@ -123,4 +123,48 @@ describe("workbench state boundaries", () => {
       showSafeZones: false,
     });
   });
+
+  it("keeps targeted edit draft state local and clears stale targets on version changes", () => {
+    const state = useWorkbenchStore.getState();
+
+    state.setTargetedEditMode(true);
+    state.setSelectedEditTarget({
+      id: "door-main",
+      label: "Door / main side panel",
+      region: {
+        height: 0.24,
+        type: "rectangle",
+        unit: "normalized",
+        width: 0.34,
+        x: 0.32,
+        y: 0.47,
+      },
+      type: "safe_zone",
+    });
+    state.setEditRoutePreference("provider_masked_generation");
+    state.setEditPromptDelta("把门板文字上移");
+    state.toggleEditMaskPreview();
+
+    expect(useWorkbenchStore.getState()).toMatchObject({
+      editPromptDelta: "把门板文字上移",
+      editRoutePreference: "provider_masked_generation",
+      isTargetedEditMode: true,
+      selectedEditTarget: {
+        id: "door-main",
+        type: "safe_zone",
+      },
+      showEditMaskPreview: true,
+    });
+
+    useWorkbenchStore.getState().setSelectedVersionId("version-2");
+
+    expect(useWorkbenchStore.getState()).toMatchObject({
+      editPromptDelta: "",
+      editRoutePreference: "deterministic_recomposition",
+      isTargetedEditMode: true,
+      selectedEditTarget: null,
+      selectedVersionId: "version-2",
+      showEditMaskPreview: false,
+    });
+  });
 });

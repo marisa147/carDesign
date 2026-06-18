@@ -8,6 +8,7 @@ import type {
   AssetRightsUpdateRequest,
   DesignVersionResponse,
   DesignBriefResponse,
+  EditIntent,
   ExportResponse,
   FeedbackResponse,
   GenerationBriefResponse,
@@ -70,7 +71,10 @@ import {
   resumeWorkspace,
 } from "@/lib/api/workspaces";
 import { workbenchQueryKeys } from "@/lib/workbench/query-keys";
-import { useWorkbenchStore } from "@/lib/workbench/store";
+import {
+  useWorkbenchStore,
+  type TargetedEditTarget,
+} from "@/lib/workbench/store";
 
 const WORKBENCH_WORKSPACE_ID_KEY = "caragent.workbench.workspaceId";
 const WORKBENCH_BRIEF_ID_KEY = "caragent.workbench.briefId";
@@ -78,6 +82,12 @@ const WORKBENCH_BRIEF_ID_KEY = "caragent.workbench.briefId";
 export function WorkbenchApp() {
   const queryClient = useQueryClient();
   const selectedVersionId = useWorkbenchStore((state) => state.selectedVersionId);
+  const clearTargetedEditDraft = useWorkbenchStore((state) => state.clearTargetedEditDraft);
+  const editPromptDelta = useWorkbenchStore((state) => state.editPromptDelta);
+  const editRoutePreference = useWorkbenchStore((state) => state.editRoutePreference);
+  const isTargetedEditMode = useWorkbenchStore((state) => state.isTargetedEditMode);
+  const selectedEditTarget = useWorkbenchStore((state) => state.selectedEditTarget);
+  const setEditPromptDelta = useWorkbenchStore((state) => state.setEditPromptDelta);
   const [draft, setDraft] = useState("");
   const [workspace, setWorkspace] = useState<WorkspaceResponse | null>(null);
   const [messages, setMessages] = useState<MessageResponse[]>([]);
@@ -367,6 +377,22 @@ export function WorkbenchApp() {
       return;
     }
 
+    const targetedEditResult = isTargetedEditMode
+      ? buildTargetedEditIntent({
+          artifact: selectedArtifact,
+          promptDelta: editPromptDelta.trim() || changeRequest,
+          routePreference: editRoutePreference,
+          target: selectedEditTarget,
+          version: selectedVersion,
+        })
+      : { editIntent: null, error: null };
+
+    if (targetedEditResult.error) {
+      setIterationError(targetedEditResult.error);
+      setIterationNotice(null);
+      return;
+    }
+
     setIsSubmittingIteration(true);
     setIterationError(null);
     setIterationNotice(null);
@@ -375,6 +401,9 @@ export function WorkbenchApp() {
         brief_id: currentBrief.id,
         change_request: changeRequest,
         idempotency_key: `iteration-${selectedVersion.id}-${Date.now()}`,
+        ...(targetedEditResult.editIntent
+          ? { edit_intent: targetedEditResult.editIntent }
+          : {}),
         parameter_overrides: {},
         ...buildProviderIntentPayload(selectedProviderOption),
         requested_by: "web-workbench",
@@ -393,6 +422,7 @@ export function WorkbenchApp() {
         result,
       );
       setIterationDraft("");
+      clearTargetedEditDraft();
       setIterationNotice("子迭代已提交，父版本仍保留。");
       await refreshGenerationState();
     } catch {
@@ -540,6 +570,7 @@ export function WorkbenchApp() {
             notice={iterationNotice}
             onChangeRequestChange={(value) => {
               setIterationDraft(value);
+              setEditPromptDelta(value);
               setIterationNotice(null);
               setIterationError(null);
             }}
@@ -730,6 +761,64 @@ function selectArtifactForVersion(
   }
 
   return artifacts.find((artifact) => artifact.version_id === selectedVersion.id) ?? null;
+}
+
+type TargetedEditIntentBuildResult =
+  | { editIntent: EditIntent; error: null }
+  | { editIntent: null; error: string | null };
+
+function buildTargetedEditIntent({
+  artifact,
+  promptDelta,
+  routePreference,
+  target,
+  version,
+}: {
+  artifact: ArtifactResponse | null;
+  promptDelta: string;
+  routePreference: EditIntent["route_preference"];
+  target: TargetedEditTarget | null;
+  version: DesignVersionResponse;
+}): TargetedEditIntentBuildResult {
+  if (!target) {
+    return { editIntent: null, error: "请选择局部编辑目标。" };
+  }
+
+  if (
+    !artifact ||
+    !artifact.content_type ||
+    !artifact.width ||
+    !artifact.height ||
+    artifact.width <= 0 ||
+    artifact.height <= 0
+  ) {
+    return { editIntent: null, error: "无法创建编辑遮罩，请先选择有效预览图。" };
+  }
+
+  return {
+    editIntent: {
+      mask: {
+        artifact_id: artifact.id,
+        content_type: artifact.content_type,
+        height: artifact.height,
+        width: artifact.width,
+      },
+      mode: "targeted_edit",
+      parent_version_id: version.id,
+      prompt_delta: {
+        instructions: [promptDelta],
+        summary: promptDelta,
+      },
+      region: target.region,
+      route_preference: routePreference,
+      schema_version: 1,
+      target: {
+        id: target.id,
+        type: target.type,
+      },
+    },
+    error: null,
+  };
 }
 
 function readBriefReferenceAssetIds(brief: WorkbenchBrief | null): string[] {

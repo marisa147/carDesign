@@ -2,10 +2,24 @@
 
 import type { ArtifactResponse, DesignVersionResponse } from "@caragent/contracts";
 import type { CSSProperties } from "react";
-import { Image as ImageIcon, Minus, Plus, RotateCcw } from "lucide-react";
+import {
+  Crosshair,
+  Eye,
+  EyeOff,
+  Image as ImageIcon,
+  Minus,
+  Plus,
+  RotateCcw,
+} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { useWorkbenchStore, type WorkbenchView } from "@/lib/workbench/store";
+import { cn } from "@/lib/utils";
+import {
+  useWorkbenchStore,
+  type TargetedEditRegion,
+  type TargetedEditTarget,
+  type WorkbenchView,
+} from "@/lib/workbench/store";
 
 interface PreviewPanelProps {
   artifacts: ArtifactResponse[];
@@ -22,13 +36,19 @@ const viewOptions: Array<{ label: string; value: WorkbenchView }> = [
 
 export function PreviewPanel({ artifacts, isLoading, versions }: PreviewPanelProps) {
   const {
+    isTargetedEditMode,
     resetPreviewTransform,
+    selectedEditTarget,
     selectedVersionId,
     selectedView,
+    setSelectedEditTarget,
     setSelectedVersionId,
     setSelectedView,
+    setTargetedEditMode,
+    showEditMaskPreview,
     showOverlayLayers,
     showSafeZones,
+    toggleEditMaskPreview,
     toggleOverlayLayers,
     toggleSafeZones,
     previewZoom,
@@ -86,10 +106,46 @@ export function PreviewPanel({ artifacts, isLoading, versions }: PreviewPanelPro
                     <ImageIcon aria-hidden="true" className="h-4 w-4" />
                     安全区
                   </Button>
+                  <Button
+                    aria-pressed={isTargetedEditMode}
+                    onClick={() => {
+                      setTargetedEditMode(!isTargetedEditMode);
+                    }}
+                    size="sm"
+                    type="button"
+                    variant={isTargetedEditMode ? "default" : "outline"}
+                  >
+                    <Crosshair aria-hidden="true" className="h-4 w-4" />
+                    局部编辑
+                  </Button>
+                  <Button
+                    aria-pressed={showEditMaskPreview}
+                    disabled={!isTargetedEditMode || selectedEditTarget === null}
+                    onClick={toggleEditMaskPreview}
+                    size="sm"
+                    type="button"
+                    variant={showEditMaskPreview ? "default" : "outline"}
+                  >
+                    {showEditMaskPreview ? (
+                      <EyeOff aria-hidden="true" className="h-4 w-4" />
+                    ) : (
+                      <Eye aria-hidden="true" className="h-4 w-4" />
+                    )}
+                    {showEditMaskPreview ? "隐藏编辑遮罩" : "显示编辑遮罩"}
+                  </Button>
                 </div>
+                {isTargetedEditMode && selectedEditTarget ? (
+                  <p className="text-xs font-medium text-primary">
+                    已选 {selectedEditTarget.type}: {selectedEditTarget.id}
+                  </p>
+                ) : null}
                 <PreviewSpecCanvas
+                  isTargetedEditMode={isTargetedEditMode}
+                  onSelectEditTarget={setSelectedEditTarget}
                   previewSpec={previewSpec}
                   previewZoom={previewZoom}
+                  selectedEditTarget={selectedEditTarget}
+                  showEditMaskPreview={showEditMaskPreview}
                   showOverlayLayers={showOverlayLayers}
                   showSafeZones={showSafeZones}
                 />
@@ -211,13 +267,21 @@ function PreviewSpecSummary({ previewSpec }: { previewSpec: PreviewSpec }) {
 }
 
 function PreviewSpecCanvas({
+  isTargetedEditMode,
+  onSelectEditTarget,
   previewSpec,
   previewZoom,
+  selectedEditTarget,
+  showEditMaskPreview,
   showOverlayLayers,
   showSafeZones,
 }: {
+  isTargetedEditMode: boolean;
+  onSelectEditTarget: (target: TargetedEditTarget) => void;
   previewSpec: PreviewSpec;
   previewZoom: number;
+  selectedEditTarget: TargetedEditTarget | null;
+  showEditMaskPreview: boolean;
   showOverlayLayers: boolean;
   showSafeZones: boolean;
 }) {
@@ -233,30 +297,83 @@ function PreviewSpecCanvas({
         <div className="absolute left-[20%] top-[58%] h-[18%] w-[9%] rounded-full bg-foreground" />
         <div className="absolute left-[72%] top-[58%] h-[18%] w-[9%] rounded-full bg-foreground" />
         {showSafeZones
-          ? previewSpec.safeZones.map((zone) => (
-              <div
-                className="absolute overflow-hidden rounded border border-primary/70 bg-primary/10 px-1 py-0.5 text-[10px] font-medium text-primary"
-                key={zone.id}
-                style={zoneStyle(zone)}
-              >
-                {zone.id}
-              </div>
-            ))
-          : null}
-        {showOverlayLayers
-          ? previewSpec.overlayLayers.map((layer) => {
-              const zone = layer.zoneId ? safeZonesById.get(layer.zoneId) : undefined;
-              return (
-                <div
-                  className="absolute overflow-hidden rounded border border-foreground bg-foreground px-2 py-1 text-[10px] font-semibold text-background"
-                  key={layer.id}
+          ? previewSpec.safeZones.map((zone) => {
+              const isSelected = isSelectedEditTarget(selectedEditTarget, "safe_zone", zone.id);
+              const className = cn(
+                "absolute overflow-hidden rounded border px-1 py-0.5 text-left text-[10px] font-medium",
+                isSelected
+                  ? "border-destructive bg-destructive/20 text-destructive"
+                  : "border-primary/70 bg-primary/10 text-primary",
+                isTargetedEditMode
+                  ? "cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  : "",
+              );
+
+              return isTargetedEditMode ? (
+                <button
+                  aria-label={`选择安全区 ${zone.id}`}
+                  className={className}
+                  key={zone.id}
+                  onClick={() => {
+                    onSelectEditTarget(safeZoneToTarget(zone));
+                  }}
                   style={zoneStyle(zone)}
+                  type="button"
                 >
-                  {layer.kind === "logo" ? layer.assetId ?? "LOGO" : layer.text ?? layer.id}
+                  {zone.id}
+                </button>
+              ) : (
+                <div className={className} key={zone.id} style={zoneStyle(zone)}>
+                  {zone.id}
                 </div>
               );
             })
           : null}
+        {showOverlayLayers
+          ? previewSpec.overlayLayers.map((layer) => {
+              const zone = layer.zoneId ? safeZonesById.get(layer.zoneId) : undefined;
+              const isSelected = isSelectedEditTarget(selectedEditTarget, "overlay_layer", layer.id);
+              const label = layer.kind === "logo" ? layer.assetId ?? "LOGO" : layer.text ?? layer.id;
+              const className = cn(
+                "absolute overflow-hidden rounded border px-2 py-1 text-left text-[10px] font-semibold",
+                isSelected
+                  ? "border-destructive bg-destructive text-destructive-foreground"
+                  : "border-foreground bg-foreground text-background",
+                isTargetedEditMode
+                  ? "cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  : "",
+              );
+
+              return isTargetedEditMode ? (
+                <button
+                  aria-label={`选择图层 ${layer.id}`}
+                  className={className}
+                  key={layer.id}
+                  onClick={() => {
+                    if (isTargetedEditMode) {
+                      onSelectEditTarget(overlayLayerToTarget(layer, zone));
+                    }
+                  }}
+                  style={zoneStyle(zone)}
+                  type="button"
+                >
+                  {label}
+                </button>
+              ) : (
+                <div className={className} key={layer.id} style={zoneStyle(zone)}>
+                  {label}
+                </div>
+              );
+            })
+          : null}
+        {showEditMaskPreview && selectedEditTarget ? (
+          <div
+            className="pointer-events-none absolute rounded border-2 border-destructive bg-destructive/20 px-1 py-0.5 text-[10px] font-semibold text-destructive"
+            style={regionStyle(selectedEditTarget.region)}
+          >
+            编辑遮罩预览
+          </div>
+        ) : null}
       </div>
     </div>
   );
@@ -367,21 +484,77 @@ function readWarnings(value: unknown): PreviewSpec["warnings"] {
 }
 
 function zoneStyle(zone: SafeZone | undefined): CSSProperties {
-  const safeZone = zone ?? {
-    height: 0.16,
-    id: "fallback",
-    kind: "body",
-    label: "",
-    width: 0.24,
-    x: 0.38,
-    y: 0.5,
-  };
+  const safeZone = zone ?? fallbackSafeZone;
   return {
     height: `${safeZone.height * 100}%`,
     left: `${safeZone.x * 100}%`,
     top: `${safeZone.y * 100}%`,
     width: `${safeZone.width * 100}%`,
   };
+}
+
+const fallbackSafeZone: SafeZone = {
+  height: 0.16,
+  id: "fallback",
+  kind: "body",
+  label: "",
+  width: 0.24,
+  x: 0.38,
+  y: 0.5,
+};
+
+function safeZoneToTarget(zone: SafeZone): TargetedEditTarget {
+  return {
+    id: zone.id,
+    label: zone.label,
+    region: editRegionFromZone(zone),
+    type: "safe_zone",
+  };
+}
+
+function overlayLayerToTarget(
+  layer: OverlayLayer,
+  zone: SafeZone | undefined,
+): TargetedEditTarget {
+  return {
+    assetId: layer.assetId,
+    id: layer.id,
+    label: layer.text ?? layer.assetId ?? layer.id,
+    layerKind: layer.kind,
+    region: editRegionFromZone(zone),
+    text: layer.text,
+    type: "overlay_layer",
+    zoneId: layer.zoneId,
+  };
+}
+
+function editRegionFromZone(zone: SafeZone | undefined): TargetedEditRegion {
+  const safeZone = zone ?? fallbackSafeZone;
+  return {
+    height: safeZone.height,
+    type: "rectangle",
+    unit: "normalized",
+    width: safeZone.width,
+    x: safeZone.x,
+    y: safeZone.y,
+  };
+}
+
+function regionStyle(region: TargetedEditRegion): CSSProperties {
+  return {
+    height: `${region.height * 100}%`,
+    left: `${region.x * 100}%`,
+    top: `${region.y * 100}%`,
+    width: `${region.width * 100}%`,
+  };
+}
+
+function isSelectedEditTarget(
+  target: TargetedEditTarget | null,
+  type: TargetedEditTarget["type"],
+  id: string,
+): boolean {
+  return target?.type === type && target.id === id;
 }
 
 function readNumber(value: unknown): number {

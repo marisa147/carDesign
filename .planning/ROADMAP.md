@@ -132,7 +132,7 @@ v2.0 MVP is successful when:
 **Plans:** 8 plans
 
 - [x] 10-01-PLAN.md — EditIntent, EditRegion, mask asset, and prompt-delta schema.
-- [ ] 10-02-PLAN.md — Workbench region/layer selection model and mask preview controls.
+- [x] 10-02-PLAN.md — Workbench region/layer selection model and mask preview controls.
 - [ ] 10-03-PLAN.md — Deterministic layer recomposition path for scale, move, opacity, text, and logo edits.
 - [ ] 10-04-PLAN.md — Mask-aware generation request contract and provider capability checks.
 - [ ] 10-05-PLAN.md — Worker targeted-edit pipeline with parent/child lineage and artifact ledger updates.
@@ -331,7 +331,7 @@ A single end-to-end V2 MVP UAT should prove:
 |-------|----------------|--------|-----------|
 | 8. V1 Closure And V2 Readiness Gate | 5/5 | Complete | 2026-06-18 |
 | 9. Hosted Provider Rollout MVP | 7/7 | Complete | 2026-06-18 |
-| 10. Targeted Regeneration And Masked Editing MVP | 1/8 | In Progress | - |
+| 10. Targeted Regeneration And Masked Editing MVP | 2/8 | In Progress | - |
 | 11. Reference-Guided Generation MVP | 0/7 | Not started | - |
 | 12. Lightweight 3D Preview MVP | 0/8 | Not started | - |
 | 13. Enhanced Concept Handoff Package MVP | 0/7 | Not started | - |

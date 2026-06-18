@@ -2,27 +2,63 @@ import { create } from "zustand";
 
 export type WorkbenchView = "front" | "rear" | "side" | "top";
 export type WorkbenchTab = "assets" | "history" | "parameters";
+export type TargetedEditRoutePreference =
+  | "deterministic_recomposition"
+  | "provider_masked_generation";
+export type TargetedEditTargetType = "safe_zone" | "overlay_layer";
 
 export interface PreviewPan {
   x: number;
   y: number;
 }
 
+export interface TargetedEditRegion {
+  height: number;
+  type: "rectangle";
+  unit: "normalized";
+  width: number;
+  x: number;
+  y: number;
+}
+
+export interface TargetedEditTarget {
+  assetId?: string | null;
+  id: string;
+  label?: string | null;
+  layerKind?: string | null;
+  region: TargetedEditRegion;
+  text?: string | null;
+  type: TargetedEditTargetType;
+  zoneId?: string | null;
+}
+
 interface WorkbenchUiState {
   activeInspectorTab: WorkbenchTab;
+  editPromptDelta: string;
+  editRoutePreference: TargetedEditRoutePreference;
+  isTargetedEditMode: boolean;
   previewPan: PreviewPan;
   previewZoom: number;
+  selectedEditTarget: TargetedEditTarget | null;
   selectedVersionId: string | null;
   selectedView: WorkbenchView;
+  showEditMaskPreview: boolean;
   showOverlayLayers: boolean;
   showSafeZones: boolean;
+  clearTargetedEditDraft: () => void;
   panPreview: (pan: PreviewPan) => void;
   resetPreviewTransform: () => void;
   resetWorkbenchUi: () => void;
   setActiveInspectorTab: (tab: WorkbenchTab) => void;
+  setEditPromptDelta: (value: string) => void;
+  setEditRoutePreference: (routePreference: TargetedEditRoutePreference) => void;
   setPreviewZoom: (zoom: number) => void;
+  setSelectedEditTarget: (target: TargetedEditTarget | null) => void;
   setSelectedVersionId: (versionId: string | null) => void;
   setSelectedView: (view: WorkbenchView) => void;
+  setShowEditMaskPreview: (isVisible: boolean) => void;
+  setTargetedEditMode: (isEnabled: boolean) => void;
+  toggleEditMaskPreview: () => void;
   toggleOverlayLayers: () => void;
   toggleSafeZones: () => void;
   zoomPreviewIn: () => void;
@@ -31,10 +67,15 @@ interface WorkbenchUiState {
 
 const initialWorkbenchUiState = {
   activeInspectorTab: "parameters" as WorkbenchTab,
+  editPromptDelta: "",
+  editRoutePreference: "deterministic_recomposition" as TargetedEditRoutePreference,
+  isTargetedEditMode: false,
   previewPan: { x: 0, y: 0 },
   previewZoom: 1,
+  selectedEditTarget: null,
   selectedVersionId: null,
   selectedView: "side" as WorkbenchView,
+  showEditMaskPreview: false,
   showOverlayLayers: true,
   showSafeZones: false,
 };
@@ -45,6 +86,9 @@ const maxPreviewZoom = 3;
 
 export const useWorkbenchStore = create<WorkbenchUiState>()((set) => ({
   ...initialWorkbenchUiState,
+  clearTargetedEditDraft: () => {
+    set(targetedEditDraftDefaults);
+  },
   panPreview: (previewPan) => {
     set({ previewPan });
   },
@@ -60,14 +104,42 @@ export const useWorkbenchStore = create<WorkbenchUiState>()((set) => ({
   setActiveInspectorTab: (activeInspectorTab) => {
     set({ activeInspectorTab });
   },
+  setEditPromptDelta: (editPromptDelta) => {
+    set({ editPromptDelta });
+  },
+  setEditRoutePreference: (editRoutePreference) => {
+    set({ editRoutePreference });
+  },
   setPreviewZoom: (previewZoom) => {
     set({ previewZoom });
   },
+  setSelectedEditTarget: (selectedEditTarget) => {
+    set(
+      selectedEditTarget === null
+        ? { selectedEditTarget, showEditMaskPreview: false }
+        : { selectedEditTarget },
+    );
+  },
   setSelectedVersionId: (selectedVersionId) => {
-    set({ selectedVersionId });
+    set((state) => ({
+      selectedVersionId,
+      ...(state.selectedVersionId !== selectedVersionId ? targetedEditDraftDefaults : {}),
+    }));
   },
   setSelectedView: (selectedView) => {
     set({ selectedView });
+  },
+  setShowEditMaskPreview: (showEditMaskPreview) => {
+    set({ showEditMaskPreview });
+  },
+  setTargetedEditMode: (isTargetedEditMode) => {
+    set({
+      isTargetedEditMode,
+      ...(!isTargetedEditMode ? targetedEditDraftDefaults : {}),
+    });
+  },
+  toggleEditMaskPreview: () => {
+    set((state) => ({ showEditMaskPreview: !state.showEditMaskPreview }));
   },
   toggleOverlayLayers: () => {
     set((state) => ({ showOverlayLayers: !state.showOverlayLayers }));
@@ -86,6 +158,13 @@ export const useWorkbenchStore = create<WorkbenchUiState>()((set) => ({
     }));
   },
 }));
+
+const targetedEditDraftDefaults = {
+  editPromptDelta: initialWorkbenchUiState.editPromptDelta,
+  editRoutePreference: initialWorkbenchUiState.editRoutePreference,
+  selectedEditTarget: initialWorkbenchUiState.selectedEditTarget,
+  showEditMaskPreview: initialWorkbenchUiState.showEditMaskPreview,
+};
 
 function clampZoom(value: number): number {
   return Math.min(maxPreviewZoom, Math.max(minPreviewZoom, value));

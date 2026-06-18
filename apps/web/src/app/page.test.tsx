@@ -1,6 +1,6 @@
 import "@/test/setup";
 
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
@@ -43,6 +43,8 @@ import {
   type OperationsProviderStatusResponse,
   type WorkspaceResponse,
 } from "@caragent/contracts";
+
+import { useWorkbenchStore } from "@/lib/workbench/store";
 
 import Home from "./page";
 
@@ -489,6 +491,9 @@ function mockResumeWithGenerationState({
 
 describe("Phase 4 workbench shell", () => {
   afterEach(() => {
+    act(() => {
+      useWorkbenchStore.getState().resetWorkbenchUi();
+    });
     localStorage.clear();
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
@@ -1398,6 +1403,7 @@ describe("Phase 4 workbench shell", () => {
       parameter_overrides: {},
       requested_by: "web-workbench",
     });
+    expect(iterationBody).not.toHaveProperty("edit_intent");
     expect(iterationBody.idempotency_key).toMatch(/^iteration-version-2-\d+$/);
     expect(
       fetchMock.mock.calls.some(
@@ -1414,6 +1420,114 @@ describe("Phase 4 workbench shell", () => {
           (init as RequestInit | undefined)?.method !== "GET",
       ),
     ).toBe(false);
+  });
+
+  it("submits targeted edit intent from selected preview layers", async () => {
+    const user = userEvent.setup();
+    localStorage.setItem("caragent.workbench.workspaceId", "workspace-1");
+    localStorage.setItem("caragent.workbench.briefId", "brief-1");
+    const succeededJob = {
+      ...generationJobFixture,
+      status: "succeeded",
+      updated_at: "2026-06-17T00:25:00Z",
+    } satisfies GenerationJobResponse;
+    const iterationJob = {
+      ...generationJobFixture,
+      id: "job-targeted-iteration-1",
+      idempotency_key: "iteration-version-1-123",
+      status: "queued",
+      updated_at: "2026-06-17T00:36:00Z",
+    } satisfies GenerationJobResponse;
+    const iterationResult: GenerationJobSubmissionResponse = {
+      idempotent_reused: false,
+      job: iterationJob,
+      queued: {
+        job_id: "job-targeted-iteration-1",
+        task_id: null,
+        task_name: "caragent_worker.generate_2d_concept_job",
+      },
+    };
+    const fetchMock = mockResumeWithGenerationState({
+      artifacts: [artifactFixture],
+      events: [
+        {
+          ...jobEventFixture,
+          event_type: "completed",
+          message: "Artifact ready.",
+          progress: "100",
+          status: "succeeded",
+        },
+      ],
+      job: succeededJob,
+      versions: [versionFixture],
+    })
+      .mockResolvedValueOnce(jsonResponse(iterationResult, 201))
+      .mockResolvedValueOnce(jsonResponse([iterationJob, succeededJob]))
+      .mockResolvedValueOnce(jsonResponse(iterationJob))
+      .mockResolvedValueOnce(jsonResponse([{ ...jobEventFixture, job_id: "job-targeted-iteration-1" }]))
+      .mockResolvedValueOnce(jsonResponse([artifactFixture]))
+      .mockResolvedValueOnce(jsonResponse([versionFixture]))
+      .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse([]));
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<Home />);
+
+    expect(await screen.findByText("2D 概念预览")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "局部编辑" }));
+    await user.click(screen.getByRole("button", { name: "安全区" }));
+    await user.click(screen.getByRole("button", { name: "选择安全区 door-main" }));
+    expect(screen.getByText("已选 safe_zone: door-main")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "选择图层 text-1" }));
+    await user.click(screen.getByRole("button", { name: "显示编辑遮罩" }));
+    expect(screen.getByText("已选 overlay_layer: text-1")).toBeVisible();
+    expect(screen.getByText("编辑遮罩预览")).toBeVisible();
+
+    await user.type(screen.getByRole("textbox", { name: "迭代需求" }), "把门板文字上移");
+    await user.click(screen.getByRole("button", { name: "生成子迭代" }));
+
+    expect(
+      await screen.findByText("子迭代已提交，父版本仍保留。"),
+    ).toBeVisible();
+    const iterationCall = fetchMock.mock.calls.find(([url]) =>
+      String(url).includes("/versions/version-1/iterations"),
+    );
+    const iterationBody = JSON.parse(String((iterationCall?.[1] as RequestInit).body));
+    expect(iterationBody).toMatchObject({
+      brief_id: "brief-1",
+      change_request: "把门板文字上移",
+      edit_intent: {
+        mask: {
+          artifact_id: "artifact-1",
+          content_type: "image/png",
+          height: 768,
+          width: 1536,
+        },
+        mode: "targeted_edit",
+        parent_version_id: "version-1",
+        prompt_delta: {
+          instructions: ["把门板文字上移"],
+          summary: "把门板文字上移",
+        },
+        region: {
+          height: 0.24,
+          type: "rectangle",
+          unit: "normalized",
+          width: 0.34,
+          x: 0.32,
+          y: 0.47,
+        },
+        route_preference: "deterministic_recomposition",
+        schema_version: 1,
+        target: {
+          id: "text-1",
+          type: "overlay_layer",
+        },
+      },
+      parameter_overrides: {},
+      requested_by: "web-workbench",
+    });
+    expect(iterationBody.idempotency_key).toMatch(/^iteration-version-1-\d+$/);
   });
 
   it("submits durable feedback scoped to the selected version and renders feedback history", async () => {
