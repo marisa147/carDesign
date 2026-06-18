@@ -99,6 +99,38 @@ describe("workbench state boundaries", () => {
     expect(useWorkbenchStore.getState().previewZoom).toBe(1);
   });
 
+  it("keeps 3D preview mode and camera state local without clearing selected version", () => {
+    const state = useWorkbenchStore.getState();
+
+    state.setSelectedVersionId("version-1");
+    state.setPreviewMode("3d");
+    state.rotatePreview3D(30);
+    state.zoomPreview3DIn();
+    state.zoomPreview3DIn();
+
+    expect(useWorkbenchStore.getState()).toMatchObject({
+      preview3DCamera: { rotationY: 30, zoom: 1.5 },
+      previewMode: "3d",
+      selectedVersionId: "version-1",
+    });
+
+    state.zoomPreview3DOut();
+    expect(useWorkbenchStore.getState().preview3DCamera.zoom).toBe(1.25);
+
+    state.resetPreview3DCamera();
+    expect(useWorkbenchStore.getState()).toMatchObject({
+      preview3DCamera: { rotationY: 0, zoom: 1 },
+      previewMode: "3d",
+      selectedVersionId: "version-1",
+    });
+
+    state.setPreviewMode("2d");
+    expect(useWorkbenchStore.getState()).toMatchObject({
+      previewMode: "2d",
+      selectedVersionId: "version-1",
+    });
+  });
+
   it("toggles PreviewSpec overlays locally and resets them with the workbench UI", () => {
     const state = useWorkbenchStore.getState();
 

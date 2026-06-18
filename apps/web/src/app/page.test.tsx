@@ -740,6 +740,105 @@ describe("Phase 4 workbench shell", () => {
     });
   });
 
+  it("opens concept 3D preview controls for the selected generated version", async () => {
+    const user = userEvent.setup();
+    localStorage.setItem("caragent.workbench.workspaceId", "workspace-1");
+    localStorage.setItem("caragent.workbench.briefId", "brief-1");
+    const succeededJob = {
+      ...generationJobFixture,
+      status: "succeeded",
+      updated_at: "2026-06-17T00:25:00Z",
+    } satisfies GenerationJobResponse;
+    const fetchMock = mockResumeWithGenerationState({
+      artifacts: [artifactFixture, secondArtifactFixture],
+      brief: referenceDesignBriefFixture,
+      events: [
+        {
+          ...jobEventFixture,
+          event_type: "completed",
+          message: "Artifact ready.",
+          progress: "100",
+          status: "succeeded",
+        },
+      ],
+      job: succeededJob,
+      versions: [versionFixture, secondVersionFixture],
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<Home />);
+
+    expect(await screen.findByText("2D 概念预览")).toBeVisible();
+    expect(screen.getByRole("button", { name: "版本 1" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+
+    await user.click(screen.getByRole("button", { name: "3D 预览" }));
+
+    expect(screen.getByText("概念 3D 预览")).toBeVisible();
+    expect(screen.getByText("非生产贴膜参考")).toBeVisible();
+    expect(screen.getByRole("button", { name: "向左旋转" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "向右旋转" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "缩小 3D" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "放大 3D" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "重置相机" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "截图" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "版本 1" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+
+    await user.click(screen.getByRole("button", { name: "2D 预览" }));
+
+    expect(screen.getByText("2D 概念预览")).toBeVisible();
+    expect(screen.getByRole("button", { name: "版本 1" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+  });
+
+  it("shows the 3D fallback while keeping 2D PreviewSpec available", async () => {
+    const user = userEvent.setup();
+    localStorage.setItem("caragent.workbench.workspaceId", "workspace-1");
+    localStorage.setItem("caragent.workbench.briefId", "brief-1");
+    const unsupportedVersion: DesignVersionResponse = {
+      ...versionFixture,
+      parameters: {
+        ...versionFixture.parameters,
+        preview_spec: {
+          ...previewSpecFixture,
+          template: {
+            ...previewSpecFixture.template,
+            id: "unknown-template",
+          },
+        },
+      },
+    };
+    const fetchMock = mockResumeWithGenerationState({
+      artifacts: [artifactFixture],
+      brief: referenceDesignBriefFixture,
+      job: { ...generationJobFixture, status: "succeeded" },
+      versions: [unsupportedVersion],
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<Home />);
+
+    expect(await screen.findByText("2D 概念预览")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "3D 预览" }));
+
+    expect(screen.getByText("概念 3D 预览")).toBeVisible();
+    expect(screen.getByText("非生产贴膜参考")).toBeVisible();
+    expect(screen.getByText(PREVIEW_3D_FALLBACK_MESSAGE)).toBeVisible();
+    expect(screen.getByText(/unknown-template/)).toBeVisible();
+
+    await user.click(screen.getByRole("button", { name: "2D 预览" }));
+
+    expect(screen.getByText("2D 概念预览")).toBeVisible();
+    expect(screen.getAllByText("PreviewSpec 摘要").length).toBeGreaterThanOrEqual(1);
+  });
+
   it("renders the integrated workbench regions as the first screen", () => {
     render(<Home />);
 
@@ -759,14 +858,12 @@ describe("Phase 4 workbench shell", () => {
     expect(screen.getByRole("button", { name: "发送需求" })).toBeDisabled();
   });
 
-  it("shows future capabilities as disabled or deferred gates", () => {
+  it("keeps future production and marketplace capabilities as disabled gates", () => {
     render(<Home />);
 
-    for (const name of [
-      "3D 预览后续开放",
-      "生产导出后续开放",
-      "市场功能后续开放",
-    ]) {
+    expect(screen.queryByRole("button", { name: "3D 预览后续开放" })).not.toBeInTheDocument();
+
+    for (const name of ["生产导出后续开放", "市场功能后续开放"]) {
       const gate = screen.getByRole("button", { name });
       expect(gate).toBeDisabled();
       expect(gate).toHaveAttribute("aria-disabled", "true");
