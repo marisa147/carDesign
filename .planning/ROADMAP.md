@@ -106,7 +106,7 @@ v2.0 MVP is successful when:
 - [x] 09-01-PLAN.md — Hosted image provider capability map and typed runtime configuration.
 - [x] 09-02-PLAN.md — Hosted provider adapter implementation behind existing provider boundary.
 - [x] 09-03-PLAN.md — Hosted preflight integration with quota, rate-limit, runtime mode, and provider health.
-- [ ] 09-04-PLAN.md — Provider request/response trace persistence, cost recording, and secret redaction.
+- [x] 09-04-PLAN.md — Provider request/response trace persistence, cost recording, and secret redaction.
 - [ ] 09-05-PLAN.md — Moderation/validation rejection mapping and user-safe failure messages.
 - [ ] 09-06-PLAN.md — Workbench provider selector, hosted-call warning, and cost/quota visibility.
 - [ ] 09-07-PLAN.md — Phase 9 smoke, provider-off/provider-on tests, docs, and UAT evidence.
@@ -330,7 +330,7 @@ A single end-to-end V2 MVP UAT should prove:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 8. V1 Closure And V2 Readiness Gate | 5/5 | Complete | 2026-06-18 |
-| 9. Hosted Provider Rollout MVP | 3/7 | In Progress | - |
+| 9. Hosted Provider Rollout MVP | 4/7 | In Progress | - |
 | 10. Targeted Regeneration And Masked Editing MVP | 0/8 | Not started | - |
 | 11. Reference-Guided Generation MVP | 0/7 | Not started | - |
 | 12. Lightweight 3D Preview MVP | 0/8 | Not started | - |

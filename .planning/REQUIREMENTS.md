@@ -17,8 +17,8 @@
 
 - [x] **V2-PROVIDER-01**: Operator can configure hosted image provider credentials, model, capability map, timeout, retry, fallback, and quota policy without code changes.
 - [x] **V2-PROVIDER-02**: User can submit a hosted generation job only when hosted generation is enabled and preflight allows the request.
-- [ ] **V2-PROVIDER-03**: System records provider, model, request parameters, prompt plan, input assets, estimated cost, actual cost when available, fallback path, and raw error category.
-- [ ] **V2-PROVIDER-04**: User and operator can inspect hosted provider failures without exposing secrets.
+- [x] **V2-PROVIDER-03**: System records provider, model, request parameters, prompt plan, input assets, estimated cost, actual cost when available, fallback path, and raw error category.
+- [x] **V2-PROVIDER-04**: User and operator can inspect hosted provider failures without exposing secrets.
 - [x] **V2-PROVIDER-05**: User and developer can keep the local deterministic provider available as a test and fallback path.
 
 ### Targeted Editing
@@ -100,8 +100,8 @@
 | V2-READY-04 | Phase 8 | Complete |
 | V2-PROVIDER-01 | Phase 9 | Complete |
 | V2-PROVIDER-02 | Phase 9 | Complete |
-| V2-PROVIDER-03 | Phase 9 | Pending |
-| V2-PROVIDER-04 | Phase 9 | Pending |
+| V2-PROVIDER-03 | Phase 9 | Complete |
+| V2-PROVIDER-04 | Phase 9 | Complete |
 | V2-PROVIDER-05 | Phase 9 | Complete |
 | V2-EDIT-01 | Phase 10 | Pending |
 | V2-EDIT-02 | Phase 10 | Pending |
