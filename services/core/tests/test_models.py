@@ -66,3 +66,71 @@ def test_assets_include_required_rights_source_metadata() -> None:
     assert {"rights_status", "source_label", "source_url", "rights_confirmed_at"} <= {
         column.name for column in asset_columns
     }
+
+
+def test_phase_10_mask_artifacts_have_distinct_kind() -> None:
+    assert enums.ArtifactKind.MASK.value == "mask"
+
+
+def test_phase_10_edit_intent_schema_round_trips_to_json() -> None:
+    from caragent_core.editing import EditIntent
+
+    intent = EditIntent.model_validate(
+        {
+            "mask": {
+                "artifact_id": "11111111-1111-1111-1111-111111111111",
+                "content_type": "image/png",
+                "height": 768,
+                "width": 1536,
+            },
+            "mode": "targeted_edit",
+            "parent_version_id": "22222222-2222-2222-2222-222222222222",
+            "prompt_delta": {
+                "instructions": ["Move door typography upward."],
+                "summary": "Move the selected door text layer.",
+            },
+            "region": {
+                "height": 0.2,
+                "type": "rectangle",
+                "unit": "normalized",
+                "width": 0.4,
+                "x": 0.2,
+                "y": 0.35,
+            },
+            "route_preference": "deterministic_recomposition",
+            "schema_version": 1,
+            "target": {
+                "id": "door-main",
+                "type": "safe_zone",
+            },
+        },
+    )
+
+    assert intent.model_dump(mode="json") == {
+        "mask": {
+            "artifact_id": "11111111-1111-1111-1111-111111111111",
+            "content_type": "image/png",
+            "height": 768,
+            "width": 1536,
+        },
+        "mode": "targeted_edit",
+        "parent_version_id": "22222222-2222-2222-2222-222222222222",
+        "prompt_delta": {
+            "instructions": ["Move door typography upward."],
+            "summary": "Move the selected door text layer.",
+        },
+        "region": {
+            "height": 0.2,
+            "type": "rectangle",
+            "unit": "normalized",
+            "width": 0.4,
+            "x": 0.2,
+            "y": 0.35,
+        },
+        "route_preference": "deterministic_recomposition",
+        "schema_version": 1,
+        "target": {
+            "id": "door-main",
+            "type": "safe_zone",
+        },
+    }

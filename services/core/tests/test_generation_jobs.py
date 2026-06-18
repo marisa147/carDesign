@@ -98,3 +98,50 @@ async def test_model_run_failure_helper_sanitizes_error_text(
     assert failed.completed_at is not None
     assert failed.error_message == "[redacted] failed"
     assert "provider-secret" not in failed.error_message
+
+
+async def test_mask_artifact_metadata_can_be_stored_without_binary_payload(
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    async with session_scope(session_factory) as session:
+        workspace = await workspaces.create_workspace(session, title="Targeted edit")
+        created = await jobs.create_job(
+            session,
+            workspace.id,
+            idempotency_key="targeted-edit-001",
+            operation="generate_2d_concept",
+            metadata={
+                "edit_intent": {
+                    "mode": "targeted_edit",
+                    "route_preference": "deterministic_recomposition",
+                    "schema_version": 1,
+                },
+            },
+        )
+        artifact = await jobs.create_artifact(
+            session,
+            workspace.id,
+            byte_size=256,
+            content_type="image/png",
+            height=768,
+            job_id=created.job.id,
+            kind="mask",
+            metadata={
+                "edit_region": {
+                    "height": 0.2,
+                    "type": "rectangle",
+                    "unit": "normalized",
+                    "width": 0.4,
+                    "x": 0.2,
+                    "y": 0.35,
+                },
+                "parent_version_id": "22222222-2222-2222-2222-222222222222",
+                "target": {"id": "door-main", "type": "safe_zone"},
+            },
+            object_key=f"workspaces/{workspace.id}/masks/door-main.png",
+            width=1536,
+        )
+
+    assert artifact.kind == "mask"
+    assert artifact.metadata_json["target"] == {"id": "door-main", "type": "safe_zone"}
+    assert "mask_bytes" not in artifact.metadata_json

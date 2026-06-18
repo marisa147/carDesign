@@ -517,6 +517,172 @@ def test_submit_iteration_job_records_parent_metadata_without_overwriting_parent
     assert parent.parameters == {"concept_label": "parent_preview"}
 
 
+def test_submit_targeted_iteration_records_edit_intent_metadata(
+    tmp_path: Path,
+) -> None:
+    client, app, queue = create_generation_client(tmp_path)
+    workspace_id = client.post("/workspaces", json={"title": "Targeted edit"}).json()["id"]
+    brief_id = create_brief(client, workspace_id)
+    parent_version_id = asyncio.run(
+        create_parent_version(app.state.session_factory, workspace_id, brief_id),
+    )
+    spoofed_parent_id = uuid4()
+    mask_artifact_id = uuid4()
+
+    response = client.post(
+        f"/workspaces/{workspace_id}/versions/{parent_version_id}/iterations",
+        json={
+            "brief_id": brief_id,
+            "change_request": "Move the door typography upward without changing the character.",
+            "edit_intent": targeted_edit_intent_payload(
+                mask_artifact_id=mask_artifact_id,
+                parent_version_id=spoofed_parent_id,
+            ),
+            "idempotency_key": "targeted-edit-001",
+            "parameter_overrides": {"coverage": "door focus"},
+            "provider": "local-deterministic",
+            "provider_parameters": {"quality": "concept"},
+            "requested_by": "local-user",
+        },
+    )
+
+    assert response.status_code == 201
+    assert len(queue.enqueued) == 1
+
+    stored_job = asyncio.run(read_job(app.state.session_factory, UUID(response.json()["job"]["id"])))
+    assert stored_job.metadata_json["parent_version_id"] == str(parent_version_id)
+    assert stored_job.metadata_json["edit_intent"] == {
+        "mask": {
+            "artifact_id": str(mask_artifact_id),
+            "content_type": "image/png",
+            "height": 768,
+            "width": 1536,
+        },
+        "mode": "targeted_edit",
+        "parent_version_id": str(parent_version_id),
+        "prompt_delta": {
+            "instructions": ["Move door typography upward."],
+            "summary": "Move the selected door text layer.",
+        },
+        "region": {
+            "height": 0.2,
+            "type": "rectangle",
+            "unit": "normalized",
+            "width": 0.4,
+            "x": 0.2,
+            "y": 0.35,
+        },
+        "route_preference": "deterministic_recomposition",
+        "schema_version": 1,
+        "target": {
+            "id": "door-main",
+            "type": "safe_zone",
+        },
+    }
+    assert stored_job.metadata_json["provider_intent"] == {
+        "model": "local-deterministic-v1",
+        "parameters": {"quality": "concept"},
+        "provider": "local-deterministic",
+    }
+
+
+def targeted_edit_intent_payload(
+    *,
+    mask_artifact_id: UUID | None = None,
+    parent_version_id: UUID | None = None,
+    prompt_delta: dict[str, Any] | None = None,
+    region: dict[str, Any] | None = None,
+    route_preference: str = "deterministic_recomposition",
+) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "mask": {
+            "artifact_id": str(mask_artifact_id or uuid4()),
+            "content_type": "image/png",
+            "height": 768,
+            "width": 1536,
+        },
+        "mode": "targeted_edit",
+        "prompt_delta": prompt_delta
+        if prompt_delta is not None
+        else {
+            "instructions": ["Move door typography upward."],
+            "summary": "Move the selected door text layer.",
+        },
+        "region": region
+        if region is not None
+        else {
+            "height": 0.2,
+            "type": "rectangle",
+            "unit": "normalized",
+            "width": 0.4,
+            "x": 0.2,
+            "y": 0.35,
+        },
+        "route_preference": route_preference,
+        "schema_version": 1,
+        "target": {
+            "id": "door-main",
+            "type": "safe_zone",
+        },
+    }
+    if parent_version_id is not None:
+        payload["parent_version_id"] = str(parent_version_id)
+    return payload
+
+
+@pytest.mark.parametrize(
+    ("edit_intent", "expected_detail"),
+    [
+        (
+            targeted_edit_intent_payload(
+                region={
+                    "height": 0.2,
+                    "type": "rectangle",
+                    "unit": "normalized",
+                    "width": 0.4,
+                    "x": -0.1,
+                    "y": 0.35,
+                },
+            ),
+            "region",
+        ),
+        (
+            targeted_edit_intent_payload(route_preference="full_regeneration"),
+            "route",
+        ),
+        (
+            targeted_edit_intent_payload(prompt_delta={"instructions": []}),
+            "prompt_delta",
+        ),
+    ],
+)
+def test_submit_targeted_iteration_validates_edit_intent(
+    tmp_path: Path,
+    edit_intent: dict[str, Any],
+    expected_detail: str,
+) -> None:
+    client, app, queue = create_generation_client(tmp_path)
+    workspace_id = client.post("/workspaces", json={"title": "Invalid targeted edit"}).json()["id"]
+    brief_id = create_brief(client, workspace_id)
+    parent_version_id = asyncio.run(
+        create_parent_version(app.state.session_factory, workspace_id, brief_id),
+    )
+
+    response = client.post(
+        f"/workspaces/{workspace_id}/versions/{parent_version_id}/iterations",
+        json={
+            "brief_id": brief_id,
+            "change_request": "Try a targeted edit.",
+            "edit_intent": edit_intent,
+            "idempotency_key": f"targeted-invalid-{expected_detail}",
+        },
+    )
+
+    assert response.status_code == 422
+    assert expected_detail in response.text
+    assert queue.enqueued == []
+
+
 def test_submit_iteration_job_rejects_missing_or_wrong_workspace_parent_version(
     tmp_path: Path,
 ) -> None:
