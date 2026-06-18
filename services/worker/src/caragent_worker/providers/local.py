@@ -34,6 +34,7 @@ class LocalDeterministicImageProvider:
     async def generate(self, request: ImageGenerationRequest) -> ImageGenerationResult:
         image_bytes = _render_concept_preview(request, width=self._width, height=self._height)
         preview_spec = _preview_spec_from_payload(request.prompt_payload)
+        reference_warnings = _json_list(request.prompt_payload.get("reference_warnings"))
         metadata: JsonObject = {
             "concept_label": request.concept_label,
             "external_calls": False,
@@ -42,10 +43,17 @@ class LocalDeterministicImageProvider:
             "overlay_layer_count": len(_json_list(preview_spec.get("overlay_layers"))),
             "preview_spec": preview_spec,
             "prompt_digest": sha256(request.prompt_text.encode("utf-8")).hexdigest(),
+            "reference_warning_count": _integer_from_payload(
+                request.prompt_payload.get("reference_warning_count"),
+                fallback=len(reference_warnings),
+            ),
+            "reference_warnings": reference_warnings,
             "safe_zone_count": len(_json_list(preview_spec.get("safe_zones"))),
             "warning_count": len(_json_list(preview_spec.get("warnings"))),
             "width": self._width,
         }
+        if request.reference_usage is not None:
+            metadata["reference_usage"] = dict(request.reference_usage)
 
         return ImageGenerationResult(
             actual_cost=Decimal("0.0000"),
@@ -286,6 +294,12 @@ def _blend_color(
 
 def _json_list(value: object) -> list[object]:
     return list(value) if isinstance(value, list) else []
+
+
+def _integer_from_payload(value: object, *, fallback: int) -> int:
+    if isinstance(value, int):
+        return value
+    return fallback
 
 
 def _labels_from_payload(prompt_payload: JsonObject) -> list[str]:

@@ -54,12 +54,14 @@ class ImageGenerationRequest:
     model: str
     parameters: JsonObject = field(default_factory=dict)
     input_artifact_ids: list[str] = field(default_factory=list)
+    reference_usage: JsonObject | None = None
     estimated_cost: Decimal | None = None
     concept_label: str = "concept_preview"
     mask_edit: MaskEditRequest | None = None
 
     @classmethod
     def from_prompt_plan(cls, prompt_plan: PromptPlan) -> Self:
+        reference_usage = prompt_plan.prompt_payload.get("reference_usage")
         return cls(
             concept_label=prompt_plan.concept_label,
             input_artifact_ids=list(prompt_plan.input_artifact_ids),
@@ -69,6 +71,9 @@ class ImageGenerationRequest:
             prompt_payload=dict(prompt_plan.prompt_payload),
             prompt_text=prompt_plan.prompt_text,
             provider=prompt_plan.provider,
+            reference_usage=(
+                dict(reference_usage) if isinstance(reference_usage, dict) else None
+            ),
         )
 
 

@@ -183,6 +183,7 @@ async def _run_generate_2d_concept_job(
     failure_stage = "worker_start"
     failure_provider: str | None = None
     failure_model: str | None = None
+    request: ImageGenerationRequest | None = None
     try:
         canceled_result = await _return_if_canceled(
             session,
@@ -276,7 +277,6 @@ async def _run_generate_2d_concept_job(
                 provider_mask_edit_intent = edit_intent
 
         provider_result: ImageGenerationResult | None = None
-        request: ImageGenerationRequest | None = None
         model_run = None
         attempt_metadata: dict[str, object] = {}
         total_attempts = 0
@@ -290,6 +290,7 @@ async def _run_generate_2d_concept_job(
                 input_artifact_ids=input_artifact_ids,
             )
             edit_route_metadata = _edit_route_metadata(request)
+            reference_metadata = _reference_usage_metadata(request)
             model_run = await jobs.create_model_run(
                 session,
                 job_id,
@@ -300,6 +301,7 @@ async def _run_generate_2d_concept_job(
                     **prompt_plan.parameters,
                     **iteration_parameters,
                     **edit_route_metadata,
+                    **reference_metadata,
                     **preview_spec_summary,
                     "provider_attempt": attempt_index,
                     "provider_route": request.provider,
@@ -336,6 +338,8 @@ async def _run_generate_2d_concept_job(
                     settings=settings,
                     current_model_run_id=model_run_id,
                 )
+                failure_stage = "reference_capability_preflight"
+                _enforce_reference_capability_preflight(request, settings=settings)
                 if provider_mask_edit_intent is not None:
                     failure_stage = "provider_mask_preflight"
                     await _enforce_provider_mask_preflight(
@@ -388,6 +392,7 @@ async def _run_generate_2d_concept_job(
                         "provider_attempt": attempt_index,
                         "provider_attempt_count": total_attempts,
                         **_provider_failure_metadata(exc),
+                        **reference_metadata,
                         "stage": failure_stage,
                         "worker_version": __version__,
                     },
@@ -417,6 +422,7 @@ async def _run_generate_2d_concept_job(
                     provider_name=settings.ai_provider_fallback_name,
                 )
                 fallback_edit_route_metadata = _edit_route_metadata(fallback_request)
+                fallback_reference_metadata = _reference_usage_metadata(fallback_request)
                 fallback_metadata = {
                     "fallback_from_provider": request.provider,
                     "fallback_reason": sanitized_attempt_error,
@@ -444,6 +450,7 @@ async def _run_generate_2d_concept_job(
                         **prompt_plan.parameters,
                         **iteration_parameters,
                         **fallback_edit_route_metadata,
+                        **fallback_reference_metadata,
                         **preview_spec_summary,
                         **fallback_metadata,
                         "provider_attempt": total_attempts,
@@ -465,6 +472,11 @@ async def _run_generate_2d_concept_job(
                         fallback_request,
                         settings=settings,
                         current_model_run_id=model_run_id,
+                    )
+                    failure_stage = "reference_capability_preflight"
+                    _enforce_reference_capability_preflight(
+                        fallback_request,
+                        settings=settings,
                     )
                     if provider_mask_edit_intent is not None:
                         failure_stage = "provider_mask_preflight"
@@ -657,6 +669,8 @@ async def _run_generate_2d_concept_job(
                     sanitized_error=sanitized_error,
                 ),
             )
+        if request is not None:
+            failure_metadata.update(_reference_usage_metadata(request))
         if model_run_id is not None:
             await jobs.fail_model_run(
                 session,
@@ -1133,6 +1147,41 @@ async def _enforce_hosted_preflight(
         raise ImageProviderConfigurationError("Hosted provider per-minute rate limit reached.")
 
 
+def _enforce_reference_capability_preflight(
+    request: ImageGenerationRequest,
+    *,
+    settings: WorkerSettings,
+) -> None:
+    reference_usage = request.reference_usage if isinstance(request.reference_usage, dict) else {}
+    requested = _json_list(reference_usage.get("requested"))
+    if not requested:
+        return
+
+    provider_key = _capability_provider_key(request.provider)
+    capability = settings.provider_capability_map().get(provider_key)
+    if capability is None:
+        raise ImageProviderConfigurationError(
+            f"Provider {request.provider} does not declare reference capability.",
+        )
+
+    raw_supports = capability.get("supports")
+    supports = raw_supports if isinstance(raw_supports, dict) else {}
+    raw_reference_input = capability.get("reference_input")
+    reference_input = raw_reference_input if isinstance(raw_reference_input, dict) else {}
+    if bool(supports.get("references")):
+        return
+    if bool(supports.get("reference_image_inputs")) and bool(reference_input.get("accepted")):
+        return
+
+    blocked_reason = str(
+        reference_input.get("blocked_reason")
+        or "Reference image input is not verified for this provider.",
+    )
+    roles = _reference_roles_from_metadata(_reference_usage_metadata(request))
+    role_suffix = f" for roles: {', '.join(roles)}" if roles else ""
+    raise ImageProviderConfigurationError(f"{blocked_reason}{role_suffix}")
+
+
 async def _enforce_provider_mask_preflight(
     session: AsyncSession,
     *,
@@ -1481,6 +1530,9 @@ def _image_request_from_prompt_plan(
         prompt_payload=prompt_payload,
         prompt_text=request.prompt_text,
         provider=provider_name or request.provider,
+        reference_usage=(
+            dict(request.reference_usage) if request.reference_usage is not None else None
+        ),
     )
 
 
@@ -1523,6 +1575,7 @@ def _provider_trace_metadata(
         "provider_parameters": dict(request.parameters),
     }
     metadata.update(_edit_route_metadata(request))
+    metadata.update(_reference_usage_metadata(request))
     return metadata
 
 
@@ -1530,6 +1583,43 @@ def _edit_route_metadata(request: ImageGenerationRequest) -> dict[str, object]:
     if request.mask_edit is None:
         return {}
     return _mask_edit_metadata(request.mask_edit)
+
+
+def _reference_usage_metadata(request: ImageGenerationRequest) -> dict[str, object]:
+    metadata: dict[str, object] = {}
+    if request.reference_usage is not None:
+        metadata["reference_usage"] = dict(request.reference_usage)
+
+    for key in (
+        "included_reference_asset_ids",
+        "omitted_reference_asset_ids",
+        "reference_warning_count",
+        "reference_warnings",
+        "unsupported_reference_roles",
+    ):
+        if key in request.prompt_payload:
+            metadata[key] = request.prompt_payload[key]
+    return metadata
+
+
+def _reference_roles_from_metadata(metadata: dict[str, object]) -> list[str]:
+    roles: list[str] = []
+    raw_roles = metadata.get("unsupported_reference_roles")
+    if isinstance(raw_roles, list):
+        roles.extend(str(role) for role in raw_roles if str(role).strip())
+
+    if roles:
+        return roles
+
+    raw_usage = metadata.get("reference_usage")
+    if not isinstance(raw_usage, dict):
+        return roles
+    for item in _json_list(raw_usage.get("requested")):
+        if isinstance(item, dict):
+            role = str(item.get("role") or "").strip()
+            if role and role not in roles:
+                roles.append(role)
+    return roles
 
 
 def _mask_edit_metadata(mask_edit: MaskEditRequest) -> dict[str, object]:
