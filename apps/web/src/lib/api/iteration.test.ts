@@ -3,17 +3,21 @@ import { describe, expect, it, vi } from "vitest";
 import {
   getCreateExportWorkspacesWorkspaceIdVersionsVersionIdExportsPostUrl,
   getCreateFeedbackWorkspacesWorkspaceIdVersionsVersionIdFeedbackPostUrl,
+  getCreatePreview3dScreenshotWorkspacesWorkspaceIdVersionsVersionIdPreview3dScreenshotsPostUrl,
   getListExportsWorkspacesWorkspaceIdExportsGetUrl,
   getListFeedbackWorkspacesWorkspaceIdFeedbackGetUrl,
   getSubmitGenerationIterationJobWorkspacesWorkspaceIdVersionsVersionIdIterationsPostUrl,
+  type ArtifactResponse,
   type ExportResponse,
   type FeedbackResponse,
   type GenerationJobSubmissionResponse,
+  type Preview3DScreenshotCreateRequest,
 } from "@caragent/contracts";
 
 import {
   buildIterationSubmissionPayload,
   createConceptExport,
+  createPreview3DScreenshot,
   createVersionFeedback,
   listWorkspaceExports,
   listWorkspaceFeedback,
@@ -80,6 +84,78 @@ const exportFixture: ExportResponse = {
   status: "requested",
   updated_at: generatedAt,
   version_id: "version-1",
+  workspace_id: "workspace-1",
+};
+
+const preview3dScreenshotRequestFixture: Preview3DScreenshotCreateRequest = {
+  content_type: "image/png",
+  filename: "preview-3d-screenshot.png",
+  height: 360,
+  image_base64: "iVBORw0KGgo=",
+  preview_3d: {
+    camera: {
+      position: { x: 2.8, y: 1.4, z: 4.2 },
+      preset_id: "front-left-default",
+      target: { x: 0, y: 0.4, z: 0 },
+      zoom: 1,
+    },
+    compatibility: {
+      shell_id: "generic-side-coupe-lightweight-v1",
+      status: "compatible",
+    },
+    materials: {
+      decal_strategy: "preview_spec_projection",
+      source_artifact_id: "artifact-1",
+      source_kind: "preview_spec",
+    },
+    mode: "lightweight_shell",
+    shell: {
+      dimensions: { height: 1.4, length: 4.4, width: 1.8 },
+      id: "generic-side-coupe-lightweight-v1",
+      label: "Generic side coupe lightweight shell",
+      material_slots: ["body", "side-decal-plane"],
+      template_id: "generic-side-coupe",
+    },
+    source: {
+      artifact_id: "artifact-1",
+      artifact_object_key: "workspaces/workspace-1/generated/artifact-1/concept.png",
+      preview_spec_template_id: "generic-side-coupe",
+      preview_spec_view: "side",
+      version_id: "version-1",
+      workspace_id: "workspace-1",
+    },
+    warnings: [
+      {
+        id: "non_production_preview",
+        message: "Concept only.",
+        severity: "warning",
+      },
+      {
+        id: "uv_not_verified",
+        message: "UV not verified.",
+        severity: "warning",
+      },
+    ],
+  },
+  width: 640,
+};
+
+const preview3dScreenshotArtifactFixture: ArtifactResponse = {
+  asset_id: null,
+  byte_size: 40,
+  checksum_sha256: "a".repeat(64),
+  content_type: "image/png",
+  created_at: generatedAt,
+  height: 360,
+  id: "artifact-3d-1",
+  job_id: "job-iteration-1",
+  kind: "preview_3d_screenshot",
+  metadata: {},
+  object_key: "workspaces/workspace-1/preview_3d_screenshot/artifact-3d-1/preview.png",
+  preview_3d_screenshot: null,
+  updated_at: generatedAt,
+  version_id: "version-1",
+  width: 640,
   workspace_id: "workspace-1",
 };
 
@@ -231,6 +307,30 @@ describe("iteration API wrappers", () => {
           format: "png",
           manifest: { requested_by: "web-proof" },
         }),
+        method: "POST",
+      }),
+    );
+  });
+
+  it("creates preview 3D screenshots with version-scoped URLs and metadata payloads", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(preview3dScreenshotArtifactFixture, 201));
+
+    await expect(
+      createPreview3DScreenshot(
+        "workspace-1",
+        "version-1",
+        preview3dScreenshotRequestFixture,
+        { apiBaseUrl: "http://api.test", fetch: fetchMock },
+      ),
+    ).resolves.toEqual(preview3dScreenshotArtifactFixture);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      `http://api.test${getCreatePreview3dScreenshotWorkspacesWorkspaceIdVersionsVersionIdPreview3dScreenshotsPostUrl(
+        "workspace-1",
+        "version-1",
+      )}`,
+      expect.objectContaining({
+        body: JSON.stringify(preview3dScreenshotRequestFixture),
         method: "POST",
       }),
     );
