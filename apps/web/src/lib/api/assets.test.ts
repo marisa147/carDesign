@@ -9,6 +9,7 @@ import {
 } from "@caragent/contracts";
 
 import {
+  getReferenceEligibility,
   getAsset,
   listWorkspaceAssets,
   updateAssetRights,
@@ -44,6 +45,27 @@ const assetFixture: AssetResponse = {
 };
 
 describe("asset API wrappers", () => {
+  it("classifies reference generation eligibility from rights metadata", () => {
+    expect(getReferenceEligibility(assetFixture)).toEqual({
+      canUseForGeneration: false,
+      label: "需确认权利",
+      warning: "引用素材需要权利确认",
+    });
+
+    expect(
+      getReferenceEligibility({
+        ...assetFixture,
+        rights_confirmed_at: uploadedAt,
+        rights_status: "confirmed",
+        source_label: "Original upload",
+      }),
+    ).toEqual({
+      canUseForGeneration: true,
+      label: "可用于生成",
+      warning: null,
+    });
+  });
+
   it("uploads assets as multipart form data through generated route helpers", async () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse(assetFixture, 201));
     const file = new File(["fake image"], "reference.png", { type: "image/png" });

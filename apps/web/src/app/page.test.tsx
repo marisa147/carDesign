@@ -204,6 +204,13 @@ const confirmedAssetFixture: AssetResponse = {
   updated_at: "2026-06-17T00:10:00Z",
 };
 
+const confirmedCharacterAssetFixture: AssetResponse = {
+  ...confirmedAssetFixture,
+  id: "asset-2",
+  object_key: "workspaces/workspace-1/uploads/asset-2/confirmed-reference.png",
+  original_filename: "confirmed-reference.png",
+};
+
 const referenceBriefFixture: GenerationBriefResponse = {
   ...updatedBriefFixture,
   payload: {
@@ -936,6 +943,74 @@ describe("Phase 4 workbench shell", () => {
     const patchInit = fetchMock.mock.calls[7]?.[1] as RequestInit;
     expect(JSON.parse(String(patchInit.body))).toEqual({
       reference_asset_ids: ["asset-1"],
+    });
+  });
+
+  it("assigns reference roles, blocks missing-rights assets, and submits structured usage", async () => {
+    const user = userEvent.setup();
+    localStorage.setItem("caragent.workbench.workspaceId", "workspace-1");
+    localStorage.setItem("caragent.workbench.briefId", "brief-1");
+    const structuredReferenceBrief = {
+      ...briefFixture,
+      payload: {
+        ...briefFixture.payload,
+        reference_asset_ids: ["asset-2"],
+        reference_usage: [
+          {
+            asset_id: "asset-2",
+            enabled: true,
+            role: "style",
+            schema_version: 1,
+          },
+        ],
+      },
+      updated_at: "2026-06-17T00:14:00Z",
+    } satisfies GenerationBriefResponse;
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse(workspaceFixture))
+      .mockResolvedValueOnce(jsonResponse([messageFixture]))
+      .mockResolvedValueOnce(jsonResponse([designBriefFixture]))
+      .mockResolvedValueOnce(
+        jsonResponse([missingRightsAssetFixture, confirmedCharacterAssetFixture]),
+      )
+      .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse(structuredReferenceBrief));
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<Home />);
+
+    expect(await screen.findByText("reference.png")).toBeVisible();
+    expect(screen.getByText("confirmed-reference.png")).toBeVisible();
+    for (const label of ["角色", "风格", "车辆", "Logo", "配色", "仅灵感"]) {
+      expect(screen.getAllByText(label).length).toBeGreaterThan(0);
+    }
+    expect(screen.getByText("需确认权利")).toBeVisible();
+    expect(screen.getByText("引用素材需要权利确认")).toBeVisible();
+    expect(
+      screen.getByRole("checkbox", { name: "用于生成 reference.png" }),
+    ).toBeDisabled();
+
+    await user.selectOptions(
+      screen.getByRole("combobox", { name: "引用角色 confirmed-reference.png" }),
+      "style",
+    );
+    await user.click(
+      screen.getByRole("checkbox", { name: "用于生成 confirmed-reference.png" }),
+    );
+    await user.click(screen.getByRole("button", { name: "保存参数" }));
+
+    expect(await screen.findByText("参数已保存")).toBeVisible();
+    const patchInit = fetchMock.mock.calls[5]?.[1] as RequestInit;
+    expect(JSON.parse(String(patchInit.body))).toEqual({
+      reference_asset_ids: ["asset-2"],
+      reference_usage: [
+        {
+          asset_id: "asset-2",
+          enabled: true,
+          role: "style",
+        },
+      ],
     });
   });
 

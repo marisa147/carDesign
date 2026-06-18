@@ -25,6 +25,7 @@ import {
 import {
   buildGenerationSubmissionPayload,
   buildProviderIntentPayload,
+  buildReferenceUsagePayload,
   createGenerationBrief,
   loadGenerationState,
   retryGenerationJob,
@@ -170,6 +171,37 @@ const exportFixture: ExportResponse = {
 };
 
 describe("generation API wrappers", () => {
+  it("builds structured reference usage while preserving legacy IDs", () => {
+    expect(
+      buildReferenceUsagePayload([
+        {
+          assetId: "asset-1",
+          enabled: true,
+          role: "character",
+        },
+        {
+          assetId: "asset-2",
+          enabled: false,
+          role: "palette",
+        },
+      ]),
+    ).toEqual({
+      reference_asset_ids: ["asset-1"],
+      reference_usage: [
+        {
+          asset_id: "asset-1",
+          enabled: true,
+          role: "character",
+        },
+        {
+          asset_id: "asset-2",
+          enabled: false,
+          role: "palette",
+        },
+      ],
+    });
+  });
+
   it("builds local-default and hosted provider submission payloads safely", () => {
     const localPayload = buildGenerationSubmissionPayload(
       {
