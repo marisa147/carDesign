@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+from typing import Any
+
 from pydantic import BaseModel, Field, field_validator
 
 from caragent_core.generation.templates import SafeZone, resolve_vehicle_template
+from caragent_core.references import ReferenceAssignment
 
 
 class GenerationBriefPayload(BaseModel):
@@ -21,6 +24,7 @@ class GenerationBriefPayload(BaseModel):
     color_harmony: str = ""
     coverage: str = Field(min_length=1)
     reference_asset_ids: list[str] = Field(default_factory=list)
+    reference_usage: list[ReferenceAssignment] = Field(default_factory=list)
     overlay_logo_asset_ids: list[str] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
     safe_zones: list[SafeZone] = Field(default_factory=list)
@@ -64,6 +68,13 @@ class GenerationBriefPayload(BaseModel):
             return [item.strip() for item in value if isinstance(item, str) and item.strip()]
         return value
 
+    @field_validator("reference_usage", mode="before")
+    @classmethod
+    def normalize_reference_usage(cls, value: object) -> object:
+        if value is None:
+            return []
+        return value
+
 
 def create_generation_brief(
     *,
@@ -81,6 +92,7 @@ def create_generation_brief(
     color_harmony: str | None = None,
     coverage: str | None = None,
     reference_asset_ids: list[str] | None = None,
+    reference_usage: list[ReferenceAssignment | dict[str, Any]] | None = None,
     overlay_logo_asset_ids: list[str] | None = None,
 ) -> GenerationBriefPayload:
     normalized_request = original_request.strip()
@@ -102,6 +114,7 @@ def create_generation_brief(
         palette=palette or [],
         racing_cues=racing_cues or [],
         reference_asset_ids=reference_asset_ids or [],
+        reference_usage=reference_usage or [],
         safe_zones=resolution.safe_zones,
         style=(style or "itasha concept"),
         supporting_graphics=supporting_graphics or [],

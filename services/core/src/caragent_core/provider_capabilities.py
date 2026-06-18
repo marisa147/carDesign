@@ -3,6 +3,8 @@ from __future__ import annotations
 from decimal import Decimal
 from typing import Any
 
+from caragent_core.enums import ReferenceRole
+
 ProviderCapabilityMap = dict[str, dict[str, Any]]
 
 LOCAL_PROVIDER = "local-deterministic"
@@ -12,6 +14,7 @@ BFL_DEFAULT_MODEL = "flux-2-pro-preview"
 LOCAL_DEFAULT_MODEL = "local-concept-v1"
 DETERMINISTIC_RECOMPOSITION_ROUTE = "deterministic_recomposition"
 PROVIDER_MASKED_GENERATION_ROUTE = "provider_masked_generation"
+REFERENCE_ROLE_VALUES = [role.value for role in ReferenceRole]
 
 
 def build_provider_capability_map(
@@ -59,13 +62,25 @@ def build_provider_capability_map(
                 "generation": True,
                 "mask_aware_generation": False,
                 "masks": False,
-                "references": False,
+                "reference_image_inputs": False,
+                "references": True,
             },
             "mask_input": {
                 "accepted": False,
                 "blocked_reason": "Local deterministic provider does not call image-edit APIs.",
                 "content_types": [],
                 "required": False,
+            },
+            "reference_input": {
+                "accepted": False,
+                "blocked_reason": (
+                    "Local deterministic provider records references as prompt guidance "
+                    "metadata only."
+                ),
+                "content_types": [],
+                "prompt_guidance_roles": REFERENCE_ROLE_VALUES,
+                "supported_roles": [],
+                "unsupported_roles": [],
             },
             "supported_edit_routes": [DETERMINISTIC_RECOMPOSITION_ROUTE],
             "unsupported_edit_routes": [PROVIDER_MASKED_GENERATION_ROUTE],
@@ -104,6 +119,7 @@ def build_provider_capability_map(
                 "input_image_editing": True,
                 "mask_aware_generation": False,
                 "masks": False,
+                "reference_image_inputs": False,
                 "references": False,
             },
             "mask_input": {
@@ -114,6 +130,17 @@ def build_provider_capability_map(
                 ),
                 "content_types": [],
                 "required": False,
+            },
+            "reference_input": {
+                "accepted": False,
+                "blocked_reason": (
+                    "Reference image input is not verified for the current FLUX.2 "
+                    "adapter route."
+                ),
+                "content_types": [],
+                "prompt_guidance_roles": [],
+                "supported_roles": [],
+                "unsupported_roles": REFERENCE_ROLE_VALUES,
             },
             "supported_edit_routes": [],
             "unsupported_edit_routes": [PROVIDER_MASKED_GENERATION_ROUTE],

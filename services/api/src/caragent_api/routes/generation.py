@@ -103,6 +103,7 @@ async def create_generation_brief_route(
             palette=payload.palette,
             racing_cues=payload.racing_cues,
             reference_asset_ids=payload.reference_asset_ids,
+            reference_usage=payload.reference_usage,
             style=payload.style,
             supporting_graphics=payload.supporting_graphics,
             text=payload.text,

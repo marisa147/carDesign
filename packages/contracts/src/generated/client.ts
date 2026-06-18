@@ -258,6 +258,29 @@ export interface FeedbackResponse {
   workspace_id: string;
 }
 
+export type ReferenceRole = typeof ReferenceRole[keyof typeof ReferenceRole];
+
+
+export const ReferenceRole = {
+  character: 'character',
+  style: 'style',
+  vehicle: 'vehicle',
+  logo: 'logo',
+  palette: 'palette',
+  inspiration: 'inspiration',
+} as const;
+
+export interface ReferenceAssignment {
+  asset_id: string;
+  enabled?: boolean;
+  role: ReferenceRole;
+  /**
+     * @minimum 1
+     * @maximum 1
+     */
+  schema_version?: number;
+}
+
 export interface GenerationBriefCreateRequest {
   character_focus?: string | null;
   character_theme?: string | null;
@@ -269,6 +292,7 @@ export interface GenerationBriefCreateRequest {
   palette?: string[] | null;
   racing_cues?: string[] | null;
   reference_asset_ids?: string[] | null;
+  reference_usage?: ReferenceAssignment[] | null;
   source_message_id?: string | null;
   style?: string | null;
   supporting_graphics?: string[] | null;
@@ -296,6 +320,7 @@ export interface GenerationBriefPayload {
   palette?: string[];
   racing_cues?: string[];
   reference_asset_ids?: string[];
+  reference_usage?: ReferenceAssignment[];
   safe_zones?: GenerationBriefPayloadSafeZonesItem[];
   /** @minLength 1 */
   style: string;
@@ -331,6 +356,7 @@ export interface GenerationBriefUpdateRequest {
   palette?: string[] | null;
   racing_cues?: string[] | null;
   reference_asset_ids?: string[] | null;
+  reference_usage?: ReferenceAssignment[] | null;
   style?: string | null;
   supporting_graphics?: string[] | null;
   text?: string[] | null;

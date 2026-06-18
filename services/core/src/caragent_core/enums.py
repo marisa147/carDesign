@@ -34,6 +34,15 @@ class RightsStatus(StrEnum):
     REJECTED = "rejected"
 
 
+class ReferenceRole(StrEnum):
+    CHARACTER = "character"
+    STYLE = "style"
+    VEHICLE = "vehicle"
+    LOGO = "logo"
+    PALETTE = "palette"
+    INSPIRATION = "inspiration"
+
+
 class JobStatus(StrEnum):
     QUEUED = "queued"
     RUNNING = "running"

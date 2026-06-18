@@ -8,6 +8,7 @@ from uuid import UUID
 from caragent_core.editing import EditIntent
 from caragent_core.enums import MessageRole
 from caragent_core.generation import GenerationBriefPayload
+from caragent_core.references import ReferenceAssignment
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -78,6 +79,7 @@ class GenerationBriefCreateRequest(BaseModel):
     color_harmony: str | None = None
     coverage: str | None = None
     reference_asset_ids: list[str] | None = None
+    reference_usage: list[ReferenceAssignment] | None = None
     overlay_logo_asset_ids: list[str] | None = None
     source_message_id: UUID | None = None
     title: str | None = Field(default=None, max_length=160)
@@ -95,6 +97,7 @@ class GenerationBriefUpdateRequest(BaseModel):
     color_harmony: str | None = None
     coverage: str | None = None
     reference_asset_ids: list[str] | None = None
+    reference_usage: list[ReferenceAssignment] | None = None
     overlay_logo_asset_ids: list[str] | None = None
 
 
