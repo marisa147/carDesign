@@ -49,7 +49,7 @@ v2.0 MVP is successful when:
 
 ## Phases
 
-- [ ] **Phase 8: V1 Closure And V2 Readiness Gate** — Close remaining V1 operational work, freeze the V1 release baseline, and confirm V2 can build on stable contracts.
+- [x] **Phase 8: V1 Closure And V2 Readiness Gate** — Close remaining V1 operational work, freeze the V1 release baseline, and confirm V2 can build on stable contracts.
 - [ ] **Phase 9: Hosted Provider Rollout MVP** — Enable controlled real hosted image generation with provider routing, quota, cost, failure, and moderation visibility.
 - [ ] **Phase 10: Targeted Regeneration And Masked Editing MVP** — Add editable regions, mask-aware regeneration requests, and layer-level iteration without full concept overwrite.
 - [ ] **Phase 11: Reference-Guided Generation MVP** — Improve character/style/vehicle consistency using uploaded reference assets, rights gates, and provider-specific capability checks.
@@ -81,7 +81,7 @@ v2.0 MVP is successful when:
 - [x] 08-02-PLAN.md — V2 feature flag scaffold, environment guards, and default-off rollout settings.
 - [x] 08-03-PLAN.md — Contract compatibility check for V1 workbench, jobs, artifacts, versions, and PreviewSpec.
 - [x] 08-04-PLAN.md — V2 migration safety review and no-op migration proof.
-- [ ] 08-05-PLAN.md — Phase 8 smoke, docs, UAT checklist, and readiness report.
+- [x] 08-05-PLAN.md — Phase 8 smoke, docs, UAT checklist, and readiness report.
 
 **UI hint:** no
 
@@ -329,7 +329,7 @@ A single end-to-end V2 MVP UAT should prove:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 8. V1 Closure And V2 Readiness Gate | 0/5 | Not started | - |
+| 8. V1 Closure And V2 Readiness Gate | 5/5 | Complete | 2026-06-18 |
 | 9. Hosted Provider Rollout MVP | 0/7 | Not started | - |
 | 10. Targeted Regeneration And Masked Editing MVP | 0/8 | Not started | - |
 | 11. Reference-Guided Generation MVP | 0/7 | Not started | - |
