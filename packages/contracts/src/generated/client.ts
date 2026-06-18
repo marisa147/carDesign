@@ -467,11 +467,17 @@ export interface ModelRunResponse {
   updated_at: string;
 }
 
+export type ProviderOperationsSummaryCapabilitiesItem = { [key: string]: unknown };
+
+export type ProviderOperationsSummaryGuardState = { [key: string]: unknown };
+
 export interface ProviderOperationsSummary {
   active_mode: string;
   bfl_key_configured: boolean;
   calls_enabled: boolean;
+  capabilities?: ProviderOperationsSummaryCapabilitiesItem[];
   default_provider: string;
+  guard_state?: ProviderOperationsSummaryGuardState;
   hosted_calls_blocked_reason?: string | null;
   hosted_daily_call_limit?: number | null;
   hosted_provider_configured: boolean;

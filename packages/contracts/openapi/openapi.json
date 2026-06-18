@@ -2443,9 +2443,22 @@
             "title": "Calls Enabled",
             "type": "boolean"
           },
+          "capabilities": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Capabilities",
+            "type": "array"
+          },
           "default_provider": {
             "title": "Default Provider",
             "type": "string"
+          },
+          "guard_state": {
+            "additionalProperties": true,
+            "title": "Guard State",
+            "type": "object"
           },
           "hosted_calls_blocked_reason": {
             "anyOf": [
