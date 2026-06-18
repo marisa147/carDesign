@@ -9,7 +9,12 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from caragent_core.database import create_engine, create_session_factory, session_scope
 from caragent_core.enums import ArtifactKind, ModelRunStatus
 from caragent_core.models import metadata
-from caragent_core.preview3d import Preview3DScreenshotArtifactMetadata, Preview3DSpec
+from caragent_core.preview3d import (
+    GENERIC_SIDE_COUPE_LIGHTWEIGHT_SHELL_ID,
+    Preview3DScreenshotArtifactMetadata,
+    Preview3DSpec,
+    build_preview_3d_spec,
+)
 from caragent_core.services import jobs, workspaces
 
 
@@ -193,6 +198,56 @@ async def test_preview_3d_screenshot_artifact_metadata_can_be_stored_without_bin
     assert "binary" not in rendered
 
 
+def test_preview_3d_resolver_links_generic_side_coupe_shell() -> None:
+    spec = build_preview_3d_spec(
+        artifact_id="33333333-3333-3333-3333-333333333333",
+        artifact_object_key="workspaces/ws/generated_image/artifact/concept.png",
+        preview_spec=preview_spec_payload(),
+        version_id="22222222-2222-2222-2222-222222222222",
+        workspace_id="11111111-1111-1111-1111-111111111111",
+    )
+
+    assert spec.compatibility.status == "compatible"
+    assert spec.compatibility.shell_id == GENERIC_SIDE_COUPE_LIGHTWEIGHT_SHELL_ID
+    assert spec.shell is not None
+    assert spec.shell.id == GENERIC_SIDE_COUPE_LIGHTWEIGHT_SHELL_ID
+    assert spec.shell.template_id == "generic-side-coupe"
+    assert "side-decal-plane" in spec.shell.material_slots
+    assert spec.camera.preset_id == "front-left-default"
+    assert spec.source.preview_spec_template_id == "generic-side-coupe"
+    assert spec.source.preview_spec_view == "side"
+    assert str(spec.source.artifact_id) == "33333333-3333-3333-3333-333333333333"
+    assert spec.materials.source_kind == "preview_spec"
+    assert spec.materials.safe_zone_overlays[0]["id"] == "door-main"
+    assert spec.materials.safe_zone_overlays[0]["slot"] == "side-decal-plane"
+    assert spec.materials.overlay_layers[0]["id"] == "text-1"
+    assert spec.materials.overlay_layers[0]["slot"] == "side-decal-plane"
+    assert [warning.id for warning in spec.warnings] == [
+        "non_production_preview",
+        "uv_not_verified",
+        "single_shell_fixture",
+    ]
+
+
+def test_preview_3d_resolver_returns_explicit_fallback_for_unknown_template() -> None:
+    spec = build_preview_3d_spec(
+        artifact_id="33333333-3333-3333-3333-333333333333",
+        artifact_object_key="workspaces/ws/generated_image/artifact/concept.png",
+        preview_spec=preview_spec_payload(template_id="unknown-template"),
+        version_id="22222222-2222-2222-2222-222222222222",
+        workspace_id="11111111-1111-1111-1111-111111111111",
+    )
+
+    assert spec.compatibility.status == "incompatible"
+    assert spec.compatibility.shell_id is None
+    assert spec.compatibility.reason is not None
+    assert "unknown-template" in spec.compatibility.reason
+    assert spec.shell is None
+    assert spec.source.preview_spec_template_id == "unknown-template"
+    assert spec.materials.safe_zone_overlays[0]["id"] == "door-main"
+    assert spec.warnings[0].id == "non_production_preview"
+
+
 def preview_3d_spec() -> Preview3DSpec:
     return Preview3DSpec.model_validate(
         {
@@ -242,6 +297,41 @@ def preview_3d_spec() -> Preview3DSpec:
             },
         },
     )
+
+
+def preview_spec_payload(template_id: str = "generic-side-coupe") -> dict[str, object]:
+    return {
+        "canvas": {"height": 768, "width": 1536},
+        "overlay_layers": [
+            {"id": "text-1", "kind": "text", "text": "MOON DRIVE", "zone_id": "door-main"},
+            {"asset_id": "logo-1", "id": "logo-1", "kind": "logo", "zone_id": "rear-quarter"},
+        ],
+        "safe_zones": [
+            {
+                "height": 0.24,
+                "id": "door-main",
+                "kind": "body",
+                "label": "Door / main side panel",
+                "width": 0.34,
+                "x": 0.32,
+                "y": 0.47,
+            },
+            {
+                "height": 0.2,
+                "id": "rear-quarter",
+                "kind": "body",
+                "label": "Rear quarter panel",
+                "width": 0.18,
+                "x": 0.64,
+                "y": 0.43,
+            },
+        ],
+        "template": {
+            "id": template_id,
+            "label": "Generic side-view coupe",
+            "view": "side",
+        },
+    }
 
 
 def preview_3d_screenshot_metadata() -> Preview3DScreenshotArtifactMetadata:

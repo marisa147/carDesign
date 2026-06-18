@@ -44,6 +44,11 @@ import {
   type WorkspaceResponse,
 } from "@caragent/contracts";
 
+import {
+  buildPreview3DCompatibility,
+  GENERIC_SIDE_COUPE_LIGHTWEIGHT_SHELL_ID,
+  PREVIEW_3D_FALLBACK_MESSAGE,
+} from "@/lib/preview3d/spec";
 import { useWorkbenchStore } from "@/lib/workbench/store";
 
 import Home from "./page";
@@ -686,6 +691,53 @@ describe("Phase 4 workbench shell", () => {
     localStorage.clear();
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
+  });
+
+  it("resolves lightweight 3D compatibility from the current PreviewSpec fixture", () => {
+    const compatibility = buildPreview3DCompatibility({
+      artifact: artifactFixture,
+      version: versionFixture,
+    });
+
+    expect(compatibility.status).toBe("compatible");
+    expect(compatibility.shell?.id).toBe(GENERIC_SIDE_COUPE_LIGHTWEIGHT_SHELL_ID);
+    expect(compatibility.shell?.materialSlots).toContain("side-decal-plane");
+    expect(compatibility.cameraPresetId).toBe("front-left-default");
+    expect(compatibility.fallbackMessage).toBeNull();
+    expect(compatibility.source.previewSpecTemplateId).toBe("generic-side-coupe");
+    expect(compatibility.safeZoneOverlays[0]?.id).toBe("door-main");
+  });
+
+  it("returns a stable 2D fallback for unsupported PreviewSpec templates", () => {
+    const unsupportedVersion: DesignVersionResponse = {
+      ...versionFixture,
+      parameters: {
+        ...versionFixture.parameters,
+        preview_spec: {
+          ...previewSpecFixture,
+          template: {
+            ...previewSpecFixture.template,
+            id: "unknown-template",
+          },
+        },
+      },
+    };
+
+    const compatibility = buildPreview3DCompatibility({
+      artifact: artifactFixture,
+      version: unsupportedVersion,
+    });
+
+    expect(compatibility.status).toBe("incompatible");
+    expect(compatibility.shell).toBeNull();
+    expect(compatibility.reason).toContain("unknown-template");
+    expect(compatibility.fallbackMessage).toBe(PREVIEW_3D_FALLBACK_MESSAGE);
+    expect(compatibility.source.previewSpecTemplateId).toBe("unknown-template");
+    expect(compatibility.safeZoneOverlays[0]?.id).toBe("door-main");
+    expect(unsupportedVersion.parameters?.preview_spec).toMatchObject({
+      canvas: { height: 768, width: 1536 },
+      template: { id: "unknown-template", view: "side" },
+    });
   });
 
   it("renders the integrated workbench regions as the first screen", () => {
