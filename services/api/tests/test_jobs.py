@@ -21,6 +21,7 @@ from caragent_core.preview3d import (
     Preview3DScreenshotArtifactMetadata,
     Preview3DSpec,
     build_preview_3d_spec,
+    required_preview_3d_warning_ids,
 )
 from caragent_core.services import jobs
 from fastapi.testclient import TestClient
@@ -790,6 +791,46 @@ def test_preview_3d_screenshot_creation_validates_payload_and_ownership(
     assert unsupported_type.status_code == 422
     assert wrong_workspace.status_code == 422
     assert wrong_version.status_code == 422
+
+
+def test_preview_3d_screenshot_creation_restores_required_warning_metadata(
+    tmp_path: Path,
+) -> None:
+    client, app = create_job_client(
+        tmp_path,
+        settings_overrides={"v2_lightweight_3d_preview_enabled": True},
+    )
+    workspace_id = client.post("/workspaces", json={"title": "3D warning restore"}).json()["id"]
+    job_id = client.post(
+        f"/workspaces/{workspace_id}/jobs",
+        json={"idempotency_key": "preview-3d-warning-restore", "operation": "generate_concept"},
+    ).json()["id"]
+    records = asyncio.run(
+        create_preview_3d_source_records(
+            app.state.session_factory,
+            UUID(workspace_id),
+            UUID(job_id),
+        ),
+    )
+    payload = preview_3d_screenshot_create_payload(
+        source_artifact_id=records["source_artifact_id"],
+        source_artifact_object_key=records["source_artifact_object_key"],
+        version_id=records["version_id"],
+        workspace_id=workspace_id,
+    )
+    preview_3d = payload["preview_3d"]
+    assert isinstance(preview_3d, dict)
+    preview_3d["warnings"] = []
+
+    created = client.post(
+        f"/workspaces/{workspace_id}/versions/{records['version_id']}/preview-3d-screenshots",
+        json=payload,
+    )
+
+    assert created.status_code == 201
+    assert created.json()["preview_3d_screenshot"]["warning_ids"] == (
+        required_preview_3d_warning_ids()
+    )
 
 
 def test_feedback_and_export_creation_validate_inputs(tmp_path: Path) -> None:
