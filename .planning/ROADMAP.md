@@ -80,7 +80,7 @@ v2.0 MVP is successful when:
 - [x] 08-01-PLAN.md — V1 release baseline, verification inventory, and regression command index.
 - [x] 08-02-PLAN.md — V2 feature flag scaffold, environment guards, and default-off rollout settings.
 - [x] 08-03-PLAN.md — Contract compatibility check for V1 workbench, jobs, artifacts, versions, and PreviewSpec.
-- [ ] 08-04-PLAN.md — V2 migration safety review and no-op migration proof.
+- [x] 08-04-PLAN.md — V2 migration safety review and no-op migration proof.
 - [ ] 08-05-PLAN.md — Phase 8 smoke, docs, UAT checklist, and readiness report.
 
 **UI hint:** no
