@@ -354,6 +354,123 @@ def test_generation_worker_blocks_hosted_call_when_quota_guards_are_missing(
     )
 
 
+def test_generation_worker_uses_persisted_hosted_intent_over_process_default(
+    tmp_path: Path,
+) -> None:
+    provider = RecordingSuccessProvider()
+    seeded = seed_generation_job(
+        tmp_path,
+        provider="bfl",
+        model="flux-2-pro-preview",
+        provider_parameters={"output_format": "png"},
+    )
+
+    result = asyncio.run(
+        run_generate_2d_concept_job(
+            seeded.database_url,
+            seeded.job_id,
+            provider=provider,
+            settings=WorkerSettings(
+                ai_hosted_daily_call_limit=10,
+                ai_hosted_rate_limit_per_minute=10,
+                ai_max_estimated_cost_per_job="1.0000",
+                ai_provider_bfl_api_key="bfl-secret",
+                ai_provider_calls_enabled=True,
+                ai_provider_default="disabled",
+                ai_provider_model="local-concept-v1",
+                v2_hosted_provider_rollout_enabled=True,
+            ),
+            storage=InMemoryObjectStorage(),
+        ),
+    )
+    state = asyncio.run(read_generation_state(seeded.session_factory, seeded.job_id))
+
+    assert result["status"] == "succeeded"
+    assert result["provider"] == "bfl"
+    assert provider.requests[0].provider == "bfl"
+    assert provider.requests[0].model == "flux-2-pro-preview"
+    assert provider.requests[0].parameters["output_format"] == "png"
+    assert state.model_runs[0].provider == "bfl"
+    assert state.model_runs[0].model == "flux-2-pro-preview"
+    assert state.model_runs[0].parameters["provider_route"] == "bfl"
+    assert state.artifacts[0].metadata_json["external_calls"] is True
+
+
+def test_generation_worker_rechecks_hosted_preflight_for_persisted_intent(
+    tmp_path: Path,
+) -> None:
+    provider = RecordingSuccessProvider()
+    seeded = seed_generation_job(
+        tmp_path,
+        provider="bfl",
+        model="flux-2-pro-preview",
+        provider_parameters={"output_format": "png"},
+    )
+
+    result = asyncio.run(
+        run_generate_2d_concept_job(
+            seeded.database_url,
+            seeded.job_id,
+            provider=provider,
+            settings=WorkerSettings(
+                ai_provider_bfl_api_key="bfl-secret",
+                ai_provider_calls_enabled=True,
+                ai_provider_default="disabled",
+                v2_hosted_provider_rollout_enabled=True,
+            ),
+            storage=InMemoryObjectStorage(),
+        ),
+    )
+    state = asyncio.run(read_generation_state(seeded.session_factory, seeded.job_id))
+
+    assert result["status"] == "failed"
+    assert provider.requests == []
+    assert state.model_runs[0].provider == "bfl"
+    assert_failure_metadata(
+        state,
+        category="provider_configuration",
+        error="Hosted calls require daily, per-minute, and per-job cost limits.",
+        model="flux-2-pro-preview",
+        provider="bfl",
+        stage="hosted_preflight",
+    )
+
+
+def test_generation_worker_rejects_unsupported_persisted_provider_before_call(
+    tmp_path: Path,
+) -> None:
+    provider = RecordingSuccessProvider()
+    seeded = seed_generation_job(
+        tmp_path,
+        provider="not-real",
+        model="not-real-model",
+        provider_parameters={"output_format": "png"},
+    )
+
+    result = asyncio.run(
+        run_generate_2d_concept_job(
+            seeded.database_url,
+            seeded.job_id,
+            provider=provider,
+            settings=WorkerSettings(ai_provider_calls_enabled=True),
+            storage=InMemoryObjectStorage(),
+        ),
+    )
+    state = asyncio.run(read_generation_state(seeded.session_factory, seeded.job_id))
+
+    assert result["status"] == "failed"
+    assert provider.requests == []
+    assert state.model_runs == []
+    assert_failure_metadata(
+        state,
+        category="provider_configuration",
+        error="Unsupported image provider: not-real",
+        model="not-real-model",
+        provider="not-real",
+        stage="prompt_plan",
+    )
+
+
 def test_generation_worker_blocks_hosted_call_when_daily_quota_is_reached(
     tmp_path: Path,
 ) -> None:
@@ -788,6 +905,15 @@ class SuccessfulCancelingProvider:
         return provider_result_from_request(request, external_calls=True)
 
 
+class RecordingSuccessProvider:
+    def __init__(self) -> None:
+        self.requests: list[ImageGenerationRequest] = []
+
+    async def generate(self, request: ImageGenerationRequest) -> ImageGenerationResult:
+        self.requests.append(request)
+        return provider_result_from_request(request, external_calls=True)
+
+
 def provider_result_from_request(
     request: ImageGenerationRequest,
     *,
@@ -847,6 +973,9 @@ def seed_generation_job(
     include_missing_logo_rights_asset: bool = False,
     include_missing_rights_asset: bool = False,
     iteration_parent: bool = False,
+    model: str | None = None,
+    provider: str | None = None,
+    provider_parameters: dict[str, object] | None = None,
 ) -> SeededGenerationJob:
     database_url = f"sqlite+aiosqlite:///{(tmp_path / 'generation.db').as_posix()}"
     engine = create_engine(database_url)
@@ -858,6 +987,9 @@ def seed_generation_job(
             include_missing_logo_rights_asset=include_missing_logo_rights_asset,
             include_missing_rights_asset=include_missing_rights_asset,
             iteration_parent=iteration_parent,
+            model=model,
+            provider=provider,
+            provider_parameters=provider_parameters,
         ),
     )
     asyncio.run(engine.dispose())
@@ -876,6 +1008,9 @@ async def seed_database(
     include_missing_logo_rights_asset: bool,
     include_missing_rights_asset: bool,
     iteration_parent: bool,
+    model: str | None,
+    provider: str | None,
+    provider_parameters: dict[str, object] | None,
 ) -> tuple[UUID, UUID | None]:
     async with engine.begin() as connection:
         await connection.run_sync(metadata.create_all)
@@ -933,23 +1068,32 @@ async def seed_database(
                 title="Parent concept",
             )
             parent_version_id = parent.id
+        job_metadata = (
+            {
+                "change_request": "Make the side stripe bolder.",
+                "iteration": True,
+                "parameter_overrides": {"coverage": "door focus"},
+                "parent_version_id": str(parent_version_id),
+                "source": "generation-iteration-api",
+            }
+            if parent_version_id is not None
+            else {}
+        )
+        if provider is not None or model is not None or provider_parameters:
+            job_metadata["provider_intent"] = {
+                "model": model,
+                "parameters": provider_parameters or {},
+                "provider": provider,
+            }
         created = await jobs.create_job(
             session,
             workspace.id,
             brief_id=brief.id,
             idempotency_key="generation-001",
-            metadata=(
-                {
-                    "change_request": "Make the side stripe bolder.",
-                    "iteration": True,
-                    "parameter_overrides": {"coverage": "door focus"},
-                    "parent_version_id": str(parent_version_id),
-                    "source": "generation-iteration-api",
-                }
-                if parent_version_id is not None
-                else None
-            ),
+            metadata=job_metadata or None,
+            model=model,
             operation="generate_2d_concept",
+            provider=provider,
         )
         return created.job.id, parent_version_id
 
