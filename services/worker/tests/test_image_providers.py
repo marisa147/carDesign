@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import base64
 import json
+from dataclasses import replace
 from decimal import Decimal
 
 import httpx
@@ -112,28 +113,46 @@ def test_bfl_provider_requires_api_key_before_hosted_calls() -> None:
 
 
 def test_bfl_provider_submits_polls_and_downloads_result_bytes() -> None:
-    request = build_image_request()
+    request = build_bfl_image_request()
+    seen_x_key_headers: list[str | None] = []
     seen_authorization_headers: list[str | None] = []
 
     def handler(http_request: httpx.Request) -> httpx.Response:
         if http_request.url.host == "api.test":
+            seen_x_key_headers.append(http_request.headers.get("x-key"))
             seen_authorization_headers.append(http_request.headers.get("Authorization"))
-            if http_request.url.path == "/v1/flux-pro":
+            if http_request.url.path == "/v1/flux-2-pro-preview":
                 payload = json.loads(http_request.content)
                 assert payload["prompt"] == request.prompt_text
-                assert payload["model"] == request.model
-                assert payload["parameters"] == request.parameters
-                return httpx.Response(200, json={"id": "bfl-request-1"})
-            if http_request.url.path == "/v1/get_result":
+                assert payload["output_format"] == "png"
+                assert "prompt_payload" not in payload
                 return httpx.Response(
                     200,
                     json={
+                        "cost": 0.03,
                         "id": "bfl-request-1",
-                        "status": "Ready",
-                        "result": {"sample": "https://cdn.test/result.png", "seed": 123},
+                        "input_mp": 0.5,
+                        "output_mp": 1.0,
+                        "polling_url": "https://poll.test/v1/get_result?id=bfl-request-1",
                     },
                 )
-        if http_request.url.host == "cdn.test":
+        if http_request.url.host == "poll.test":
+            seen_x_key_headers.append(http_request.headers.get("x-key"))
+            seen_authorization_headers.append(http_request.headers.get("Authorization"))
+            assert http_request.url.path == "/v1/get_result"
+            assert http_request.url.params["id"] == "bfl-request-1"
+            return httpx.Response(
+                200,
+                json={
+                    "id": "bfl-request-1",
+                    "status": "Ready",
+                    "result": {
+                        "sample": "https://delivery.test/result.png?token=signed-secret",
+                        "seed": 123,
+                    },
+                },
+            )
+        if http_request.url.host == "delivery.test":
             return httpx.Response(
                 200,
                 content=ONE_BY_ONE_PNG,
@@ -155,25 +174,37 @@ def test_bfl_provider_submits_polls_and_downloads_result_bytes() -> None:
     finally:
         asyncio.run(client.aclose())
 
-    assert seen_authorization_headers == ["Bearer bfl-secret", "Bearer bfl-secret"]
+    assert seen_x_key_headers == ["bfl-secret", "bfl-secret"]
+    assert seen_authorization_headers == [None, None]
     assert result.image_bytes == ONE_BY_ONE_PNG
     assert result.content_type == "image/png"
     assert result.width == 1
     assert result.height == 1
     assert result.provider == "bfl"
-    assert result.model == "local-concept-v1"
+    assert result.model == "flux-2-pro-preview"
+    assert result.actual_cost == Decimal("0.0300")
     assert result.metadata["external_calls"] is True
     assert result.metadata["request_id"] == "bfl-request-1"
-    assert result.metadata["result_url"] == "https://cdn.test/result.png"
+    assert result.metadata["input_mp"] == 0.5
+    assert result.metadata["output_mp"] == 1.0
     assert result.metadata["seed"] == 123
+    rendered_metadata = json.dumps(result.metadata, sort_keys=True)
+    assert "signed-secret" not in rendered_metadata
+    assert "delivery.test/result.png" not in rendered_metadata
 
 
 def test_bfl_provider_times_out_with_bounded_polling() -> None:
-    request = build_image_request()
+    request = build_bfl_image_request()
 
     def handler(http_request: httpx.Request) -> httpx.Response:
-        if http_request.url.path == "/v1/flux-pro":
-            return httpx.Response(200, json={"id": "slow-request"})
+        if http_request.url.path == "/v1/flux-2-pro-preview":
+            return httpx.Response(
+                200,
+                json={
+                    "id": "slow-request",
+                    "polling_url": "https://api.test/v1/get_result?id=slow-request",
+                },
+            )
         return httpx.Response(200, json={"id": "slow-request", "status": "Pending"})
 
     client = httpx.AsyncClient(
@@ -195,7 +226,7 @@ def test_bfl_provider_times_out_with_bounded_polling() -> None:
 
 
 def test_bfl_provider_sanitizes_provider_errors() -> None:
-    request = build_image_request()
+    request = build_bfl_image_request()
 
     def handler(_http_request: httpx.Request) -> httpx.Response:
         return httpx.Response(500, text="bfl-secret leaked by upstream")
@@ -216,6 +247,49 @@ def test_bfl_provider_sanitizes_provider_errors() -> None:
     assert "[redacted]" in str(exc_info.value)
 
 
+def test_bfl_provider_maps_moderation_status_to_sanitized_error() -> None:
+    request = build_bfl_image_request()
+
+    def handler(http_request: httpx.Request) -> httpx.Response:
+        if http_request.url.path == "/v1/flux-2-pro-preview":
+            return httpx.Response(
+                200,
+                json={
+                    "id": "moderated-request",
+                    "polling_url": "https://api.test/v1/get_result?id=moderated-request",
+                },
+            )
+        return httpx.Response(
+            200,
+            json={
+                "id": "moderated-request",
+                "message": "bfl-secret request rejected by policy",
+                "status": "Request Moderated",
+            },
+        )
+
+    client = httpx.AsyncClient(
+        base_url="https://api.test",
+        transport=httpx.MockTransport(handler),
+    )
+    provider = BflImageProvider(
+        api_key="bfl-secret",
+        client=client,
+        max_poll_attempts=1,
+        poll_interval_seconds=0,
+    )
+
+    try:
+        with pytest.raises(ImageProviderError) as exc_info:
+            asyncio.run(provider.generate(request))
+    finally:
+        asyncio.run(client.aclose())
+
+    assert "moderated" in str(exc_info.value).lower()
+    assert "bfl-secret" not in str(exc_info.value)
+    assert exc_info.value.provider_status == "request_moderated"
+
+
 def build_image_request(*, text: list[str] | None = None) -> ImageGenerationRequest:
     brief = create_generation_brief(
         original_request="White coupe with Sakura heroine, teal ribbons, and MOON DRIVE text.",
@@ -224,6 +298,15 @@ def build_image_request(*, text: list[str] | None = None) -> ImageGenerationRequ
         text=text or ["MOON DRIVE"],
     )
     return ImageGenerationRequest.from_prompt_plan(build_prompt_plan(brief))
+
+
+def build_bfl_image_request() -> ImageGenerationRequest:
+    return replace(
+        build_image_request(),
+        model="flux-2-pro-preview",
+        parameters={"output_format": "png"},
+        provider="bfl",
+    )
 
 
 def png_dimensions(image_bytes: bytes) -> tuple[int, int]:
