@@ -1,13 +1,21 @@
 from __future__ import annotations
 
+import base64
+import binascii
+import hashlib
 from typing import Annotated
-from uuid import UUID
+from uuid import UUID, uuid4
 
+from caragent_core.enums import ArtifactKind
+from caragent_core.models import Artifact
+from caragent_core.preview3d import Preview3DScreenshotArtifactMetadata
 from caragent_core.services import jobs, workspaces
-from fastapi import APIRouter, Depends, HTTPException, status
+from caragent_core.storage import ObjectStorage, build_object_key, validate_upload
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from caragent_api.dependencies import get_db_session, get_queue_client
+from caragent_api.config import ApiSettings
+from caragent_api.dependencies import get_db_session, get_object_storage, get_queue_client
 from caragent_api.queue import QueueClient
 from caragent_api.schemas import (
     ArtifactResponse,
@@ -23,6 +31,7 @@ from caragent_api.schemas import (
     JobCreateResponse,
     JobEventResponse,
     ModelRunResponse,
+    Preview3DScreenshotCreateRequest,
     QueueRevokeResponse,
 )
 
@@ -30,6 +39,10 @@ router = APIRouter(tags=["jobs"])
 
 SessionDependency = Annotated[AsyncSession, Depends(get_db_session)]
 QueueDependency = Annotated[QueueClient, Depends(get_queue_client)]
+StorageDependency = Annotated[ObjectStorage, Depends(get_object_storage)]
+
+SCREENSHOT_CONTENT_TYPES = {"image/png", "image/webp"}
+MAX_PREVIEW_3D_SCREENSHOT_BYTES = 5 * 1024 * 1024
 
 
 def workspace_not_found(error: Exception) -> HTTPException:
@@ -174,6 +187,61 @@ async def list_artifacts(
     return [ArtifactResponse.model_validate(row) for row in rows]
 
 
+@router.post(
+    "/workspaces/{workspace_id}/versions/{version_id}/preview-3d-screenshots",
+    response_model=ArtifactResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_preview_3d_screenshot(
+    workspace_id: UUID,
+    version_id: UUID,
+    payload: Preview3DScreenshotCreateRequest,
+    request: Request,
+    session: SessionDependency,
+    storage: StorageDependency,
+) -> ArtifactResponse:
+    settings = _settings_from_request(request)
+    if not settings.v2_lightweight_3d_preview_enabled:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="V2_LIGHTWEIGHT_3D_PREVIEW_ENABLED is disabled.",
+        )
+
+    try:
+        version = await jobs.get_workspace_version(session, workspace_id, version_id)
+        await _validate_preview_3d_source_artifact(session, workspace_id, version_id, payload)
+        screenshot_bytes = _decode_screenshot_bytes(payload.image_base64)
+        _validate_screenshot_upload(payload, len(screenshot_bytes))
+        metadata = _preview_3d_screenshot_metadata(payload)
+        object_key = build_object_key(
+            workspace_id=workspace_id,
+            kind=ArtifactKind.PREVIEW_3D_SCREENSHOT.value,
+            record_id=uuid4(),
+            filename=payload.filename,
+        )
+        await storage.put_object(object_key, screenshot_bytes, payload.content_type)
+        artifact = await jobs.create_artifact(
+            session,
+            workspace_id,
+            byte_size=len(screenshot_bytes),
+            checksum_sha256=hashlib.sha256(screenshot_bytes).hexdigest(),
+            content_type=payload.content_type,
+            height=payload.height,
+            job_id=version.job_id,
+            kind=ArtifactKind.PREVIEW_3D_SCREENSHOT.value,
+            metadata=metadata.model_dump(mode="json"),
+            object_key=object_key,
+            version_id=version.id,
+            width=payload.width,
+        )
+    except workspaces.WorkspaceNotFoundError as error:
+        raise workspace_not_found(error) from error
+    except (ValueError, jobs.JobValidationError) as error:
+        raise job_validation_failed(error) from error
+
+    return ArtifactResponse.model_validate(artifact)
+
+
 @router.get("/jobs/{job_id}/model-runs", response_model=list[ModelRunResponse])
 async def list_model_runs(job_id: UUID, session: SessionDependency) -> list[ModelRunResponse]:
     try:
@@ -271,3 +339,71 @@ def _extract_queue_task_id(metadata: object) -> str | None:
         return None
     task_id = queue_metadata.get("task_id")
     return task_id if isinstance(task_id, str) and task_id else None
+
+
+def _settings_from_request(request: Request) -> ApiSettings:
+    settings = getattr(request.app.state, "settings", None)
+    if isinstance(settings, ApiSettings):
+        return settings
+    raise RuntimeError("API settings are not configured")
+
+
+async def _validate_preview_3d_source_artifact(
+    session: AsyncSession,
+    workspace_id: UUID,
+    version_id: UUID,
+    payload: Preview3DScreenshotCreateRequest,
+) -> None:
+    source = payload.preview_3d.source
+    if source.workspace_id != workspace_id:
+        raise jobs.JobValidationError("Preview3D source workspace does not match request")
+    if source.version_id != version_id:
+        raise jobs.JobValidationError("Preview3D source version does not match request")
+
+    source_artifact = await session.get(Artifact, source.artifact_id)
+    if source_artifact is None or source_artifact.workspace_id != workspace_id:
+        raise jobs.JobValidationError("Preview3D source artifact not found for workspace")
+    if source_artifact.version_id != version_id:
+        raise jobs.JobValidationError("Preview3D source artifact not found for version")
+
+
+def _decode_screenshot_bytes(image_base64: str) -> bytes:
+    try:
+        return base64.b64decode(image_base64, validate=True)
+    except (binascii.Error, ValueError) as error:
+        raise ValueError("Screenshot image_base64 is invalid") from error
+
+
+def _validate_screenshot_upload(
+    payload: Preview3DScreenshotCreateRequest,
+    byte_size: int,
+) -> None:
+    if payload.content_type not in SCREENSHOT_CONTENT_TYPES:
+        raise ValueError(f"Unsupported screenshot content type: {payload.content_type}")
+    validate_upload(
+        byte_size=byte_size,
+        content_type=payload.content_type,
+        filename=payload.filename,
+        max_upload_bytes=MAX_PREVIEW_3D_SCREENSHOT_BYTES,
+    )
+
+
+def _preview_3d_screenshot_metadata(
+    payload: Preview3DScreenshotCreateRequest,
+) -> Preview3DScreenshotArtifactMetadata:
+    warning_ids = [
+        warning.id
+        for warning in payload.preview_3d.warnings
+        if warning.id in {"non_production_preview", "uv_not_verified"}
+    ]
+    return Preview3DScreenshotArtifactMetadata.model_validate(
+        {
+            "preview_3d_screenshot": {
+                "camera": payload.preview_3d.camera.model_dump(mode="json"),
+                "preview_3d": payload.preview_3d.model_dump(mode="json"),
+                "shell_id": payload.preview_3d.compatibility.shell_id,
+                "source_artifact_id": payload.preview_3d.source.artifact_id,
+                "warning_ids": warning_ids,
+            },
+        },
+    )

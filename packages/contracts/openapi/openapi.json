@@ -2836,6 +2836,52 @@
         "title": "Preview3DMaterialPlan",
         "type": "object"
       },
+      "Preview3DScreenshotCreateRequest": {
+        "properties": {
+          "content_type": {
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Content Type",
+            "type": "string"
+          },
+          "filename": {
+            "default": "preview-3d-screenshot.png",
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Filename",
+            "type": "string"
+          },
+          "height": {
+            "exclusiveMinimum": 0.0,
+            "maximum": 8192.0,
+            "title": "Height",
+            "type": "integer"
+          },
+          "image_base64": {
+            "minLength": 1,
+            "title": "Image Base64",
+            "type": "string"
+          },
+          "preview_3d": {
+            "$ref": "#/components/schemas/Preview3DSpec"
+          },
+          "width": {
+            "exclusiveMinimum": 0.0,
+            "maximum": 8192.0,
+            "title": "Width",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "content_type",
+          "height",
+          "image_base64",
+          "preview_3d",
+          "width"
+        ],
+        "title": "Preview3DScreenshotCreateRequest",
+        "type": "object"
+      },
       "Preview3DScreenshotMetadata": {
         "additionalProperties": false,
         "properties": {
@@ -4985,6 +5031,69 @@
         "summary": "Submit Generation Iteration Job",
         "tags": [
           "generation"
+        ]
+      }
+    },
+    "/workspaces/{workspace_id}/versions/{version_id}/preview-3d-screenshots": {
+      "post": {
+        "operationId": "create_preview_3d_screenshot_workspaces__workspace_id__versions__version_id__preview_3d_screenshots_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "version_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Version Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Preview3DScreenshotCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArtifactResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Preview 3D Screenshot",
+        "tags": [
+          "jobs"
         ]
       }
     }

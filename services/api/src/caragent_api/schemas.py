@@ -376,6 +376,15 @@ class ArtifactResponse(BaseModel):
         return self
 
 
+class Preview3DScreenshotCreateRequest(BaseModel):
+    content_type: str = Field(min_length=1, max_length=80)
+    filename: str = Field(default="preview-3d-screenshot.png", min_length=1, max_length=160)
+    height: int = Field(gt=0, le=8192)
+    image_base64: str = Field(min_length=1)
+    preview_3d: Preview3DSpec
+    width: int = Field(gt=0, le=8192)
+
+
 class ModelRunResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

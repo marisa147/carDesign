@@ -763,6 +763,32 @@ export interface OperationsProviderStatusResponse {
   worker: WorkerOperationsSummary;
 }
 
+export interface Preview3DScreenshotCreateRequest {
+  /**
+     * @minLength 1
+     * @maxLength 80
+     */
+  content_type: string;
+  /**
+     * @minLength 1
+     * @maxLength 160
+     */
+  filename?: string;
+  /**
+     * @maximum 8192
+     * @exclusiveMinimum 0
+     */
+  height: number;
+  /** @minLength 1 */
+  image_base64: string;
+  preview_3d: Preview3DSpec;
+  /**
+     * @maximum 8192
+     * @exclusiveMinimum 0
+     */
+  width: number;
+}
+
 export interface WorkspaceCreateRequest {
   owner_id?: string | null;
   title?: string | null;
@@ -4019,4 +4045,103 @@ export const useSubmitGenerationIterationJobWorkspacesWorkspaceIdVersionsVersion
         TContext
       > => {
       return useMutation(getSubmitGenerationIterationJobWorkspacesWorkspaceIdVersionsVersionIdIterationsPostMutationOptions(options), queryClient);
+    }
+
+/**
+ * @summary Create Preview 3D Screenshot
+ */
+export type createPreview3dScreenshotWorkspacesWorkspaceIdVersionsVersionIdPreview3dScreenshotsPostResponse201 = {
+  data: ArtifactResponse
+  status: 201
+}
+
+export type createPreview3dScreenshotWorkspacesWorkspaceIdVersionsVersionIdPreview3dScreenshotsPostResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+
+export type createPreview3dScreenshotWorkspacesWorkspaceIdVersionsVersionIdPreview3dScreenshotsPostResponseSuccess = (createPreview3dScreenshotWorkspacesWorkspaceIdVersionsVersionIdPreview3dScreenshotsPostResponse201) & {
+  headers: Headers;
+};
+export type createPreview3dScreenshotWorkspacesWorkspaceIdVersionsVersionIdPreview3dScreenshotsPostResponseError = (createPreview3dScreenshotWorkspacesWorkspaceIdVersionsVersionIdPreview3dScreenshotsPostResponse422) & {
+  headers: Headers;
+};
+
+export type createPreview3dScreenshotWorkspacesWorkspaceIdVersionsVersionIdPreview3dScreenshotsPostResponse = (createPreview3dScreenshotWorkspacesWorkspaceIdVersionsVersionIdPreview3dScreenshotsPostResponseSuccess | createPreview3dScreenshotWorkspacesWorkspaceIdVersionsVersionIdPreview3dScreenshotsPostResponseError)
+
+export const getCreatePreview3dScreenshotWorkspacesWorkspaceIdVersionsVersionIdPreview3dScreenshotsPostUrl = (workspaceId: string,
+    versionId: string,) => {
+
+
+
+
+  return `/workspaces/${workspaceId}/versions/${versionId}/preview-3d-screenshots`
+}
+
+export const createPreview3dScreenshotWorkspacesWorkspaceIdVersionsVersionIdPreview3dScreenshotsPost = async (workspaceId: string,
+    versionId: string,
+    preview3DScreenshotCreateRequest: Preview3DScreenshotCreateRequest, options?: RequestInit): Promise<createPreview3dScreenshotWorkspacesWorkspaceIdVersionsVersionIdPreview3dScreenshotsPostResponse> => {
+
+  const res = await fetch(getCreatePreview3dScreenshotWorkspacesWorkspaceIdVersionsVersionIdPreview3dScreenshotsPostUrl(workspaceId,versionId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      preview3DScreenshotCreateRequest,)
+  }
+)
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: createPreview3dScreenshotWorkspacesWorkspaceIdVersionsVersionIdPreview3dScreenshotsPostResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as createPreview3dScreenshotWorkspacesWorkspaceIdVersionsVersionIdPreview3dScreenshotsPostResponse
+}
+
+
+
+
+export const getCreatePreview3dScreenshotWorkspacesWorkspaceIdVersionsVersionIdPreview3dScreenshotsPostMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createPreview3dScreenshotWorkspacesWorkspaceIdVersionsVersionIdPreview3dScreenshotsPost>>, TError,{workspaceId: string;versionId: string;data: Preview3DScreenshotCreateRequest}, TContext>, fetch?: RequestInit}
+): UseMutationOptions<Awaited<ReturnType<typeof createPreview3dScreenshotWorkspacesWorkspaceIdVersionsVersionIdPreview3dScreenshotsPost>>, TError,{workspaceId: string;versionId: string;data: Preview3DScreenshotCreateRequest}, TContext> => {
+
+const mutationKey = ['createPreview3dScreenshotWorkspacesWorkspaceIdVersionsVersionIdPreview3dScreenshotsPost'];
+const {mutation: mutationOptions, fetch: fetchOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, fetch: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createPreview3dScreenshotWorkspacesWorkspaceIdVersionsVersionIdPreview3dScreenshotsPost>>, {workspaceId: string;versionId: string;data: Preview3DScreenshotCreateRequest}> = (props) => {
+          const {workspaceId,versionId,data} = props ?? {};
+
+          return  createPreview3dScreenshotWorkspacesWorkspaceIdVersionsVersionIdPreview3dScreenshotsPost(workspaceId,versionId,data,fetchOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreatePreview3dScreenshotWorkspacesWorkspaceIdVersionsVersionIdPreview3dScreenshotsPostMutationResult = NonNullable<Awaited<ReturnType<typeof createPreview3dScreenshotWorkspacesWorkspaceIdVersionsVersionIdPreview3dScreenshotsPost>>>
+    export type CreatePreview3dScreenshotWorkspacesWorkspaceIdVersionsVersionIdPreview3dScreenshotsPostMutationBody = Preview3DScreenshotCreateRequest
+    export type CreatePreview3dScreenshotWorkspacesWorkspaceIdVersionsVersionIdPreview3dScreenshotsPostMutationError = HTTPValidationError
+
+    /**
+ * @summary Create Preview 3D Screenshot
+ */
+export const useCreatePreview3dScreenshotWorkspacesWorkspaceIdVersionsVersionIdPreview3dScreenshotsPost = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createPreview3dScreenshotWorkspacesWorkspaceIdVersionsVersionIdPreview3dScreenshotsPost>>, TError,{workspaceId: string;versionId: string;data: Preview3DScreenshotCreateRequest}, TContext>, fetch?: RequestInit}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof createPreview3dScreenshotWorkspacesWorkspaceIdVersionsVersionIdPreview3dScreenshotsPost>>,
+        TError,
+        {workspaceId: string;versionId: string;data: Preview3DScreenshotCreateRequest},
+        TContext
+      > => {
+      return useMutation(getCreatePreview3dScreenshotWorkspacesWorkspaceIdVersionsVersionIdPreview3dScreenshotsPostMutationOptions(options), queryClient);
     }

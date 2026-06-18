@@ -29,7 +29,6 @@ from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker
 from caragent_api.config import ApiSettings
 from caragent_api.main import create_app
 
-
 PNG_BYTES = b"\x89PNG\r\n\x1a\n" + b"\x00" * 32
 
 
