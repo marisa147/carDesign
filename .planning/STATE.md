@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: V2 MVP
 status: executing
-stopped_at: Completed 09-07-PLAN.md
-last_updated: "2026-06-18T09:35:11Z"
-last_activity: "2026-06-18 -- Completed Phase 09 Plan 07 smoke docs and UAT evidence"
+stopped_at: Created Phase 10 execution plans
+last_updated: "2026-06-18T09:40:39Z"
+last_activity: "2026-06-18 -- Created Phase 10 targeted regeneration execution plans"
 progress:
   total_phases: 7
   completed_phases: 2
@@ -25,11 +25,11 @@ See: .planning/PROJECT.md (updated 2026-06-18)
 
 ## Current Position
 
-Milestone: v2.0 V2 MVP — PHASE 10 PLANNING
-Phase: 10 (Targeted Regeneration And Masked Editing MVP) — PLANNING
-Plan: Not generated
-Status: Ready to create Phase 10 plans from `.planning/ROADMAP.md`
-Last activity: 2026-06-18 -- Completed Phase 09 Plan 07 smoke docs and UAT evidence
+Milestone: v2.0 V2 MVP — PHASE 10 READY
+Phase: 10 (Targeted Regeneration And Masked Editing MVP) — READY FOR EXECUTION
+Plan: 10-01-PLAN.md
+Status: Ready to execute Phase 10 Plan 01
+Last activity: 2026-06-18 -- Created Phase 10 targeted regeneration execution plans
 
 Progress: [###-------] 25%
 
@@ -50,7 +50,7 @@ v2.0 MVP is scoped to the following phase sequence:
 |-------|-------|-------|--------------|
 | Phase 8 | V1 Closure And V2 Readiness Gate | 5/5 | V2-READY-01..04 |
 | Phase 9 | Hosted Provider Rollout MVP | 7/7 | V2-PROVIDER-01..05 |
-| Phase 10 | Targeted Regeneration And Masked Editing MVP | 0/8 | V2-EDIT-01..05 |
+| Phase 10 | Targeted Regeneration And Masked Editing MVP | 0/8 ready | V2-EDIT-01..05 |
 | Phase 11 | Reference-Guided Generation MVP | 0/7 | V2-REF-01..05 |
 | Phase 12 | Lightweight 3D Preview MVP | 0/8 | V2-3D-01..05 |
 | Phase 13 | Enhanced Concept Handoff Package MVP | 0/7 | V2-HANDOFF-01..05 |
@@ -98,7 +98,8 @@ None.
 
 ### Blockers/Concerns
 
-- Hosted provider quality, pricing, moderation, account access, quota behavior, and commercial terms must be re-verified before hosted generation rollout.
+- Mask-aware hosted provider support and payload shape must be re-verified before enabling real provider-mask calls.
+- Hosted provider quality, pricing, moderation, account access, quota behavior, and commercial terms must remain guarded before hosted generation rollout.
 - Hosted provider calls must stay feature-flagged and quota guarded to avoid accidental cost spikes.
 - 3D preview must keep non-production labels and avoid implying verified wrap-shop UV accuracy.
 - Reference usage must preserve rights/source metadata gates and snapshots.
@@ -119,8 +120,8 @@ Items acknowledged and deferred beyond v2.0 MVP:
 
 ## Session Continuity
 
-Last session: 2026-06-18T09:35:11Z
-Stopped at: Completed 09-07-PLAN.md
+Last session: 2026-06-18T09:40:39Z
+Stopped at: Created Phase 10 execution plans
 Resume files:
 
 - `.planning/PROJECT.md`
@@ -148,6 +149,18 @@ Resume files:
 - `.planning/phases/09-hosted-provider-rollout-mvp/09-VERIFICATION.md`
 - `.planning/phases/09-hosted-provider-rollout-mvp/09-HUMAN-UAT.md`
 - `.planning/phases/09-hosted-provider-rollout-mvp/09-MILESTONE-NOTES.md`
+- `.planning/phases/10-targeted-regeneration-and-masked-editing-mvp/10-CONTEXT.md`
+- `.planning/phases/10-targeted-regeneration-and-masked-editing-mvp/10-RESEARCH.md`
+- `.planning/phases/10-targeted-regeneration-and-masked-editing-mvp/10-VALIDATION.md`
+- `.planning/phases/10-targeted-regeneration-and-masked-editing-mvp/10-PATTERNS.md`
+- `.planning/phases/10-targeted-regeneration-and-masked-editing-mvp/10-01-PLAN.md`
+- `.planning/phases/10-targeted-regeneration-and-masked-editing-mvp/10-02-PLAN.md`
+- `.planning/phases/10-targeted-regeneration-and-masked-editing-mvp/10-03-PLAN.md`
+- `.planning/phases/10-targeted-regeneration-and-masked-editing-mvp/10-04-PLAN.md`
+- `.planning/phases/10-targeted-regeneration-and-masked-editing-mvp/10-05-PLAN.md`
+- `.planning/phases/10-targeted-regeneration-and-masked-editing-mvp/10-06-PLAN.md`
+- `.planning/phases/10-targeted-regeneration-and-masked-editing-mvp/10-07-PLAN.md`
+- `.planning/phases/10-targeted-regeneration-and-masked-editing-mvp/10-08-PLAN.md`
 
-Next recommended command: `$gsd-plan-phase 10 --auto`
+Next recommended command: `$gsd-execute-phase 10 --auto`
 Alternative: `$gsd-progress --next`

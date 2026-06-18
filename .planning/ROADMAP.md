@@ -330,8 +330,8 @@ A single end-to-end V2 MVP UAT should prove:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 8. V1 Closure And V2 Readiness Gate | 5/5 | Complete | 2026-06-18 |
-| 9. Hosted Provider Rollout MVP | 5/7 | In Progress | - |
-| 10. Targeted Regeneration And Masked Editing MVP | 0/8 | Not started | - |
+| 9. Hosted Provider Rollout MVP | 7/7 | Complete | 2026-06-18 |
+| 10. Targeted Regeneration And Masked Editing MVP | 0/8 | Ready | - |
 | 11. Reference-Guided Generation MVP | 0/7 | Not started | - |
 | 12. Lightweight 3D Preview MVP | 0/8 | Not started | - |
 | 13. Enhanced Concept Handoff Package MVP | 0/7 | Not started | - |
