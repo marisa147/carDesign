@@ -138,6 +138,7 @@ def _failure_response(job: GenerationJob) -> RecentFailureResponse:
         message=job.latest_error,
         model=_optional_metadata_string(metadata.get("model")) or job.model,
         provider=_optional_metadata_string(metadata.get("provider")) or job.provider,
+        provider_status=_optional_metadata_string(metadata.get("provider_status")),
         stage=_optional_metadata_string(metadata.get("stage")),
         status=job.status,
     )

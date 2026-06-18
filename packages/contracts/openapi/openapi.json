@@ -85,6 +85,11 @@
             "title": "Kind",
             "type": "string"
           },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
           "object_key": {
             "title": "Object Key",
             "type": "string"
@@ -2726,6 +2731,17 @@
               }
             ],
             "title": "Provider"
+          },
+          "provider_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider Status"
           },
           "stage": {
             "anyOf": [

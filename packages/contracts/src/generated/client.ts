@@ -23,6 +23,8 @@ import type {
   UseQueryResult
 } from '@tanstack/react-query';
 
+export type ArtifactResponseMetadata = { [key: string]: unknown };
+
 export interface ArtifactResponse {
   asset_id: string | null;
   byte_size: number | null;
@@ -33,6 +35,7 @@ export interface ArtifactResponse {
   id: string;
   job_id: string | null;
   kind: string;
+  metadata?: ArtifactResponseMetadata;
   object_key: string;
   updated_at: string;
   version_id: string | null;
@@ -514,6 +517,7 @@ export interface RecentFailureResponse {
   message: string | null;
   model: string | null;
   provider: string | null;
+  provider_status?: string | null;
   stage: string | null;
   status: string;
 }

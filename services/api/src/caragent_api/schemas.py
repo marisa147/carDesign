@@ -292,6 +292,7 @@ class RecentFailureResponse(BaseModel):
     message: str | None
     model: str | None
     provider: str | None
+    provider_status: str | None = None
     stage: str | None
     status: str
 
@@ -335,6 +336,7 @@ class ArtifactResponse(BaseModel):
     content_type: str | None
     byte_size: int | None
     checksum_sha256: str | None
+    metadata: dict[str, Any] = Field(default_factory=dict, validation_alias="metadata_json")
     width: int | None
     height: int | None
     created_at: datetime
