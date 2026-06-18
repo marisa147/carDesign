@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: V2 MVP
 status: executing
-stopped_at: Phase 11 Plan 01 complete; ready to execute 11-02-PLAN.md
-last_updated: "2026-06-18T14:11:33Z"
-last_activity: "2026-06-18 -- Completed Phase 11 Plan 01 reference contract foundation"
+stopped_at: Phase 11 Plan 02 complete; ready to execute 11-03-PLAN.md
+last_updated: "2026-06-18T14:23:23Z"
+last_activity: "2026-06-18 -- Completed Phase 11 Plan 02 reference role workbench UI"
 progress:
   total_phases: 7
   completed_phases: 3
   total_plans: 48
-  completed_plans: 21
-  percent: 44
+  completed_plans: 22
+  percent: 46
 ---
 
 # Project State
@@ -27,11 +27,11 @@ See: .planning/PROJECT.md (updated 2026-06-18)
 
 Milestone: v2.0 V2 MVP — PHASE 11 IN PROGRESS
 Phase: 11 (Reference-Guided Generation MVP) — IN PROGRESS
-Plan: 11-02-PLAN.md — Asset library UI updates for assigning reference roles and generation eligibility
+Plan: 11-03-PLAN.md — Prompt planner/reference planner integration and unsupported-capability warnings
 Status: Executing Phase 11
-Last activity: 2026-06-18 -- Completed Phase 11 Plan 01 reference contract foundation
+Last activity: 2026-06-18 -- Completed Phase 11 Plan 02 reference role workbench UI
 
-Progress: [####------] 44%
+Progress: [#####-----] 46%
 
 ## Milestone Archives
 
@@ -51,7 +51,7 @@ v2.0 MVP is scoped to the following phase sequence:
 | Phase 8 | V1 Closure And V2 Readiness Gate | 5/5 | V2-READY-01..04 |
 | Phase 9 | Hosted Provider Rollout MVP | 7/7 | V2-PROVIDER-01..05 |
 | Phase 10 | Targeted Regeneration And Masked Editing MVP | 8/8 | V2-EDIT-01..05 |
-| Phase 11 | Reference-Guided Generation MVP | 1/7 in progress | V2-REF-01..05 |
+| Phase 11 | Reference-Guided Generation MVP | 2/7 in progress | V2-REF-01..05 |
 | Phase 12 | Lightweight 3D Preview MVP | 0/8 | V2-3D-01..05 |
 | Phase 13 | Enhanced Concept Handoff Package MVP | 0/7 | V2-HANDOFF-01..05 |
 | Phase 14 | V2 MVP Hardening, Docs, Smoke, And UAT | 0/6 | V2-REL-01..05 |
@@ -101,6 +101,7 @@ Recent decisions affecting v2.0:
 - [Phase 10 Plan 08]: Phase 10 focused regression, provider-off smoke dry run, contracts check, and aggregate validation passed; targeted edit docs, UAT checklist, and milestone notes now close V2-EDIT-01..05.
 - [Phase 11 Planning]: Reference guidance is planned around structured `reference_usage`, six explicit roles, rights/source snapshots, provider capability filtering, durable trace metadata, provider-off automated validation, and manual-only hosted reference smoke.
 - [Phase 11 Plan 01]: Reference roles, reference assignment helpers, rights/source snapshot contracts, provider reference capability metadata, API passthrough, and generated OpenAPI/TypeScript contracts are in place.
+- [Phase 11 Plan 02]: Workbench asset rows now assign six reference roles, rights-missing assets are not generation-eligible, and parameter saves submit structured `reference_usage` while preserving legacy ids.
 
 ### Pending Todos
 
@@ -130,8 +131,8 @@ Items acknowledged and deferred beyond v2.0 MVP:
 
 ## Session Continuity
 
-Last session: 2026-06-18T14:11:33Z
-Stopped at: Phase 11 Plan 01 complete; ready to execute 11-02-PLAN.md
+Last session: 2026-06-18T14:23:23Z
+Stopped at: Phase 11 Plan 02 complete; ready to execute 11-03-PLAN.md
 Resume files:
 
 - `.planning/PROJECT.md`
@@ -170,6 +171,7 @@ Resume files:
 - `.planning/phases/11-reference-guided-generation-mvp/11-01-PLAN.md`
 - `.planning/phases/11-reference-guided-generation-mvp/11-01-SUMMARY.md`
 - `.planning/phases/11-reference-guided-generation-mvp/11-02-PLAN.md`
+- `.planning/phases/11-reference-guided-generation-mvp/11-02-SUMMARY.md`
 - `.planning/phases/11-reference-guided-generation-mvp/11-03-PLAN.md`
 - `.planning/phases/11-reference-guided-generation-mvp/11-04-PLAN.md`
 - `.planning/phases/11-reference-guided-generation-mvp/11-05-PLAN.md`
