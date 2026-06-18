@@ -2,7 +2,7 @@
 
 痛车设计 Agent is an AI web workbench for turning natural-language itasha design requests into previewable, iterable, and exportable concept designs.
 
-Phase 1 established the runnable foundation. Phase 2 adds durable workspaces, messages, asset metadata and rights records, job/event/output ledgers, generated frontend wrappers, worker no-provider simulation, and a minimal web refresh/status proof. Phase 3 adds structured generation briefs, prompt traceability, a local deterministic text-to-2D generation slice, generation API routes, and a compact web proof. Phase 4 integrates those pieces into the first real web workbench: GPT-style chat-to-brief, editable parameters, reference asset upload and rights confirmation, job progress/events, 2D preview controls, version history, and explicit future-feature gates. Phase 5 adds selected-version iteration, parent/child lineage comparison, feedback/rating/approval records, and concept export records with a metadata manifest labeled as not print-ready. Phase 6 adds itasha-specific controls, deterministic text/logo overlay evidence, safe-zone/template warnings, and PreviewSpec metadata for future renderer work while keeping output a concept preview. Phase 7 adds provider/worker operations visibility, classified failures, job cancellation, bounded retry/fallback controls, hosted-call quota guards, and a live worker queue smoke path.
+Phase 1 established the runnable foundation. Phase 2 adds durable workspaces, messages, asset metadata and rights records, job/event/output ledgers, generated frontend wrappers, worker no-provider simulation, and a minimal web refresh/status proof. Phase 3 adds structured generation briefs, prompt traceability, a local deterministic text-to-2D generation slice, generation API routes, and a compact web proof. Phase 4 integrates those pieces into the first real web workbench: GPT-style chat-to-brief, editable parameters, reference asset upload and rights confirmation, job progress/events, 2D preview controls, version history, and explicit future-feature gates. Phase 5 adds selected-version iteration, parent/child lineage comparison, feedback/rating/approval records, and concept export records with a metadata manifest labeled as not print-ready. Phase 6 adds itasha-specific controls, deterministic text/logo overlay evidence, safe-zone/template warnings, and PreviewSpec metadata for future renderer work while keeping output a concept preview. Phase 7 adds provider/worker operations visibility, classified failures, job cancellation, bounded retry/fallback controls, hosted-call quota guards, and a live worker queue smoke path. Phase 8 starts V2 from a verified V1 baseline. Phase 9 adds a default-off hosted BFL rollout path with explicit provider selection, preflight guards, trace/cost/failure diagnostics, and local deterministic fallback.
 
 The project still does not implement production-ready wrap output, authentication, billing, true 3D, hosted provider production rollout by default, marketplace/community flows, or production deployment. `init.MD` and `UI.png` remain seed references for product direction.
 
@@ -13,7 +13,7 @@ The project still does not implement production-ready wrap output, authenticatio
 | `apps/web` | Next.js workbench with chat, itasha parameters, assets, progress, 2D preview, PreviewSpec overlays/safe zones, version history, iteration, feedback, concept export, and deferred future gates. |
 | `services/core` | Shared SQLAlchemy durable-data models, repositories, and services. |
 | `services/api` | FastAPI control-plane service, product/generation routes, Alembic migrations, OpenAPI export, and local smoke scripts. |
-| `services/worker` | Celery work-plane process, local no-provider simulation, and text-to-2D generation task. |
+| `services/worker` | Celery work-plane process, local deterministic generation, BFL hosted adapter behind guardrails, and text-to-2D generation task. |
 | `packages/contracts` | OpenAPI and generated TypeScript contracts. |
 | `infra` | Local PostgreSQL, Redis, and MinIO Compose services. |
 | `docs/development.md` | Full developer runbook for foundation, durable data, generation, Phase 4/5/6/7 workbench operations, validation, smoke, and UAT. |
@@ -73,6 +73,8 @@ For the Phase 5 iteration/export flow, use a generated version from the workbenc
 For the Phase 6 itasha/template intelligence flow, edit `痛车设计控制` fields in the parameter panel, inspect `质量提示`, select a generated version with `PreviewSpec 摘要`, toggle `文字/Logo 图层` and `安全区`, and inspect the template reference zone. Text/logo overlays and safe zones are concept-preview guidance; they do not create print-ready wrap files or true 3D UV output.
 
 For the Phase 7 operations flow, keep Docker infrastructure, API, worker, and web running. Use the progress panel to refresh compact provider/worker status, inspect failure classification, cancel queued/running jobs, and confirm terminal canceled jobs no longer show the cancel control. Use `pnpm smoke:worker` for a live API -> Redis/Celery -> worker -> durable artifact/version smoke once the worker is running.
+
+For the Phase 9 hosted-provider rollout flow, default validation remains provider-off and free. Use the parameter panel `生成模式` selector to confirm `本地概念` is available without credentials, `BFL 托管` is disabled when rollout, calls, credentials, or quota/cost guards are missing, and no API keys/secrets/paths appear in workbench or operations diagnostics. Provider-on BFL smoke is manual-only: put real credentials in ignored service env files, set `V2_HOSTED_PROVIDER_ROLLOUT_ENABLED=true`, `AI_PROVIDER_CALLS_ENABLED=true`, `AI_PROVIDER_DEFAULT=bfl`, `AI_PROVIDER_MODEL=flux-2-pro-preview`, and small `AI_HOSTED_DAILY_CALL_LIMIT`, `AI_HOSTED_RATE_LIMIT_PER_MINUTE`, and `AI_MAX_ESTIMATED_COST_PER_JOB` guard values. Submit one concept-preview job, record the job/version/artifact/model-run evidence, then disable hosted flags again.
 
 ## Core Commands
 
@@ -167,5 +169,23 @@ corepack pnpm --filter @caragent/web typecheck
 corepack pnpm contracts:check
 corepack pnpm smoke:worker -- --dry-run
 ```
+
+Focused Phase 9 hosted-provider rollout commands:
+
+```powershell
+cd services/api
+uv run pytest -q tests/test_config.py tests/test_operations.py tests/test_generation.py tests/test_jobs.py
+cd ../worker
+uv run pytest -q tests/test_config.py tests/test_image_providers.py tests/test_generation_tasks.py
+cd ../..
+corepack pnpm --filter @caragent/web exec vitest --run src/app/page.test.tsx src/lib/api/generation.test.ts src/lib/api/operations.test.ts
+corepack pnpm --filter @caragent/web lint
+corepack pnpm --filter @caragent/web typecheck
+corepack pnpm contracts:check
+corepack pnpm smoke:worker -- --dry-run
+corepack pnpm validate
+```
+
+The Phase 9 command set above is provider-off by default. It must not require `AI_PROVIDER_BFL_API_KEY` and must not spend hosted-provider credits. Run live provider-on BFL smoke only from the documented manual checklist in [docs/development.md](docs/development.md).
 
 See [docs/development.md](docs/development.md) for environment setup, command details, requirement coverage, and troubleshooting for blocked host prerequisites such as missing `uv`, Node/Corepack profile `EPERM`, and Docker daemon availability. If `pnpm` cannot start, run `node scripts/check-host-prereqs.mjs` from the repository root for a direct prerequisite report.
