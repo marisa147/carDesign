@@ -2631,4 +2631,103 @@ describe("Phase 4 workbench shell", () => {
       fetchMock.mock.calls.some(([url]) => String(url).includes("/versions/version-1/exports")),
     ).toBe(false);
   });
+
+  it("blocks enhanced handoff ZIP export when selected references lack rights or source metadata", async () => {
+    vi.stubEnv("NEXT_PUBLIC_V2_ENHANCED_HANDOFF_PACKAGE_ENABLED", "true");
+    const user = userEvent.setup();
+    localStorage.setItem("caragent.workbench.workspaceId", "workspace-1");
+    localStorage.setItem("caragent.workbench.briefId", "brief-1");
+    const succeededJob = {
+      ...generationJobFixture,
+      status: "succeeded",
+      updated_at: "2026-06-17T00:25:00Z",
+    } satisfies GenerationJobResponse;
+    const blockedVersion = {
+      ...secondVersionFixture,
+      parameters: {
+        ...secondVersionFixture.parameters,
+        ...referenceTraceFixture,
+        preview_spec: previewSpecFixture,
+        rights_snapshot: {},
+      },
+    } satisfies DesignVersionResponse;
+    const fetchMock = mockResumeWithGenerationState({
+      artifacts: [artifactFixture, secondArtifactFixture, preview3dScreenshotArtifactFixture],
+      events: [
+        {
+          ...jobEventFixture,
+          event_type: "completed",
+          message: "Artifact ready.",
+          progress: "100",
+          status: "succeeded",
+        },
+      ],
+      job: succeededJob,
+      versions: [versionFixture, blockedVersion],
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<Home />);
+
+    expect(await screen.findByText("导出历史")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "版本 2" }));
+    await user.click(screen.getByRole("button", { name: "ZIP" }));
+
+    expect(screen.getByText("交接包预览")).toBeVisible();
+    expect(screen.getByText("缺少版权或来源信息")).toBeVisible();
+    expect(screen.getByRole("button", { name: "生成交接包" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "PNG" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "JPG" })).toBeEnabled();
+    expect(
+      fetchMock.mock.calls.some(([url]) => String(url).includes("/versions/version-2/exports")),
+    ).toBe(false);
+  });
+
+  it("warns but allows enhanced handoff ZIP export when only 3D screenshots are missing", async () => {
+    vi.stubEnv("NEXT_PUBLIC_V2_ENHANCED_HANDOFF_PACKAGE_ENABLED", "true");
+    const user = userEvent.setup();
+    localStorage.setItem("caragent.workbench.workspaceId", "workspace-1");
+    localStorage.setItem("caragent.workbench.briefId", "brief-1");
+    const succeededJob = {
+      ...generationJobFixture,
+      status: "succeeded",
+      updated_at: "2026-06-17T00:25:00Z",
+    } satisfies GenerationJobResponse;
+    const referenceVersion = {
+      ...secondVersionFixture,
+      parameters: {
+        ...secondVersionFixture.parameters,
+        ...referenceTraceFixture,
+        preview_spec: previewSpecFixture,
+      },
+    } satisfies DesignVersionResponse;
+    const fetchMock = mockResumeWithGenerationState({
+      artifacts: [artifactFixture, secondArtifactFixture],
+      events: [
+        {
+          ...jobEventFixture,
+          event_type: "completed",
+          message: "Artifact ready.",
+          progress: "100",
+          status: "succeeded",
+        },
+      ],
+      job: succeededJob,
+      versions: [versionFixture, referenceVersion],
+    }).mockResolvedValueOnce(jsonResponse(enhancedExportFixture, 201));
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<Home />);
+
+    expect(await screen.findByText("导出历史")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "版本 2" }));
+    await user.click(screen.getByRole("button", { name: "ZIP" }));
+
+    expect(screen.getByText(/未包含 3D 截图/)).toBeVisible();
+    expect(screen.getByRole("button", { name: "生成交接包" })).toBeEnabled();
+
+    await user.click(screen.getByRole("button", { name: "生成交接包" }));
+
+    expect(await screen.findByText("交接包导出已记录。")).toBeVisible();
+  });
 });

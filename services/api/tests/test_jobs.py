@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 from uuid import UUID
 
+import pytest
 from caragent_core.database import session_scope
 from caragent_core.enums import (
     ArtifactKind,
@@ -345,8 +346,10 @@ async def create_handoff_export_records(
     storage: InMemoryObjectStorage,
     workspace_id: UUID,
     job_id: UUID,
+    *,
+    trace: dict[str, object] | None = None,
 ) -> dict[str, str]:
-    trace = reference_trace_metadata()
+    trace = reference_trace_metadata() if trace is None else trace
     async with session_scope(session_factory) as session:
         version = await jobs.create_design_version(
             session,
@@ -748,6 +751,55 @@ def test_enhanced_handoff_export_is_feature_gated(tmp_path: Path) -> None:
     assert set(storage.objects) == storage_objects_before
 
 
+@pytest.mark.parametrize(
+    "rights_variant",
+    ["missing_snapshot", "rejected", "missing_source"],
+)
+def test_enhanced_handoff_export_blocks_missing_reference_rights_source(
+    tmp_path: Path,
+    rights_variant: str,
+) -> None:
+    client, app = create_job_client(
+        tmp_path,
+        settings_overrides={"v2_enhanced_handoff_package_enabled": True},
+    )
+    storage = InMemoryObjectStorage()
+    app.state.object_storage = storage
+    workspace_id = client.post(
+        "/workspaces",
+        json={"title": f"Blocked {rights_variant}"},
+    ).json()["id"]
+    job_id = client.post(
+        f"/workspaces/{workspace_id}/jobs",
+        json={
+            "idempotency_key": f"enhanced-handoff-blocked-{rights_variant}",
+            "operation": "generate_concept",
+        },
+    ).json()["id"]
+    records = asyncio.run(
+        create_handoff_export_records(
+            app.state.session_factory,
+            storage,
+            UUID(workspace_id),
+            UUID(job_id),
+            trace=reference_trace_metadata_with_rights_variant(rights_variant),
+        ),
+    )
+    storage_objects_before = set(storage.objects)
+
+    response = client.post(
+        f"/workspaces/{workspace_id}/versions/{records['version_id']}/exports",
+        json={"format": "enhanced_concept_handoff_zip"},
+    )
+
+    assert response.status_code == 422
+    assert "rights/source metadata" in response.json()["detail"]
+    assert set(storage.objects) == storage_objects_before
+    assert client.get(f"/workspaces/{workspace_id}/exports").json() == []
+    artifacts = client.get(f"/workspaces/{workspace_id}/artifacts").json()
+    assert [artifact for artifact in artifacts if artifact["kind"] == "export"] == []
+
+
 def test_concept_export_manifest_includes_reference_trace_source(
     tmp_path: Path,
 ) -> None:
@@ -1120,6 +1172,26 @@ def reference_trace_metadata() -> dict[str, object]:
         "rights_snapshot": {reference_id: rights},
         "unsupported_reference_roles": [],
     }
+
+
+def reference_trace_metadata_with_rights_variant(variant: str) -> dict[str, object]:
+    trace = reference_trace_metadata()
+    reference_id = trace["included_reference_asset_ids"][0]
+    rights_snapshot = dict(trace["rights_snapshot"])
+    rights = dict(rights_snapshot[reference_id])
+    if variant == "missing_snapshot":
+        trace["rights_snapshot"] = {}
+        return trace
+    if variant == "rejected":
+        rights["rights_status"] = "rejected"
+    elif variant == "missing_source":
+        rights["source_label"] = None
+        rights["source_url"] = None
+    else:
+        raise AssertionError(f"Unknown rights variant: {variant}")
+    rights_snapshot[reference_id] = rights
+    trace["rights_snapshot"] = rights_snapshot
+    return trace
 
 
 def preview_3d_spec() -> Preview3DSpec:

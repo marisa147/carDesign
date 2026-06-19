@@ -649,6 +649,46 @@ async def test_phase_13_handoff_package_zip_warns_for_missing_optional_screensho
     )
 
 
+@pytest.mark.parametrize(
+    "rights_variant",
+    ["missing_snapshot", "rejected", "missing_source"],
+)
+async def test_phase_13_handoff_package_zip_blocks_missing_reference_rights_source(
+    session_factory: async_sessionmaker[AsyncSession],
+    rights_variant: str,
+) -> None:
+    from caragent_core.handoff import HandoffPackageBuildError, build_handoff_package_zip
+    from caragent_core.storage import InMemoryObjectStorage
+
+    storage = InMemoryObjectStorage()
+    async with session_scope(session_factory) as session:
+        workspace = await workspaces.create_workspace(session, title=f"Blocked {rights_variant}")
+        version = await jobs.create_design_version(
+            session,
+            workspace.id,
+            parameters=_handoff_parameters_with_rights_variant(rights_variant),
+            title="Blocked handoff source",
+        )
+        concept = await jobs.create_artifact(
+            session,
+            workspace.id,
+            byte_size=11,
+            content_type="image/png",
+            kind=ArtifactKind.GENERATED_IMAGE.value,
+            object_key=f"workspaces/{workspace.id}/generated/{version.id}/concept.png",
+            version_id=version.id,
+        )
+        await storage.put_object(concept.object_key, b"concept-png", "image/png")
+
+        with pytest.raises(HandoffPackageBuildError, match="rights/source metadata"):
+            await build_handoff_package_zip(
+                package_object_key=f"workspaces/{workspace.id}/exports/{version.id}/blocked.zip",
+                source_artifact=concept,
+                storage=storage,
+                version=version,
+            )
+
+
 def _handoff_parameters() -> dict[str, object]:
     reference_asset_id = "66666666-6666-6666-6666-666666666666"
     return {
@@ -696,3 +736,23 @@ def _handoff_parameters() -> dict[str, object]:
         },
         "unsupported_reference_roles": [],
     }
+
+
+def _handoff_parameters_with_rights_variant(variant: str) -> dict[str, object]:
+    parameters = _handoff_parameters()
+    reference_asset_id = parameters["included_reference_asset_ids"][0]
+    rights_snapshot = dict(parameters["rights_snapshot"])
+    rights = dict(rights_snapshot[reference_asset_id])
+    if variant == "missing_snapshot":
+        parameters["rights_snapshot"] = {}
+        return parameters
+    if variant == "rejected":
+        rights["rights_status"] = "rejected"
+    elif variant == "missing_source":
+        rights["source_label"] = None
+        rights["source_url"] = None
+    else:
+        raise AssertionError(f"Unknown rights variant: {variant}")
+    rights_snapshot[reference_asset_id] = rights
+    parameters["rights_snapshot"] = rights_snapshot
+    return parameters

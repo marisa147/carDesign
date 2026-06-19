@@ -31,6 +31,7 @@ const formatOptions: Array<{ label: string; value: ConceptExportFormat }> = [
 
 const manifestDisclaimer = "概念预览，不是生产印刷文件。";
 const handoffPackageDisclaimer = "概念交接包，仅供评审";
+const missingRightsSourceText = "缺少版权或来源信息";
 
 export function ExportPanel({
   artifact,
@@ -50,7 +51,6 @@ export function ExportPanel({
     : [];
   const isHandoffPackage = format === "enhanced_concept_handoff_zip";
   const baseCanSubmit = selectedVersion !== null && artifact !== null && !isSubmitting;
-  const canSubmit = baseCanSubmit && (!isHandoffPackage || enhancedHandoffEnabled);
   const objectKeyPreview = artifact ? summarizeObjectKey(artifact.object_key) : "-";
   const selectedPreviewSpec = readPreviewSpecSummary(selectedVersion?.parameters.preview_spec);
   const packageReadiness = readPackageReadiness({
@@ -59,6 +59,12 @@ export function ExportPanel({
     selectedPreviewSpec,
     selectedVersion,
   });
+  const hasPackageBlocker = packageReadiness.some((row) => row.state === "blocked");
+  const hasRightsSourceBlocker = packageReadiness.some(
+    (row) => row.value === missingRightsSourceText,
+  );
+  const canSubmit =
+    baseCanSubmit && (!isHandoffPackage || (enhancedHandoffEnabled && !hasPackageBlocker));
 
   return (
     <form
@@ -144,6 +150,9 @@ export function ExportPanel({
         ) : null}
       </div>
 
+      {isHandoffPackage && hasRightsSourceBlocker ? (
+        <p className="text-xs font-medium text-destructive">{missingRightsSourceText}</p>
+      ) : null}
       {notice ? <p className="text-xs text-primary">{notice}</p> : null}
       {error ? <p className="text-xs text-destructive">{error}</p> : null}
 
@@ -189,7 +198,7 @@ export function ExportPanel({
 
 interface PackageReadinessRow {
   label: string;
-  ready: boolean;
+  state: "blocked" | "ready" | "warning";
   value: string;
 }
 
@@ -201,12 +210,23 @@ function PackageReadinessRows({ rows }: { rows: PackageReadinessRow[] }) {
           className="grid grid-cols-[16px_minmax(0,1fr)] items-center gap-2 text-secondary-foreground"
           key={row.label}
         >
-          {row.ready ? (
+          {row.state === "ready" ? (
             <CheckCircle2 aria-hidden="true" className="h-3.5 w-3.5 text-primary" />
           ) : (
-            <AlertTriangle aria-hidden="true" className="h-3.5 w-3.5 text-warning" />
+            <AlertTriangle
+              aria-hidden="true"
+              className={
+                row.state === "blocked"
+                  ? "h-3.5 w-3.5 text-destructive"
+                  : "h-3.5 w-3.5 text-warning"
+              }
+            />
           )}
-          <span className="truncate">
+          <span
+            className={
+              row.state === "blocked" ? "truncate text-destructive" : "truncate"
+            }
+          >
             {row.label} {row.value}
           </span>
         </div>
@@ -300,44 +320,83 @@ function readPackageReadiness({
             entry.version_id === selectedVersion.id && entry.kind === "preview_3d_screenshot",
         ).length;
   const referenceCount = readArrayLength(parameters.included_reference_asset_ids);
+  const hasRightsSourceBlocker = hasHandoffRightsSourceBlocker(parameters);
   return [
     {
       label: "概念图",
-      ready: artifact !== null,
+      state: artifact !== null ? "ready" : "blocked",
       value: artifact ? "已选择" : "缺失",
     },
     {
       label: "3D 截图",
-      ready: screenshotCount > 0,
-      value: `${screenshotCount}`,
+      state: screenshotCount > 0 ? "ready" : "warning",
+      value: screenshotCount > 0 ? `${screenshotCount}` : "未包含 3D 截图",
     },
     {
       label: "安全区/警告",
-      ready: selectedPreviewSpec !== null,
+      state: selectedPreviewSpec !== null ? "ready" : "warning",
       value: selectedPreviewSpec
         ? `${selectedPreviewSpec.safeZoneCount}/${selectedPreviewSpec.warningCount}`
         : "缺失",
     },
     {
       label: "Prompt/Provider",
-      ready: selectedVersion?.job_id !== null && selectedVersion?.job_id !== undefined,
+      state:
+        selectedVersion?.job_id !== null && selectedVersion?.job_id !== undefined
+          ? "ready"
+          : "warning",
       value: selectedVersion?.job_id ? "已关联" : "缺失",
     },
     {
       label: "参考素材",
-      ready: referenceCount > 0,
-      value: `${referenceCount}`,
+      state: hasRightsSourceBlocker ? "blocked" : referenceCount > 0 ? "ready" : "warning",
+      value: hasRightsSourceBlocker ? missingRightsSourceText : `${referenceCount}`,
     },
     {
       label: "评审备注",
-      ready: true,
+      state: "ready",
       value: "可选",
     },
   ];
 }
 
+function hasHandoffRightsSourceBlocker(parameters: Record<string, unknown>): boolean {
+  const includedReferenceAssetIds = readStringArray(parameters.included_reference_asset_ids);
+  if (includedReferenceAssetIds.length === 0) {
+    return false;
+  }
+  const rightsSnapshot = isRecord(parameters.rights_snapshot)
+    ? parameters.rights_snapshot
+    : {};
+
+  return includedReferenceAssetIds.some((assetId) => {
+    const snapshot = rightsSnapshot[assetId];
+    if (!isRecord(snapshot)) {
+      return true;
+    }
+    const rightsStatus = stringRecordValue(snapshot, "rights_status").toLowerCase();
+    const sourceLabel = stringRecordValue(snapshot, "source_label");
+    const sourceUrl = stringRecordValue(snapshot, "source_url");
+    return rightsStatus !== "confirmed" || (sourceLabel === "" && sourceUrl === "");
+  });
+}
+
 function readArrayLength(value: unknown): number {
   return Array.isArray(value) ? value.length : 0;
+}
+
+function readStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value
+    .map((item) => (typeof item === "string" ? item.trim() : ""))
+    .filter((item) => item.length > 0);
+}
+
+function stringRecordValue(record: Record<string, unknown>, key: string): string {
+  const value = record[key];
+  return typeof value === "string" ? value.trim() : "";
 }
 
 function stringManifestValue(

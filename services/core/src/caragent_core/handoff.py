@@ -211,6 +211,32 @@ def build_handoff_reference_manifest(
     )
 
 
+def validate_handoff_rights_source(parameters: Mapping[str, object]) -> None:
+    included_reference_asset_ids = [
+        str(asset_id).strip()
+        for asset_id in _sequence_value(parameters.get("included_reference_asset_ids"))
+        if str(asset_id).strip()
+    ]
+    if not included_reference_asset_ids:
+        return
+
+    rights_snapshot = _mapping_value(parameters.get("rights_snapshot"))
+    blocked_asset_ids: list[str] = []
+    for asset_id in included_reference_asset_ids:
+        snapshot = _mapping_value(rights_snapshot.get(asset_id))
+        rights_status = str(snapshot.get("rights_status") or "").strip().lower()
+        source_label = str(snapshot.get("source_label") or "").strip()
+        source_url = str(snapshot.get("source_url") or "").strip()
+        if rights_status != "confirmed" or not (source_label or source_url):
+            blocked_asset_ids.append(asset_id)
+
+    if blocked_asset_ids:
+        raise HandoffPackageBuildError(
+            "Missing required rights/source metadata for included references: "
+            + ", ".join(blocked_asset_ids),
+        )
+
+
 def render_handoff_notes_markdown(
     *,
     references: HandoffReferenceManifest | Mapping[str, object] | None = None,
@@ -328,6 +354,7 @@ async def build_handoff_package_zip(
     screenshot_artifacts: Sequence[object] = (),
 ) -> HandoffPackageZipResult:
     parameters = _mapping_value(getattr(version, "parameters", None))
+    validate_handoff_rights_source(parameters)
     preview_spec = _mapping_value(parameters.get("preview_spec"))
     preview_3d = _mapping_value(parameters.get("preview_3d"))
     warning_report = build_handoff_warning_report(
@@ -795,4 +822,5 @@ __all__ = [
     "render_handoff_prompt_trace_markdown",
     "render_handoff_references_json",
     "render_handoff_warnings_markdown",
+    "validate_handoff_rights_source",
 ]
