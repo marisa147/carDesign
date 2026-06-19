@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: V2 MVP
-status: ready-for-milestone-archive
-stopped_at: Completed Phase 14 Plan 06; v2.0 V2 MVP ready for milestone archive
-last_updated: "2026-06-19T12:25:00Z"
-last_activity: "2026-06-19 -- Completed Phase 14 Plan 06 final V2 MVP verification and release notes"
+status: milestone-archived
+stopped_at: Archived v2.0 V2 MVP; ready for next milestone definition
+last_updated: "2026-06-19T12:45:00Z"
+last_activity: "2026-06-19 -- Archived v2.0 V2 MVP roadmap and requirements"
 progress:
   total_phases: 7
   completed_phases: 7
@@ -21,15 +21,15 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-18)
 
 **Core value:** 用户能用自然语言快速得到一套可预览、可迭代、可导出的高质量痛车设计方案。
-**Current focus:** Phase 14 — V2 MVP Hardening, Docs, Smoke, And UAT
+**Current focus:** Planning next milestone
 
 ## Current Position
 
-Milestone: v2.0 V2 MVP — READY FOR ARCHIVE
-Phase: 14 (V2 MVP Hardening, Docs, Smoke, And UAT) — COMPLETE
-Plan: 14-06-PLAN.md — Final V2 MVP verification, release notes, and milestone closure
-Status: V2 MVP complete; ready for milestone archive
-Last activity: 2026-06-19 -- Completed Phase 14 Plan 06 final V2 MVP verification and release notes
+Milestone: v2.0 V2 MVP — ARCHIVED
+Phase: none active
+Plan: none active
+Status: Ready to define the next milestone
+Last activity: 2026-06-19 -- Archived v2.0 V2 MVP roadmap and requirements
 
 Progress: [##########] 100%
 
@@ -39,6 +39,8 @@ Progress: [##########] 100%
 - `.planning/milestones/v1.0-REQUIREMENTS.md`
 - `.planning/milestones/v1.0-MILESTONE-AUDIT.md`
 - `.planning/milestones/v1.0-phases/`
+- `.planning/milestones/v2.0-ROADMAP.md`
+- `.planning/milestones/v2.0-REQUIREMENTS.md`
 - `.planning/MILESTONES.md`
 - `.planning/RETROSPECTIVE.md`
 
@@ -160,16 +162,31 @@ Items acknowledged and deferred beyond v2.0 MVP:
 | Advanced Generation | Guaranteed physically aligned multi-view generation across side/front/rear/hood | Future milestone |
 | Orchestration | Advanced multi-agent orchestration beyond typed generation and worker pipeline | Future milestone |
 
+Items acknowledged by `audit-open` at v2.0 milestone close on 2026-06-19:
+
+| Category | Item | Status |
+|----------|------|--------|
+| UAT metadata | Phase 08 `08-HUMAN-UAT.md` | partial; 2 pending scenarios |
+| UAT metadata | Phase 09 `09-HUMAN-UAT.md` | partial; 0 pending scenarios |
+| UAT metadata | Phase 10 `10-HUMAN-UAT.md` | checklist-ready; 0 pending scenarios |
+| UAT metadata | Phase 11 `11-HUMAN-UAT.md` | checklist-ready; 0 pending scenarios |
+| UAT metadata | Phase 12 `12-HUMAN-UAT.md` | passed; 0 pending scenarios |
+| UAT metadata | Phase 13 `13-HUMAN-UAT.md` | passed; 0 pending scenarios |
+| UAT metadata | Phase 14 `14-HUMAN-UAT.md` | passed; 0 pending scenarios |
+
 ## Session Continuity
 
-Last session: 2026-06-19T12:25:00Z
-Stopped at: Completed Phase 14 Plan 06; v2.0 V2 MVP ready for milestone archive
+Last session: 2026-06-19T12:45:00Z
+Stopped at: Archived v2.0 V2 MVP; ready for next milestone definition
 Resume files:
 
 - `.planning/PROJECT.md`
-- `.planning/REQUIREMENTS.md`
 - `.planning/ROADMAP.md`
 - `.planning/STATE.md`
+- `.planning/MILESTONES.md`
+- `.planning/RETROSPECTIVE.md`
+- `.planning/milestones/v2.0-ROADMAP.md`
+- `.planning/milestones/v2.0-REQUIREMENTS.md`
 - `.planning/phases/09-hosted-provider-rollout-mvp/09-MILESTONE-NOTES.md`
 - `.planning/phases/10-targeted-regeneration-and-masked-editing-mvp/10-CONTEXT.md`
 - `.planning/phases/10-targeted-regeneration-and-masked-editing-mvp/10-RESEARCH.md`
@@ -289,5 +306,5 @@ Resume files:
 - `.planning/phases/14-v2-mvp-hardening-docs-smoke-and-uat/14-06-SUMMARY.md`
 - `.planning/phases/14-v2-mvp-hardening-docs-smoke-and-uat/evidence/phase14-browser-metrics.json`
 
-Next recommended command: `$gsd-complete-milestone`
+Next recommended command: `$gsd-new-milestone`
 Alternative: `$gsd-progress --next`

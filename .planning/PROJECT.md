@@ -2,41 +2,32 @@
 
 ## What This Is
 
-痛车设计生成 Agent 是一个面向痛车设计需求的 AI Web 工作台。v1.0 已经交付一个可本地运行的端到端 MVP：用户可以通过 GPT 风格对话描述车型、角色、风格、颜色、文案和参考素材，系统将需求解析为结构化参数，经异步 worker 生成 2D 概念图，并在 Web 工作台中展示、迭代、反馈、导出和查看运营状态。
+痛车设计生成 Agent 是一个面向痛车设计需求的 AI Web 工作台。v2.0 已经交付一个可本地运行、可验证的概念设计与审阅工作流：用户可以通过 GPT 风格对话描述车型、角色、风格、颜色、文案和参考素材，系统将需求解析为结构化参数，经异步 worker 生成 2D 概念图，并在 Web 工作台中展示、局部编辑、参考引导、轻量 3D 预览、反馈、导出增强概念交付包和查看运营状态。
 
-v1.0 的边界是概念设计闭环，不承诺生产级印刷交付、完整 3D UV 预览、商业订单流或托管模型生产可用性。后续里程碑应从已验证的工作台、任务账本、PreviewSpec 和 provider adapter 边界上继续扩展。
+v2.0 的边界仍然是概念设计与审阅工作流，不承诺生产级印刷交付、verified UV mapping、商业订单流、托管模型生产可用性、auth/billing 或 marketplace。后续里程碑应从已验证的工作台、任务账本、PreviewSpec、provider adapter、reference trace、targeted edit 和 handoff package 边界上继续扩展。
 
 ## Core Value
 
 用户能用自然语言快速得到一套可预览、可迭代、可导出的高质量痛车设计方案。
 
-## Current Milestone: v2.0 V2 MVP
+## Current State After v2.0
 
-**Goal:** 将 v1.0 已验证的概念设计闭环升级为更实用的设计辅助产品：在受控 guardrail 下接入 hosted provider，支持局部编辑、参考引导、轻量 3D 预览和增强概念交付包，同时继续明确区分 concept preview、3D preview 和 production-ready wrap。
+**Shipped:** v1.0 MVP on 2026-06-18 and v2.0 V2 MVP on 2026-06-19.
 
-**Target features:**
-
-- V1 closure and V2 readiness gate: 锁定 v1.0 基线，加入默认关闭的 V2 feature flags，并验证本地-only 模式仍可运行。
-- Hosted provider rollout MVP: 在既有 provider adapter 边界后接入至少一个真实 hosted image provider，保留 quota、cost、fallback、moderation 和失败可视性。
-- Targeted regeneration and masked editing MVP: 用户可以选择局部区域或图层做定向修改，并保存 mask、edit intent、父子版本和生成方式。
-- Reference-guided generation MVP: 上传素材可以标注 character/style/vehicle/logo/palette/inspiration 等参考角色，并带 rights/source gate 与 provider capability checks。
-- Lightweight 3D preview MVP: 以现有 PreviewSpec 和模板资产驱动一个轻量 3D 或 pseudo-3D 预览，不承诺生产级 UV 精度。
-- Enhanced concept handoff package MVP: 导出包含预览图、overlay、manifest、prompt/provider trace、warnings、handoff notes 和 concept-only disclaimer 的 ZIP 包。
-- V2 hardening, docs, smoke, and UAT: 关闭验证、文档、回归、Browser UAT、feature flag 和 release evidence。
+**Next milestone:** not yet defined. Use `$gsd-new-milestone` to create fresh requirements and a roadmap before further implementation.
 
 ## Current State
 
-**Shipped:** v1.0 MVP on 2026-06-18.
-
 **Built and verified:**
 
-- Next.js/React/TypeScript workbench with chat, parameter editing, asset upload, progress/events, 2D preview, version history, feedback, export, itasha controls, and operations status.
+- Next.js/React/TypeScript workbench with chat, parameter editing, asset upload, progress/events, 2D preview, version history, feedback, export, itasha controls, operations status, targeted edit UX, reference diagnostics, 3D preview tab, and enhanced ZIP handoff UX.
 - FastAPI/Pydantic API with generated OpenAPI/TypeScript contracts.
-- Celery worker pipeline with local deterministic generation, provider adapter boundary, retries/fallback, cancellation, quota/rate preflight, and structured failure metadata.
+- Celery worker pipeline with local deterministic generation, provider adapter boundary, BFL hosted adapter guardrails, deterministic recomposition, retries/fallback, cancellation, quota/rate/cost preflight, and structured failure metadata.
 - PostgreSQL/object-storage-oriented data model for workspaces, messages, briefs, jobs, events, artifacts, versions, model runs, feedback, exports, and cost records.
-- Local Docker smoke path for PostgreSQL, Redis, MinIO, API, worker, web, and live worker queue generation.
+- Local Docker smoke path for PostgreSQL, Redis, MinIO, API, worker, web, and worker queue generation.
+- V2 evidence for hosted-provider runbooks, targeted edit lineage, reference rights/source snapshots, lightweight 3D screenshots, enhanced handoff packages, release docs, and Browser UAT.
 
-**Codebase scale at v1.0 close:** about 112 source files / 17,452 LOC, or 120 source-plus-test files / 19,836 LOC across `apps/`, `packages/`, `services/`, `scripts/`, and `infra/` excluding runtime generated artifacts.
+**Codebase scale at v2.0 close:** about 30,301 source-plus-test lines across `apps/`, `packages/`, `services/`, `scripts/`, and `infra/`, excluding generated contracts and dependency folders.
 
 ## Requirements
 
@@ -51,16 +42,17 @@ v1.0 的边界是概念设计闭环，不承诺生产级印刷交付、完整 3D
 - ✓ System records inputs, outputs, parameters, versions, provider/model metadata, costs, feedback, exports, and job state for traceability — v1.0 (DATA, GEN, OPS)
 - ✓ Itasha-aware template controls, safe-zone overlays, deterministic text/logo overlays, quality warnings, and PreviewSpec persistence exist for the concept workflow — v1.0 (QUAL)
 - ✓ Operator can inspect provider/worker/queue health, classified failures, cancellation, quota/rate guards, retry/fallback settings, and hosted-provider caveats — v1.0 (OPS)
+- ✓ V2 readiness gate protects the shipped v1.0 baseline before new capabilities are enabled — v2.0 (READY)
+- ✓ Hosted provider generation can be tested safely through config-driven adapters, preflight guards, durable trace records, and visible failure/cost/quota state — v2.0 (PROVIDER)
+- ✓ Targeted edits can update selected regions or layers while preserving immutable artifacts and parent-child version lineage — v2.0 (EDIT)
+- ✓ Reference-guided generation can use uploaded assets with explicit roles, rights/source snapshots, and provider capability warnings — v2.0 (REF)
+- ✓ Lightweight 3D preview can consume existing PreviewSpec/template assets and remain labeled as non-production — v2.0 (3D)
+- ✓ Enhanced concept handoff export can package concept assets, overlays, traces, warnings, notes, and disclaimers without claiming print readiness — v2.0 (HANDOFF)
+- ✓ V2 MVP can be validated through aggregate tests, Docker smoke, hosted-provider manual smoke, Browser UAT, docs, and release notes — v2.0 (REL)
 
 ### Active
 
-- [ ] V2 readiness gate protects the shipped v1.0 baseline before new capabilities are enabled.
-- [ ] Hosted provider generation can be tested safely through config-driven adapters, preflight guards, durable trace records, and visible failure/cost/quota state.
-- [ ] Targeted edits can update selected regions or layers while preserving immutable artifacts and parent-child version lineage.
-- [ ] Reference-guided generation can use uploaded assets with explicit roles, rights/source snapshots, and provider capability warnings.
-- [ ] Lightweight 3D preview can consume existing PreviewSpec/template assets and remain labeled as non-production.
-- [ ] Enhanced concept handoff export can package concept assets, overlays, traces, warnings, notes, and disclaimers without claiming print readiness.
-- [ ] V2 MVP can be validated through aggregate tests, Docker smoke, hosted-provider manual smoke, Browser UAT, docs, and release notes.
+- [ ] Define the next milestone requirements with `$gsd-new-milestone`.
 
 ### Out of Scope
 
@@ -117,8 +109,9 @@ Shipped v1.0 experience:
 | PostgreSQL/object storage as canonical state | Job/result state must survive refresh, retry, and worker restarts | ✓ Good — durable ledger and smoke checks passed |
 | Keep Redis as queue/cache/progress, not canonical state | Redis task state alone is not enough for traceability | ✓ Good — API status reads durable job/event rows |
 | Concept preview before production handoff | Print-ready wrap delivery has real template, scale, bleed, color, and installer risks | ✓ Good — exports are clearly labeled concept preview |
-| Hosted provider rollout remains opt-in | Provider model availability, costs, moderation, and rights constraints change quickly | ⚠ Revisit — needs current validation before real hosted generation |
-| V2 MVP follows the external roadmap file | User supplied `C:/Users/25858/Downloads/V2_MVP_ROADMAP (1).md` as the milestone source of truth | — Pending — v2.0 planning initialized from that file |
+| Hosted provider rollout remains opt-in | Provider model availability, costs, moderation, and rights constraints change quickly | ✓ Good — v2.0 shipped guarded hosted path and manual-only smoke posture |
+| V2 MVP follows the external roadmap file | User supplied `C:/Users/25858/Downloads/V2_MVP_ROADMAP (1).md` as the milestone source of truth | ✓ Good — v2.0 requirements and roadmap completed from that source |
+| V2 features stay concept-only until production validation exists | Targeted edits, references, 3D preview, and handoff ZIPs can be mistaken for production wrap proof | ✓ Good — Phase 14 release notes and docs preserve not-print-ready boundaries |
 
 ## Evolution
 
@@ -140,4 +133,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state.
 
 ---
-*Last updated: 2026-06-18 after v2.0 milestone start*
+*Last updated: 2026-06-19 after v2.0 milestone archive*
