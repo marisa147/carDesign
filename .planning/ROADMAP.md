@@ -219,7 +219,7 @@ v2.0 MVP is successful when:
 
 - [x] 13-01-PLAN.md — HandoffPackage schema, manifest version, and export-type taxonomy.
 - [x] 13-02-PLAN.md — Safe-zone/warning report renderer and concept-only disclaimer contract.
-- [ ] 13-03-PLAN.md — ZIP package builder with images, screenshots, manifest, and handoff notes.
+- [x] 13-03-PLAN.md — ZIP package builder with images, screenshots, manifest, and handoff notes.
 - [ ] 13-04-PLAN.md — Export ledger updates, immutable package artifacts, and lineage linkage.
 - [ ] 13-05-PLAN.md — Workbench export dialog, package preview, history, and download UX.
 - [ ] 13-06-PLAN.md — Rights/source guardrails and blocked-export failure states.
@@ -334,7 +334,7 @@ A single end-to-end V2 MVP UAT should prove:
 | 10. Targeted Regeneration And Masked Editing MVP | 8/8 | Complete | 2026-06-18 |
 | 11. Reference-Guided Generation MVP | 7/7 | Complete | 2026-06-18 |
 | 12. Lightweight 3D Preview MVP | 8/8 | Complete | 2026-06-19 |
-| 13. Enhanced Concept Handoff Package MVP | 2/7 | In Progress | - |
+| 13. Enhanced Concept Handoff Package MVP | 3/7 | In Progress | - |
 | 14. V2 MVP Hardening, Docs, Smoke, And UAT | 0/6 | Not started | - |
 
 **Coverage:**

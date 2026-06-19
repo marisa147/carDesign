@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: V2 MVP
 status: executing
-stopped_at: Completed Phase 13 Plan 02; ready for Phase 13 Plan 03
-last_updated: "2026-06-19T07:40:44Z"
-last_activity: "2026-06-19 -- Completed Phase 13 Plan 02 handoff report builders and Markdown renderers"
+stopped_at: Completed Phase 13 Plan 03; ready for Phase 13 Plan 04
+last_updated: "2026-06-19T07:46:38Z"
+last_activity: "2026-06-19 -- Completed Phase 13 Plan 03 provider-off handoff ZIP builder"
 progress:
   total_phases: 7
   completed_phases: 5
   total_plans: 48
-  completed_plans: 37
-  percent: 77
+  completed_plans: 38
+  percent: 79
 ---
 
 # Project State
@@ -27,11 +27,11 @@ See: .planning/PROJECT.md (updated 2026-06-18)
 
 Milestone: v2.0 V2 MVP — PHASE 13 IN PROGRESS
 Phase: 13 (Enhanced Concept Handoff Package MVP) — IN PROGRESS
-Plan: 13-03-PLAN.md — ZIP package builder with images, screenshots, manifest, and handoff notes
-Status: Ready to execute Phase 13 Plan 03
-Last activity: 2026-06-19 -- Completed Phase 13 Plan 02 handoff report builders and Markdown renderers
+Plan: 13-04-PLAN.md — Export ledger updates, immutable package artifacts, and lineage linkage
+Status: Ready to execute Phase 13 Plan 04
+Last activity: 2026-06-19 -- Completed Phase 13 Plan 03 provider-off handoff ZIP builder
 
-Progress: [########--] 77%
+Progress: [########--] 79%
 
 ## Milestone Archives
 
@@ -53,7 +53,7 @@ v2.0 MVP is scoped to the following phase sequence:
 | Phase 10 | Targeted Regeneration And Masked Editing MVP | 8/8 | V2-EDIT-01..05 |
 | Phase 11 | Reference-Guided Generation MVP | 7/7 complete | V2-REF-01..05 |
 | Phase 12 | Lightweight 3D Preview MVP | 8/8 complete | V2-3D-01..05 |
-| Phase 13 | Enhanced Concept Handoff Package MVP | 2/7 in progress | V2-HANDOFF-01..05 |
+| Phase 13 | Enhanced Concept Handoff Package MVP | 3/7 in progress | V2-HANDOFF-01..05 |
 | Phase 14 | V2 MVP Hardening, Docs, Smoke, And UAT | 0/6 | V2-REL-01..05 |
 
 ## Prior Milestone Metrics
@@ -119,6 +119,7 @@ Recent decisions affecting v2.0:
 - [Phase 13 Planning]: Enhanced concept handoff package is planned around `enhanced_concept_handoff_zip`, typed schema-versioned manifests, object storage reads, ZIP package building, immutable export artifacts, workbench package preview/history, rights/source guardrails, provider-off validation, and browser UAT.
 - [Phase 13 Plan 01]: Handoff package schema helpers, the explicit `enhanced_concept_handoff_zip` export format, and object storage read support are in place for later deterministic report rendering and ZIP assembly.
 - [Phase 13 Plan 02]: Core handoff report helpers now build warning, safe-zone, reference, notes, and prompt trace outputs with concept-only disclaimers and sanitizer coverage for secrets, base64, binary markers, and local paths.
+- [Phase 13 Plan 03]: Core can now build enhanced handoff ZIP bytes from object storage with stable manifest/report/image paths, required concept-image read failures, optional screenshot warning behavior, and SHA-256 package evidence.
 
 ### Pending Todos
 
@@ -150,8 +151,8 @@ Items acknowledged and deferred beyond v2.0 MVP:
 
 ## Session Continuity
 
-Last session: 2026-06-19T07:40:44Z
-Stopped at: Completed Phase 13 Plan 02; ready for Phase 13 Plan 03
+Last session: 2026-06-19T07:46:38Z
+Stopped at: Completed Phase 13 Plan 03; ready for Phase 13 Plan 04
 Resume files:
 
 - `.planning/PROJECT.md`
@@ -237,10 +238,11 @@ Resume files:
 - `.planning/phases/13-enhanced-concept-handoff-package-mvp/13-02-PLAN.md`
 - `.planning/phases/13-enhanced-concept-handoff-package-mvp/13-02-SUMMARY.md`
 - `.planning/phases/13-enhanced-concept-handoff-package-mvp/13-03-PLAN.md`
+- `.planning/phases/13-enhanced-concept-handoff-package-mvp/13-03-SUMMARY.md`
 - `.planning/phases/13-enhanced-concept-handoff-package-mvp/13-04-PLAN.md`
 - `.planning/phases/13-enhanced-concept-handoff-package-mvp/13-05-PLAN.md`
 - `.planning/phases/13-enhanced-concept-handoff-package-mvp/13-06-PLAN.md`
 - `.planning/phases/13-enhanced-concept-handoff-package-mvp/13-07-PLAN.md`
 
-Next recommended command: `$gsd-execute-phase 13 --auto --no-transition` starting with 13-03.
+Next recommended command: `$gsd-execute-phase 13 --auto --no-transition` starting with 13-04.
 Alternative: `$gsd-progress --next`
