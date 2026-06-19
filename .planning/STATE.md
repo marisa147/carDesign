@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: V2 MVP
 status: executing
-stopped_at: Completed Phase 13 Plan 04; ready for Phase 13 Plan 05
-last_updated: "2026-06-19T07:55:56Z"
-last_activity: "2026-06-19 -- Completed Phase 13 Plan 04 enhanced handoff export API and contracts"
+stopped_at: Completed Phase 13 Plan 05; ready for Phase 13 Plan 06
+last_updated: "2026-06-19T08:10:08Z"
+last_activity: "2026-06-19 -- Completed Phase 13 Plan 05 workbench enhanced handoff ZIP export UX"
 progress:
   total_phases: 7
   completed_phases: 5
   total_plans: 48
-  completed_plans: 39
-  percent: 81
+  completed_plans: 40
+  percent: 83
 ---
 
 # Project State
@@ -27,11 +27,11 @@ See: .planning/PROJECT.md (updated 2026-06-18)
 
 Milestone: v2.0 V2 MVP — PHASE 13 IN PROGRESS
 Phase: 13 (Enhanced Concept Handoff Package MVP) — IN PROGRESS
-Plan: 13-05-PLAN.md — Workbench export dialog, package preview, history, and download UX
-Status: Ready to execute Phase 13 Plan 05
-Last activity: 2026-06-19 -- Completed Phase 13 Plan 04 enhanced handoff export API and contracts
+Plan: 13-06-PLAN.md — Rights/source guardrails and blocked-export failure states
+Status: Ready to execute Phase 13 Plan 06
+Last activity: 2026-06-19 -- Completed Phase 13 Plan 05 workbench enhanced handoff ZIP export UX
 
-Progress: [########--] 81%
+Progress: [########--] 83%
 
 ## Milestone Archives
 
@@ -53,7 +53,7 @@ v2.0 MVP is scoped to the following phase sequence:
 | Phase 10 | Targeted Regeneration And Masked Editing MVP | 8/8 | V2-EDIT-01..05 |
 | Phase 11 | Reference-Guided Generation MVP | 7/7 complete | V2-REF-01..05 |
 | Phase 12 | Lightweight 3D Preview MVP | 8/8 complete | V2-3D-01..05 |
-| Phase 13 | Enhanced Concept Handoff Package MVP | 4/7 in progress | V2-HANDOFF-01..05 |
+| Phase 13 | Enhanced Concept Handoff Package MVP | 5/7 in progress | V2-HANDOFF-01..05 |
 | Phase 14 | V2 MVP Hardening, Docs, Smoke, And UAT | 0/6 | V2-REL-01..05 |
 
 ## Prior Milestone Metrics
@@ -121,6 +121,7 @@ Recent decisions affecting v2.0:
 - [Phase 13 Plan 02]: Core handoff report helpers now build warning, safe-zone, reference, notes, and prompt trace outputs with concept-only disclaimers and sanitizer coverage for secrets, base64, binary markers, and local paths.
 - [Phase 13 Plan 03]: Core can now build enhanced handoff ZIP bytes from object storage with stable manifest/report/image paths, required concept-image read failures, optional screenshot warning behavior, and SHA-256 package evidence.
 - [Phase 13 Plan 04]: The version-scoped export API now feature-gates `enhanced_concept_handoff_zip`, creates immutable ZIP export artifacts, records succeeded export rows, and has regenerated OpenAPI/TypeScript contracts.
+- [Phase 13 Plan 05]: The Workbench now exposes feature-flagged ZIP handoff export mode with package readiness preview, safe request manifests, selected `generated_image` source artifacts, and ZIP history rows with returned package evidence.
 
 ### Pending Todos
 
@@ -133,7 +134,7 @@ None.
 - Hosted provider calls must stay feature-flagged and quota guarded to avoid accidental cost spikes.
 - 3D preview must keep non-production labels and avoid implying verified wrap-shop UV accuracy.
 - Enhanced handoff packages must remain concept-only review ZIPs and must not imply print-ready PSD/AI/PDF, verified scale/bleed/color/DPI, production UV, ordering, quoting, payment, marketplace, or installer workflows.
-- Frontend Vitest remains blocked in the Codex sandbox by esbuild `spawn EPERM`; rerun outside the sandbox when local child-process spawning is available.
+- Frontend Vitest remains blocked in the Codex sandbox by esbuild `spawn EPERM`; targeted runs pass when rerun with approved elevation.
 - Hosted reference-image input remains manual-only until provider/model support, credentials, cost approval, and quota guards are verified.
 - Contract drift must be checked in each phase because v2.0 extends the v1.0 schema surface.
 
@@ -152,8 +153,8 @@ Items acknowledged and deferred beyond v2.0 MVP:
 
 ## Session Continuity
 
-Last session: 2026-06-19T07:55:56Z
-Stopped at: Completed Phase 13 Plan 04; ready for Phase 13 Plan 05
+Last session: 2026-06-19T08:10:08Z
+Stopped at: Completed Phase 13 Plan 05; ready for Phase 13 Plan 06
 Resume files:
 
 - `.planning/PROJECT.md`
@@ -243,8 +244,9 @@ Resume files:
 - `.planning/phases/13-enhanced-concept-handoff-package-mvp/13-04-PLAN.md`
 - `.planning/phases/13-enhanced-concept-handoff-package-mvp/13-04-SUMMARY.md`
 - `.planning/phases/13-enhanced-concept-handoff-package-mvp/13-05-PLAN.md`
+- `.planning/phases/13-enhanced-concept-handoff-package-mvp/13-05-SUMMARY.md`
 - `.planning/phases/13-enhanced-concept-handoff-package-mvp/13-06-PLAN.md`
 - `.planning/phases/13-enhanced-concept-handoff-package-mvp/13-07-PLAN.md`
 
-Next recommended command: `$gsd-execute-phase 13 --auto --no-transition` starting with 13-05.
+Next recommended command: `$gsd-execute-phase 13 --auto --no-transition` starting with 13-06.
 Alternative: `$gsd-progress --next`
