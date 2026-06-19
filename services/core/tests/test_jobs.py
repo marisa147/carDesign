@@ -371,6 +371,27 @@ async def test_job_support_records_for_local_simulation_outputs(
     assert export.concept_label == "concept_preview"
 
 
+async def test_in_memory_object_storage_can_read_written_objects() -> None:
+    from caragent_core.storage import InMemoryObjectStorage
+
+    storage = InMemoryObjectStorage()
+    await storage.put_object(
+        "workspaces/workspace-1/export/package/concept-handoff.zip",
+        b"zip-content",
+        "application/zip",
+    )
+
+    stored = await storage.get_object(
+        "workspaces/workspace-1/export/package/concept-handoff.zip",
+    )
+
+    assert stored.content == b"zip-content"
+    assert stored.content_type == "application/zip"
+
+    with pytest.raises(FileNotFoundError):
+        await storage.get_object("workspaces/workspace-1/export/package/missing.zip")
+
+
 async def test_feedback_and_export_require_version_to_belong_to_workspace(
     session_factory: async_sessionmaker[AsyncSession],
 ) -> None:

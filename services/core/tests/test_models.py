@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+
 import pytest
 from sqlalchemy import LargeBinary, UniqueConstraint
 
@@ -313,3 +315,98 @@ def test_phase_12_preview_3d_spec_and_screenshot_metadata_round_trip_to_json() -
 
     with pytest.raises(ValueError):
         Preview3DCompatibility.model_validate({"status": "maybe"})
+
+
+def test_phase_13_handoff_package_manifest_schema_round_trips_to_json() -> None:
+    from caragent_core.handoff import (
+        ENHANCED_HANDOFF_PACKAGE_FORMAT,
+        HANDOFF_CONCEPT_ONLY_DISCLAIMER,
+        HANDOFF_PACKAGE_SCHEMA_VERSION,
+        HandoffPackageManifest,
+    )
+
+    assert HANDOFF_PACKAGE_SCHEMA_VERSION == 1
+    assert ENHANCED_HANDOFF_PACKAGE_FORMAT == "enhanced_concept_handoff_zip"
+    assert "not print-ready" in HANDOFF_CONCEPT_ONLY_DISCLAIMER
+
+    manifest = HandoffPackageManifest.model_validate(
+        {
+            "files": [
+                {"kind": "manifest", "path": "manifest.json", "required": True},
+                {"kind": "notes", "path": "handoff-notes.md", "required": True},
+                {"kind": "concept_image", "path": "images/concept.png", "required": True},
+            ],
+            "format": "enhanced_concept_handoff_zip",
+            "package_artifact": {
+                "byte_size": 2048,
+                "checksum_sha256": "b" * 64,
+                "content_type": "application/zip",
+                "object_key": "workspaces/ws/export/package/concept-handoff.zip",
+            },
+            "package_type": "enhanced_concept_handoff",
+            "prompt_trace": {
+                "model_run_ids": ["55555555-5555-5555-5555-555555555555"],
+                "summary": "Prompt summary for review package.",
+            },
+            "provider_trace": {
+                "model": "local-concept-v1",
+                "provider": "local-simulation",
+                "status": "succeeded",
+            },
+            "references": {
+                "included_reference_asset_ids": ["66666666-6666-6666-6666-666666666666"],
+                "rights_snapshot": {
+                    "66666666-6666-6666-6666-666666666666": {
+                        "rights_status": "confirmed",
+                        "source_label": "User upload",
+                    },
+                },
+                "schema_version": 1,
+            },
+            "review_notes": ["Approved for concept discussion."],
+            "schema_version": 1,
+            "source_artifact": {
+                "byte_size": 1024,
+                "checksum_sha256": "a" * 64,
+                "content_type": "image/png",
+                "height": 768,
+                "id": "33333333-3333-3333-3333-333333333333",
+                "object_key": "workspaces/ws/generated/version/concept.png",
+                "width": 1536,
+            },
+            "template": {
+                "id": "generic-side-coupe",
+                "safe_zones": [{"id": "door-main", "label": "Door / main side panel"}],
+                "view": "side",
+            },
+            "version_id": "22222222-2222-2222-2222-222222222222",
+            "warnings": {
+                "blocked": [],
+                "items": [{"id": "non_production_preview", "severity": "warning"}],
+                "optional_missing": [],
+                "schema_version": 1,
+            },
+            "workspace_id": "11111111-1111-1111-1111-111111111111",
+        },
+    )
+
+    dumped = manifest.model_dump(mode="json")
+    assert dumped["schema_version"] == 1
+    assert dumped["package_type"] == "enhanced_concept_handoff"
+    assert dumped["format"] == "enhanced_concept_handoff_zip"
+    assert dumped["files"][0]["path"] == "manifest.json"
+    assert dumped["source_artifact"]["id"] == "33333333-3333-3333-3333-333333333333"
+
+    rendered = json.dumps(dumped).lower()
+    assert "image_base64" not in rendered
+    assert "api_key" not in rendered
+    assert "secret" not in rendered
+    assert "c:\\" not in rendered
+
+    with pytest.raises(ValueError):
+        HandoffPackageManifest.model_validate({**dumped, "unexpected": True})
+
+    missing_required_ids = dict(dumped)
+    missing_required_ids.pop("version_id")
+    with pytest.raises(ValueError):
+        HandoffPackageManifest.model_validate(missing_required_ids)
