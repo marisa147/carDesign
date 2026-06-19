@@ -653,6 +653,66 @@ const exportFixture: ExportResponse = {
   workspace_id: "workspace-1",
 };
 
+const preview3dScreenshotArtifactFixture: ArtifactResponse = {
+  ...artifactFixture,
+  byte_size: 720,
+  checksum_sha256: "e".repeat(64),
+  height: 720,
+  id: "artifact-preview-3d-1",
+  kind: "preview_3d_screenshot",
+  metadata: {
+    preview_3d_screenshot: {
+      schema_version: 1,
+      shell_id: GENERIC_SIDE_COUPE_LIGHTWEIGHT_SHELL_ID,
+      source_artifact_id: "artifact-2",
+      warning_ids: ["non_production_preview", "uv_not_verified"],
+    },
+  },
+  object_key: "workspaces/workspace-1/preview_3d_screenshot/artifact-preview-3d-1/capture.png",
+  preview_3d_screenshot: {
+    schema_version: 1,
+    shell_id: GENERIC_SIDE_COUPE_LIGHTWEIGHT_SHELL_ID,
+    source_artifact_id: "artifact-2",
+    warning_ids: ["non_production_preview", "uv_not_verified"],
+  },
+  version_id: "version-2",
+  width: 1280,
+};
+
+const enhancedExportFixture: ExportResponse = {
+  ...exportFixture,
+  artifact_id: "artifact-export-zip-1",
+  completed_at: "2026-06-17T00:58:00Z",
+  format: "enhanced_concept_handoff_zip",
+  id: "export-zip-1",
+  manifest: {
+    disclaimer: "Concept handoff package for review only; not print-ready production artwork.",
+    files: [
+      { kind: "manifest", path: "manifest.json", required: true },
+      { kind: "notes", path: "handoff-notes.md", required: true },
+      { kind: "concept_image", path: "images/concept.png", required: true },
+    ],
+    format: "enhanced_concept_handoff_zip",
+    package_artifact: {
+      byte_size: 4096,
+      checksum_sha256: "f".repeat(64),
+      content_type: "application/zip",
+      object_key: "workspaces/workspace-1/export/export-zip-1/enhanced-concept-handoff.zip",
+    },
+    schema_version: 1,
+    source_artifact: { id: "artifact-2", object_key: secondArtifactFixture.object_key },
+    version_id: "version-2",
+    warnings: {
+      blocked: [],
+      items: [{ id: "non_production_preview", severity: "warning" }],
+      optional_missing: [],
+      schema_version: 1,
+    },
+  },
+  status: "succeeded",
+  updated_at: "2026-06-17T00:58:00Z",
+};
+
 function mockResumeWithGenerationState({
   assets = [],
   artifacts = [],
@@ -694,6 +754,7 @@ describe("Phase 4 workbench shell", () => {
     });
     localStorage.clear();
     vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
     vi.restoreAllMocks();
   });
 
@@ -2414,6 +2475,106 @@ describe("Phase 4 workbench shell", () => {
       },
     });
     expect(JSON.stringify(exportBody)).not.toMatch(/[A-Z]:\\|api[_-]?key|secret/i);
+    expect(
+      fetchMock.mock.calls.some(([url]) => String(url).includes("/versions/version-1/exports")),
+    ).toBe(false);
+  });
+
+  it("creates selected-version enhanced handoff ZIP exports with package preview", async () => {
+    vi.stubEnv("NEXT_PUBLIC_V2_ENHANCED_HANDOFF_PACKAGE_ENABLED", "true");
+    const user = userEvent.setup();
+    localStorage.setItem("caragent.workbench.workspaceId", "workspace-1");
+    localStorage.setItem("caragent.workbench.briefId", "brief-1");
+    const succeededJob = {
+      ...generationJobFixture,
+      status: "succeeded",
+      updated_at: "2026-06-17T00:25:00Z",
+    } satisfies GenerationJobResponse;
+    const referenceVersion = {
+      ...secondVersionFixture,
+      parameters: {
+        ...secondVersionFixture.parameters,
+        ...referenceTraceFixture,
+        preview_3d: {
+          schema_version: 1,
+          warnings: [
+            {
+              id: "non_production_preview",
+              message: "Concept only.",
+              severity: "warning",
+            },
+            {
+              id: "uv_not_verified",
+              message: "UV not verified.",
+              severity: "warning",
+            },
+          ],
+        },
+        preview_spec: previewSpecFixture,
+      },
+    } satisfies DesignVersionResponse;
+    const fetchMock = mockResumeWithGenerationState({
+      artifacts: [
+        artifactFixture,
+        secondArtifactFixture,
+        preview3dScreenshotArtifactFixture,
+      ],
+      events: [
+        {
+          ...jobEventFixture,
+          event_type: "completed",
+          message: "Artifact ready.",
+          progress: "100",
+          status: "succeeded",
+        },
+      ],
+      job: succeededJob,
+      versions: [versionFixture, referenceVersion],
+    }).mockResolvedValueOnce(jsonResponse(enhancedExportFixture, 201));
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<Home />);
+
+    expect(await screen.findByText("导出历史")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "版本 2" }));
+    await user.click(screen.getByRole("button", { name: "ZIP" }));
+
+    expect(screen.getByText("交接包预览")).toBeVisible();
+    expect(screen.getByText("概念交接包，仅供评审")).toBeVisible();
+    expect(screen.getByText("3D 截图 1")).toBeVisible();
+    expect(screen.getByText("参考素材 1")).toBeVisible();
+
+    await user.click(screen.getByRole("button", { name: "生成交接包" }));
+
+    expect(await screen.findByText("交接包导出已记录。")).toBeVisible();
+    expect(fetchMock).toHaveBeenCalledWith(
+      `http://localhost:8000${getCreateExportWorkspacesWorkspaceIdVersionsVersionIdExportsPostUrl(
+        "workspace-1",
+        "version-2",
+      )}`,
+      expect.objectContaining({ method: "POST" }),
+    );
+    const exportCall = fetchMock.mock.calls.find(([url]) =>
+      String(url).includes("/versions/version-2/exports"),
+    );
+    const exportBody = JSON.parse(String((exportCall?.[1] as RequestInit).body));
+    expect(exportBody).toMatchObject({
+      artifact_id: "artifact-2",
+      concept_label: "client-review",
+      format: "enhanced_concept_handoff_zip",
+      manifest: {
+        disclaimer: "概念交接包，仅供评审",
+        included_reference_asset_ids: ["asset-2"],
+        reference_roles: { character: ["asset-2"] },
+        reference_warning_count: 0,
+        source: "web-workbench",
+        source_artifact_object_key: secondArtifactFixture.object_key,
+        version_id: "version-2",
+      },
+    });
+    expect(JSON.stringify(exportBody)).not.toMatch(/[A-Z]:\\|api[_-]?key|secret|image_base64/i);
+    expect(screen.getAllByText("ZIP").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText("images/concept.png")).toBeVisible();
     expect(
       fetchMock.mock.calls.some(([url]) => String(url).includes("/versions/version-1/exports")),
     ).toBe(false);

@@ -312,6 +312,59 @@ describe("iteration API wrappers", () => {
     );
   });
 
+  it("creates enhanced handoff package exports with safe manifest payloads", async () => {
+    const enhancedExportFixture: ExportResponse = {
+      ...exportFixture,
+      artifact_id: "artifact-export-zip-1",
+      completed_at: generatedAt,
+      format: "enhanced_concept_handoff_zip",
+      id: "export-zip-1",
+      manifest: {
+        disclaimer: "概念交接包，仅供评审",
+        format: "enhanced_concept_handoff_zip",
+        package_artifact: {
+          content_type: "application/zip",
+          object_key: "workspaces/workspace-1/export/package.zip",
+        },
+        schema_version: 1,
+        version_id: "version-1",
+      },
+      status: "succeeded",
+    };
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(enhancedExportFixture, 201));
+    const payload = {
+      artifact_id: "artifact-1",
+      concept_label: "client-review",
+      format: "enhanced_concept_handoff_zip",
+      manifest: {
+        disclaimer: "概念交接包，仅供评审",
+        included_reference_asset_ids: ["asset-2"],
+        source: "web-workbench",
+        source_artifact_object_key: "workspaces/workspace-1/generated/artifact-1/concept.png",
+        version_id: "version-1",
+      },
+    };
+
+    await expect(
+      createConceptExport("workspace-1", "version-1", payload, {
+        apiBaseUrl: "http://api.test",
+        fetch: fetchMock,
+      }),
+    ).resolves.toEqual(enhancedExportFixture);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      `http://api.test${getCreateExportWorkspacesWorkspaceIdVersionsVersionIdExportsPostUrl(
+        "workspace-1",
+        "version-1",
+      )}`,
+      expect.objectContaining({
+        body: JSON.stringify(payload),
+        method: "POST",
+      }),
+    );
+    expect(JSON.stringify(payload)).not.toMatch(/[A-Z]:\\|api[_-]?key|secret|image_base64/i);
+  });
+
   it("creates preview 3D screenshots with version-scoped URLs and metadata payloads", async () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse(preview3dScreenshotArtifactFixture, 201));
 
