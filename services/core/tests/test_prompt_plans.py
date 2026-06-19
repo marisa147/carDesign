@@ -3,6 +3,7 @@ from __future__ import annotations
 from uuid import uuid4
 
 from caragent_core.generation import (
+    MVP_COUPE_TEMPLATE_ID,
     PromptProviderSettings,
     build_prompt_plan,
     create_generation_brief,
@@ -48,7 +49,7 @@ def test_build_prompt_plan_captures_text_payload_and_provider_trace() -> None:
     assert plan.input_artifact_ids == [reference_id]
 
     assert "2D concept preview" in plan.prompt_text
-    assert "Generic side-view coupe" in plan.prompt_text
+    assert "Generic coupe side-view" in plan.prompt_text
     assert "side view" in plan.prompt_text
     assert "Sakura heroine art" in plan.prompt_text
     assert "clean racing itasha" in plan.prompt_text
@@ -86,6 +87,7 @@ def test_build_prompt_plan_captures_text_payload_and_provider_trace() -> None:
     }
     preview_spec = payload["preview_spec"]
     assert preview_spec["canvas"] == {"width": 1536, "height": 768}
+    assert preview_spec["template"]["id"] == MVP_COUPE_TEMPLATE_ID
     assert preview_spec["template"]["id"] == brief.vehicle_template_id
     assert preview_spec["template"]["view"] == brief.view
     assert preview_spec["template"]["source"]["source_type"] == "internal_original"

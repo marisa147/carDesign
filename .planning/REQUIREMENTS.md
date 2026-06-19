@@ -18,12 +18,12 @@ v3.0 starts from the final MVP delivery note and focuses on the template/source/
 
 ### MVP Template Pack
 
-- [ ] **V3-PACK-01**: User can select from an internal-original MVP side-view template pack containing coupe, sedan, hatchback, SUV, and van generic templates.
-- [ ] **V3-PACK-02**: Each MVP template includes required asset slots: base image, body/window/wheel/handle masks, panel lines, safe-zones JSON, template metadata, and thumbnail.
-- [ ] **V3-PACK-03**: Developer can validate template package structure, image dimensions, mask bounds, safe-zone coordinates, and metadata schema with one command.
-- [ ] **V3-PACK-04**: System generates deterministic thumbnails or preview fixtures for template catalog display without relying on unauthorized vehicle imagery.
-- [ ] **V3-PACK-05**: Generation brief resolution preserves selected template id, label, view, source/license status, warnings, and safe zones.
-- [ ] **V3-PACK-06**: Existing tests cover all five MVP templates plus the legacy coupe alias.
+- [x] **V3-PACK-01**: User can select from an internal-original MVP side-view template pack containing coupe, sedan, hatchback, SUV, and van generic templates.
+- [x] **V3-PACK-02**: Each MVP template includes required asset slots: base image, body/window/wheel/handle masks, panel lines, safe-zones JSON, template metadata, and thumbnail.
+- [x] **V3-PACK-03**: Developer can validate template package structure, image dimensions, mask bounds, safe-zone coordinates, and metadata schema with one command.
+- [x] **V3-PACK-04**: System generates deterministic thumbnails or preview fixtures for template catalog display without relying on unauthorized vehicle imagery.
+- [x] **V3-PACK-05**: Generation brief resolution preserves selected template id, label, view, source/license status, warnings, and safe zones.
+- [x] **V3-PACK-06**: Existing tests cover all five MVP templates plus the legacy coupe alias.
 
 ### Template Catalog
 
@@ -100,12 +100,12 @@ v3.0 starts from the final MVP delivery note and focuses on the template/source/
 | V3-TEMPLATE-03 | Phase 15 | Complete |
 | V3-TEMPLATE-04 | Phase 15 | Complete |
 | V3-TEMPLATE-05 | Phase 15 | Complete |
-| V3-PACK-01 | Phase 16 | Pending |
-| V3-PACK-02 | Phase 16 | Pending |
-| V3-PACK-03 | Phase 16 | Pending |
-| V3-PACK-04 | Phase 16 | Pending |
-| V3-PACK-05 | Phase 16 | Pending |
-| V3-PACK-06 | Phase 16 | Pending |
+| V3-PACK-01 | Phase 16 | Complete |
+| V3-PACK-02 | Phase 16 | Complete |
+| V3-PACK-03 | Phase 16 | Complete |
+| V3-PACK-04 | Phase 16 | Complete |
+| V3-PACK-05 | Phase 16 | Complete |
+| V3-PACK-06 | Phase 16 | Complete |
 | V3-CATALOG-01 | Phase 17 | Pending |
 | V3-CATALOG-02 | Phase 17 | Pending |
 | V3-CATALOG-03 | Phase 17 | Pending |
@@ -129,10 +129,10 @@ v3.0 starts from the final MVP delivery note and focuses on the template/source/
 
 **Coverage:**
 
-- v3.0 requirements: 31 total; 5 complete
+- v3.0 requirements: 31 total; 11 complete
 - Mapped to phases: 31
 - Unmapped: 0
 
 ---
 *Requirements defined: 2026-06-19*
-*Last updated: 2026-06-19 after Phase 15 completion*
+*Last updated: 2026-06-19 after Phase 16 completion*

@@ -11,6 +11,7 @@ from uuid import UUID, uuid4
 import pytest
 from caragent_core.database import session_scope
 from caragent_core.enums import ArtifactKind, DesignVersionStatus, JobStatus
+from caragent_core.generation import MVP_COUPE_TEMPLATE_ID
 from caragent_core.models import DesignVersion, GenerationJob, metadata
 from caragent_core.services import jobs
 from fastapi.testclient import TestClient
@@ -124,7 +125,7 @@ def test_create_and_update_structured_generation_brief(tmp_path: Path) -> None:
     assert payload["racing_cues"] == ["number panel", "tow arrow"]
     assert payload["supporting_graphics"] == ["teal ribbon", "sakura petals"]
     assert payload["typography_intent"] == "bold readable door lettering"
-    assert payload["vehicle_template_id"] == "generic-side-coupe"
+    assert payload["vehicle_template_id"] == MVP_COUPE_TEMPLATE_ID
     assert payload["view"] == "side"
     assert "Unsupported vehicle template" in " ".join(payload["warnings"])
     assert "Unsupported view" in " ".join(payload["warnings"])

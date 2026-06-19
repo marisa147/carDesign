@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Template Library And Production Readiness
 status: in-progress
-stopped_at: Completed Phase 15; ready for Phase 16 planning
-last_updated: "2026-06-19T13:55:00Z"
-last_activity: "2026-06-19 -- Completed Phase 15 template source governance and compatibility"
+stopped_at: Completed Phase 16; ready for Phase 17 planning
+last_updated: "2026-06-19T14:55:00Z"
+last_activity: "2026-06-19 -- Completed Phase 16 MVP generic template pack"
 progress:
   total_phases: 6
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 33
-  completed_plans: 5
-  percent: 17
+  completed_plans: 11
+  percent: 33
 ---
 
 # Project State
@@ -21,17 +21,17 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-19)
 
 **Core value:** 用户能用自然语言快速得到一套可预览、可迭代、可导出的高质量痛车设计方案。
-**Current focus:** v3.0 Phase 16 planning
+**Current focus:** v3.0 Phase 17 planning
 
 ## Current Position
 
 Milestone: v3.0 Template Library And Production Readiness — IN PROGRESS
-Phase: Phase 16 — MVP Generic Template Pack
+Phase: Phase 17 — Template Catalog API And Workbench Selection
 Plan: none active
-Status: Ready to discuss or plan Phase 16
-Last activity: 2026-06-19 -- Completed Phase 15 template source governance and compatibility
+Status: Ready to discuss or plan Phase 17
+Last activity: 2026-06-19 -- Completed Phase 16 MVP generic template pack
 
-Progress: [##--------] 17%
+Progress: [###-------] 33%
 
 ## Milestone Archives
 
@@ -51,7 +51,7 @@ v3.0 Template Library And Production Readiness is scoped to the following phase 
 | Phase | Focus | Plans | Requirements |
 |-------|-------|-------|--------------|
 | Phase 15 | Template Source Governance And Compatibility | 5/5 complete | V3-TEMPLATE-01..05 complete |
-| Phase 16 | MVP Generic Template Pack | 0/6 | V3-PACK-01..06 |
+| Phase 16 | MVP Generic Template Pack | 6/6 complete | V3-PACK-01..06 complete |
 | Phase 17 | Template Catalog API And Workbench Selection | 0/6 | V3-CATALOG-01..05 |
 | Phase 18 | Template-Aware Generation, Preview, And Editing | 0/6 | V3-INTEGRATION-01..06 |
 | Phase 19 | Concept Handoff And Production Readiness Preflight | 0/5 | V3-PREFLIGHT-01..04 |
@@ -160,6 +160,12 @@ Recent decisions affecting v2.0 and v3.0:
 - [Phase 15 Plan 03]: Prohibited source types and non-reusable license statuses fail closed before reusable template records can enter the registry.
 - [Phase 15 Plan 04]: `generic-side-coupe` remains the stable v1/v2 id, while `generic_coupe_side_v1` resolves as a compatibility alias and new brief/prompt/PreviewSpec payloads carry source/readiness metadata.
 - [Phase 15 Plan 05]: Template governance docs, OpenAPI, generated TypeScript contracts, focused validations, and code review now close V3-TEMPLATE-01..05.
+- [Phase 16 Plan 01]: The core template registry now loads five package-backed MVP records from `template.json` and `safe_zones.json`, with `generic-side-coupe` preserved as the legacy alias for the canonical coupe id.
+- [Phase 16 Plan 02]: A deterministic local generator creates internal-original PNG and JSON assets for coupe, sedan, hatchback, SUV, and van without external vehicle imagery.
+- [Phase 16 Plan 03]: `python -m caragent_core.generation.validate_template_pack` validates ids, required slots, PNG dimensions, non-empty masks, metadata, readiness, and normalized safe zones.
+- [Phase 16 Plan 04]: Generation briefs and prompt PreviewSpecs preserve selected MVP template id, label, source/license state, readiness, warnings, and safe zones.
+- [Phase 16 Plan 05]: Template governance docs now document the MVP pack manifest, asset slots, validation command, and concept-only boundary.
+- [Phase 16 Plan 06]: Focused core/API/worker tests, lint, mypy, visual thumbnail checks, verification, and review close V3-PACK-01..06.
 
 ### Pending Todos
 
@@ -176,7 +182,7 @@ None.
 - Hosted reference-image input remains manual-only until provider/model support, credentials, cost approval, and quota guards are verified.
 - Contract drift must be checked in each phase because v2.0 extends the v1.0 schema surface.
 - V3 template assets must be `internal_original`, licensed, or user-provided-with-rights; web-crawled or third-party reference-only material must not enter reusable template assets, masks, thumbnails, or catalog entries.
-- Current code only supports the narrow `generic-side-coupe` template path; Phase 15/16 must preserve compatibility while introducing the new template registry and MVP pack.
+- Template pack now exists in core; Phase 17 must expose catalog API and Workbench selection before users can choose templates through the product UI.
 - Concept handoff and preflight must keep non-production labels and avoid implying print-ready PSD/AI/PDF, verified scale/bleed/color/DPI, production UV, or installer readiness.
 
 ## Deferred Items
@@ -206,8 +212,8 @@ Items acknowledged by `audit-open` at v2.0 milestone close on 2026-06-19:
 
 ## Session Continuity
 
-Last session: 2026-06-19T13:55:00Z
-Stopped at: Completed Phase 15; ready for Phase 16 planning
+Last session: 2026-06-19T14:55:00Z
+Stopped at: Completed Phase 16; ready for Phase 17 planning
 Resume files:
 
 - `.planning/PROJECT.md`
@@ -217,6 +223,8 @@ Resume files:
 - `.planning/research/V3-MVP-FINAL-ANALYSIS.md`
 - `.planning/phases/15-template-source-governance-and-compatibility/15-VERIFICATION.md`
 - `.planning/phases/15-template-source-governance-and-compatibility/15-REVIEW.md`
+- `.planning/phases/16-mvp-generic-template-pack/16-VERIFICATION.md`
+- `.planning/phases/16-mvp-generic-template-pack/16-REVIEW.md`
 - `.planning/MILESTONES.md`
 - `.planning/RETROSPECTIVE.md`
 - `C:/Users/25858/Downloads/MVP_FINAL.md`
@@ -341,5 +349,5 @@ Resume files:
 - `.planning/phases/14-v2-mvp-hardening-docs-smoke-and-uat/14-06-SUMMARY.md`
 - `.planning/phases/14-v2-mvp-hardening-docs-smoke-and-uat/evidence/phase14-browser-metrics.json`
 
-Next recommended command: `$gsd-discuss-phase 16`
-Alternative: `$gsd-plan-phase 16`
+Next recommended command: `$gsd-discuss-phase 17`
+Alternative: `$gsd-plan-phase 17`

@@ -1,0 +1,47 @@
+[
+  {
+    "height": 0.27,
+    "id": "door-main",
+    "kind": "body",
+    "label": "Tall door side panel",
+    "width": 0.4,
+    "x": 0.31,
+    "y": 0.43
+  },
+  {
+    "height": 0.17,
+    "id": "side-window",
+    "kind": "window",
+    "label": "Tall cabin window band",
+    "width": 0.43,
+    "x": 0.28,
+    "y": 0.28
+  },
+  {
+    "height": 0.19,
+    "id": "front-wheel-arch",
+    "kind": "risky",
+    "label": "Front wheel arch",
+    "width": 0.14,
+    "x": 0.15,
+    "y": 0.58
+  },
+  {
+    "height": 0.19,
+    "id": "rear-wheel-arch",
+    "kind": "risky",
+    "label": "Rear wheel arch",
+    "width": 0.14,
+    "x": 0.73,
+    "y": 0.58
+  },
+  {
+    "height": 0.23,
+    "id": "rear-quarter",
+    "kind": "body",
+    "label": "Rear quarter panel",
+    "width": 0.16,
+    "x": 0.69,
+    "y": 0.44
+  }
+]

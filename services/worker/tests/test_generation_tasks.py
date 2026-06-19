@@ -16,7 +16,7 @@ from caragent_core.enums import (
     JobStatus,
     ModelRunStatus,
 )
-from caragent_core.generation import create_generation_brief
+from caragent_core.generation import MVP_COUPE_TEMPLATE_ID, create_generation_brief
 from caragent_core.models import (
     Artifact,
     DesignVersion,
@@ -135,7 +135,7 @@ def test_generation_worker_persists_prompt_artifact_version_and_success(
     assert version.brief_id == state.job.brief_id
     assert version.parameters["concept_label"] == "concept_preview"
     assert version.parameters["overlay_layer_count"] == 1
-    assert version.parameters["preview_spec"]["template"]["id"] == "generic-side-coupe"
+    assert version.parameters["preview_spec"]["template"]["id"] == MVP_COUPE_TEMPLATE_ID
     assert version.parameters["preview_spec"]["overlay_layers"][0]["text"] == "MOON DRIVE"
     assert version.parameters["safe_zone_count"] >= 5
     assert version.parameters["warning_count"] == 0

@@ -1,0 +1,1 @@
+"""Packaged vehicle template resources."""

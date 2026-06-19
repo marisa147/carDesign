@@ -10,7 +10,7 @@
 
 v3.0 is the active milestone. It follows the final MVP delivery note and focuses on template source governance, an internal generic MVP template pack, template catalog selection, template-aware generation/preview/editing, concept-only production readiness preflight, and release hardening.
 
-**Next up:** Phase 16 — MVP Generic Template Pack.
+**Next up:** Phase 17 — Template Catalog API And Workbench Selection.
 
 ## v3.0 Scope
 
@@ -31,7 +31,7 @@ Make templates trustworthy and selectable before the product moves toward true p
 | Phase | Name | Goal | Requirements | Plans |
 |-------|------|------|--------------|-------|
 | 15 | Template Source Governance And Compatibility | Establish source/license policy, template registry shape, prohibited-source blocking, and legacy template compatibility. | V3-TEMPLATE-01..05 | 5/5 |
-| 16 | MVP Generic Template Pack | Create and validate five internal-original generic side-view templates with required assets and metadata. | V3-PACK-01..06 | 6 |
+| 16 | MVP Generic Template Pack | Create and validate five internal-original generic side-view templates with required assets and metadata. | V3-PACK-01..06 | 6/6 |
 | 17 | Template Catalog API And Workbench Selection | Expose templates through API and Workbench selection with source/license/readiness warnings. | V3-CATALOG-01..05 | 6 |
 | 18 | Template-Aware Generation, Preview, And Editing | Carry selected template context through generation, PreviewSpec, targeted edits, references, contracts, and 3D fallback. | V3-INTEGRATION-01..06 | 6 |
 | 19 | Concept Handoff And Production Readiness Preflight | Add concept-only production readiness reporting and richer template evidence in handoff ZIPs. | V3-PREFLIGHT-01..04 | 5 |
@@ -202,7 +202,7 @@ Make templates trustworthy and selectable before the product moves toward true p
 |-----------|--------|----------------|--------|-----------|
 | v1.0 MVP | 1-7 | 54/54 | Complete | 2026-06-18 |
 | v2.0 V2 MVP | 8-14 | 48/48 | Complete | 2026-06-19 |
-| v3.0 Template Library And Production Readiness | 15-20 | 5/33 | In Progress | — |
+| v3.0 Template Library And Production Readiness | 15-20 | 11/33 | In Progress | — |
 
 ## Deferred Future Directions
 
@@ -214,4 +214,4 @@ Make templates trustworthy and selectable before the product moves toward true p
 - Advanced multi-agent orchestration beyond the typed generation and worker pipeline.
 
 ---
-*Last updated: 2026-06-19 after Phase 15 completion*
+*Last updated: 2026-06-19 after Phase 16 completion*

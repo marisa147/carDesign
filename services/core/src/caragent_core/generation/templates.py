@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import json
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
+from importlib.resources import files
+from importlib.resources.abc import Traversable
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -12,6 +15,19 @@ SUPPORTED_VIEW = "side"
 SUPPORTED_CANVAS_WIDTH = 1536
 SUPPORTED_CANVAS_HEIGHT = 768
 MVP_COUPE_TEMPLATE_ID = "generic_coupe_side_v1"
+MVP_SEDAN_TEMPLATE_ID = "generic_sedan_side_v1"
+MVP_HATCHBACK_TEMPLATE_ID = "generic_hatchback_side_v1"
+MVP_SUV_TEMPLATE_ID = "generic_suv_side_v1"
+MVP_VAN_TEMPLATE_ID = "generic_van_side_v1"
+DEFAULT_TEMPLATE_ID = MVP_COUPE_TEMPLATE_ID
+MVP_TEMPLATE_IDS: tuple[str, ...] = (
+    MVP_COUPE_TEMPLATE_ID,
+    MVP_SEDAN_TEMPLATE_ID,
+    MVP_HATCHBACK_TEMPLATE_ID,
+    MVP_SUV_TEMPLATE_ID,
+    MVP_VAN_TEMPLATE_ID,
+)
+MVP_TEMPLATE_PACK_PACKAGE = "caragent_core.generation.template_pack.mvp_generic_side_v1"
 
 SafeZone = dict[str, Any]
 TemplateSourceType = Literal[
@@ -272,7 +288,13 @@ class TemplateResolution:
 
 
 class TemplateRegistry:
-    def __init__(self, records: Iterable[VehicleTemplateRecord] = ()) -> None:
+    def __init__(
+        self,
+        records: Iterable[VehicleTemplateRecord] = (),
+        *,
+        default_template_id: str = DEFAULT_TEMPLATE_ID,
+    ) -> None:
+        self._default_template_id = default_template_id
         self._records: dict[str, VehicleTemplateRecord] = {}
         self._aliases: dict[str, str] = {}
         for record in records:
@@ -306,7 +328,10 @@ class TemplateRegistry:
         return self._records.get(canonical_id)
 
     def default_record(self) -> VehicleTemplateRecord:
-        return self._records[SUPPORTED_TEMPLATE_ID]
+        record = self.resolve(self._default_template_id)
+        if record is None:
+            raise LookupError(f"Default template '{self._default_template_id}' is not registered.")
+        return record
 
     def list_records(self) -> list[VehicleTemplateRecord]:
         return list(self._records.values())
@@ -314,26 +339,6 @@ class TemplateRegistry:
     def audit(self) -> list[TemplateAuditItem]:
         return [audit_template_record(record) for record in self.list_records()]
 
-
-LEGACY_TEMPLATE_RECORD = VehicleTemplateRecord(
-    aliases=(MVP_COUPE_TEMPLATE_ID,),
-    asset_slots={},
-    canvas_height=SUPPORTED_CANVAS_HEIGHT,
-    canvas_width=SUPPORTED_CANVAS_WIDTH,
-    id=SUPPORTED_TEMPLATE_ID,
-    label=SUPPORTED_TEMPLATE_LABEL,
-    safe_zones=[dict(zone) for zone in SUPPORTED_SAFE_ZONES],
-    source=TemplateSourceMetadata(
-        allowed_usage_scope="mvp_concept_preview",
-        audit_timestamp="2026-06-19T00:00:00Z",
-        distribution_allowed=True,
-        license_evidence="internal-template-seed-v1",
-        license_status="approved",
-        rights_notes="Internal generic side-view vehicle silhouette for concept previews.",
-        source_type="internal_original",
-    ),
-    view=SUPPORTED_VIEW,
-)
 
 def template_source_policy_table() -> list[dict[str, object]]:
     return [
@@ -445,7 +450,50 @@ def audit_vehicle_templates(registry: TemplateRegistry | None = None) -> list[Te
     return (registry or TEMPLATE_REGISTRY).audit()
 
 
-TEMPLATE_REGISTRY = TemplateRegistry([LEGACY_TEMPLATE_RECORD])
+def list_vehicle_templates(registry: TemplateRegistry | None = None) -> list[VehicleTemplateRecord]:
+    return (registry or TEMPLATE_REGISTRY).list_records()
+
+
+def template_pack_root() -> Traversable:
+    return files(MVP_TEMPLATE_PACK_PACKAGE)
+
+
+def template_asset_resource(template_id: str, slot: TemplateAssetSlot) -> Traversable:
+    record = TEMPLATE_REGISTRY.resolve(template_id)
+    if record is None:
+        raise KeyError(f"Unknown template '{template_id}'.")
+    asset_path = record.asset_slots.get(slot)
+    if not asset_path:
+        raise KeyError(f"Template '{record.id}' does not define asset slot '{slot}'.")
+    return template_pack_root().joinpath(record.id, asset_path)
+
+
+def load_mvp_template_records() -> tuple[VehicleTemplateRecord, ...]:
+    return tuple(_load_mvp_template_record(template_id) for template_id in MVP_TEMPLATE_IDS)
+
+
+def _load_mvp_template_record(template_id: str) -> VehicleTemplateRecord:
+    template_root = template_pack_root().joinpath(template_id)
+    metadata = _read_json_object(template_root.joinpath("template.json"))
+    safe_zones = _read_json_list(template_root.joinpath("safe_zones.json"))
+    return VehicleTemplateRecord.model_validate({**metadata, "safe_zones": safe_zones})
+
+
+def _read_json_object(resource: Traversable) -> dict[str, object]:
+    value = json.loads(resource.read_text(encoding="utf-8"))
+    if not isinstance(value, dict):
+        raise ValueError(f"Expected JSON object in {resource.name}.")
+    return value
+
+
+def _read_json_list(resource: Traversable) -> list[object]:
+    value = json.loads(resource.read_text(encoding="utf-8"))
+    if not isinstance(value, list):
+        raise ValueError(f"Expected JSON list in {resource.name}.")
+    return value
+
+
+TEMPLATE_REGISTRY = TemplateRegistry(load_mvp_template_records())
 
 
 def resolve_vehicle_template(
@@ -454,7 +502,7 @@ def resolve_vehicle_template(
     view: str | None = None,
     registry: TemplateRegistry | None = None,
 ) -> TemplateResolution:
-    requested_template = (vehicle_template_id or SUPPORTED_TEMPLATE_ID).strip()
+    requested_template = (vehicle_template_id or DEFAULT_TEMPLATE_ID).strip()
     requested_view = (view or SUPPORTED_VIEW).strip().lower()
     template_registry = registry or TEMPLATE_REGISTRY
     record = template_registry.resolve(requested_template)
@@ -463,7 +511,7 @@ def resolve_vehicle_template(
     if record is None:
         warnings.append(
             "Unsupported vehicle template "
-            f"'{requested_template}' normalized to '{SUPPORTED_TEMPLATE_ID}'.",
+            f"'{requested_template}' normalized to '{DEFAULT_TEMPLATE_ID}'.",
         )
         record = template_registry.default_record()
 

@@ -5,7 +5,9 @@ from uuid import uuid4
 import pytest
 
 from caragent_core.generation import (
+    DEFAULT_TEMPLATE_ID,
     MVP_COUPE_TEMPLATE_ID,
+    MVP_TEMPLATE_IDS,
     SUPPORTED_TEMPLATE_ID,
     SUPPORTED_VIEW,
     GenerationBriefPayload,
@@ -14,6 +16,7 @@ from caragent_core.generation import (
     VehicleTemplateRecord,
     audit_vehicle_templates,
     create_generation_brief,
+    list_vehicle_templates,
     register_vehicle_template,
     resolve_vehicle_template,
     template_source_policy_table,
@@ -40,7 +43,7 @@ def test_create_generation_brief_preserves_request_and_normalizes_template() -> 
 
     assert isinstance(brief, GenerationBriefPayload)
     assert brief.original_request.startswith("Create a Sakura GT86")
-    assert brief.vehicle_template_id == SUPPORTED_TEMPLATE_ID
+    assert brief.vehicle_template_id == DEFAULT_TEMPLATE_ID
     assert brief.view == SUPPORTED_VIEW
     assert brief.character_theme == "Hatsune Miku"
     assert brief.style == "racing JDM"
@@ -60,7 +63,7 @@ def test_create_generation_brief_defaults_missing_optional_fields() -> None:
     assert brief.original_request == (
         "Black coupe with a dragon heroine, neon violet accents, side wrap."
     )
-    assert brief.vehicle_template_id == SUPPORTED_TEMPLATE_ID
+    assert brief.vehicle_template_id == DEFAULT_TEMPLATE_ID
     assert brief.view == SUPPORTED_VIEW
     assert brief.character_theme == (
         "Black coupe with a dragon heroine, neon violet accents, side wrap."
@@ -94,7 +97,7 @@ def test_resolve_vehicle_template_reports_unsupported_inputs() -> None:
         view="rear",
     )
 
-    assert resolution.template_id == SUPPORTED_TEMPLATE_ID
+    assert resolution.template_id == DEFAULT_TEMPLATE_ID
     assert resolution.view == SUPPORTED_VIEW
     assert resolution.canvas_width == 1536
     assert resolution.canvas_height == 768
@@ -124,6 +127,44 @@ def test_template_source_policy_table_documents_allowed_and_blocked_sources() ->
     assert policies["user_provided_with_rights"]["allowed_for_reusable_assets"] is True
     assert policies["third_party_reference_only"]["allowed_for_reusable_assets"] is False
     assert policies["web_crawled_image"]["allowed_for_template_library"] is False
+
+
+def test_mvp_template_registry_contains_all_catalog_ready_templates() -> None:
+    records = list_vehicle_templates()
+    audits = audit_vehicle_templates()
+
+    assert tuple(record.id for record in records) == MVP_TEMPLATE_IDS
+    assert {audit.id for audit in audits} == set(MVP_TEMPLATE_IDS)
+    assert all(audit.source_type == "internal_original" for audit in audits)
+    assert all(audit.license_status == "approved" for audit in audits)
+    assert all(audit.catalog_eligible for audit in audits)
+    assert all(audit.reusable_asset_allowed for audit in audits)
+    assert all(audit.missing_asset_slots == [] for audit in audits)
+    assert all(audit.blocking_reasons == [] for audit in audits)
+
+
+@pytest.mark.parametrize("template_id", MVP_TEMPLATE_IDS)
+def test_create_generation_brief_preserves_selected_mvp_template(template_id: str) -> None:
+    brief = create_generation_brief(
+        original_request=f"Create a design for {template_id}.",
+        vehicle_template_id=template_id,
+    )
+
+    assert brief.vehicle_template_id == template_id
+    assert brief.vehicle_template_label.startswith("Generic ")
+    assert brief.view == SUPPORTED_VIEW
+    assert brief.template_source.source_type == "internal_original"
+    assert brief.template_source.license_status == "approved"
+    assert brief.template_readiness.catalog_eligible is True
+    assert brief.template_readiness.missing_asset_slots == []
+    assert brief.warnings == []
+    assert {zone["id"] for zone in brief.safe_zones} >= {
+        "door-main",
+        "front-wheel-arch",
+        "rear-quarter",
+        "rear-wheel-arch",
+        "side-window",
+    }
 
 
 def test_register_vehicle_template_blocks_disallowed_reusable_sources() -> None:
@@ -164,10 +205,10 @@ def test_register_vehicle_template_requires_license_evidence_for_licensed_source
 
 
 def test_legacy_template_alias_resolves_without_breaking_existing_id() -> None:
-    resolution = resolve_vehicle_template(vehicle_template_id=MVP_COUPE_TEMPLATE_ID)
+    resolution = resolve_vehicle_template(vehicle_template_id=SUPPORTED_TEMPLATE_ID)
 
-    assert resolution.template_id == SUPPORTED_TEMPLATE_ID
-    assert resolution.template_label == "Generic side-view coupe"
+    assert resolution.template_id == MVP_COUPE_TEMPLATE_ID
+    assert resolution.template_label == "Generic coupe side-view"
     assert resolution.view == SUPPORTED_VIEW
     assert resolution.warnings == []
 
@@ -218,7 +259,7 @@ def test_generation_brief_round_trips_as_json_safe_payload() -> None:
 
     assert dumped["original_request"] == "White hatchback with magical girl theme."
     assert dumped["text"] == ["STAR DRIVE"]
-    assert dumped["vehicle_template_id"] == SUPPORTED_TEMPLATE_ID
+    assert dumped["vehicle_template_id"] == DEFAULT_TEMPLATE_ID
     assert dumped["template_source"]["source_type"] == "internal_original"
     assert dumped["template_readiness"]["reusable_asset_allowed"] is True
     assert dumped["safe_zones"][0]["id"]

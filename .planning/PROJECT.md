@@ -29,7 +29,7 @@ v3.0 从 `MVP_FINAL.md` 继续推进模板来源、授权、通用模板包、�
 
 **Shipped:** v1.0 MVP on 2026-06-18 and v2.0 V2 MVP on 2026-06-19.
 
-**Next milestone:** v3.0 Template Library And Production Readiness is planned from `C:/Users/25858/Downloads/MVP_FINAL.md`. Start implementation planning with Phase 15.
+**Next milestone:** v3.0 Template Library And Production Readiness is planned from `C:/Users/25858/Downloads/MVP_FINAL.md`. Phase 17 is next.
 
 ## Current State
 
@@ -65,10 +65,10 @@ v3.0 从 `MVP_FINAL.md` 继续推进模板来源、授权、通用模板包、�
 - ✓ Enhanced concept handoff export can package concept assets, overlays, traces, warnings, notes, and disclaimers without claiming print readiness — v2.0 (HANDOFF)
 - ✓ V2 MVP can be validated through aggregate tests, Docker smoke, hosted-provider manual smoke, Browser UAT, docs, and release notes — v2.0 (REL)
 - ✓ Template source governance, license metadata, readiness audit, prohibited-source blocking, and legacy template compatibility exist in core contracts — v3.0 Phase 15 (V3-TEMPLATE)
+- ✓ Internal-original generic side-view template pack exists for coupe, sedan, hatchback, SUV, and van with required assets, deterministic thumbnails, validation command, and selected-template brief resolution — v3.0 Phase 16 (V3-PACK)
 
 ### Active
 
-- [ ] Create the internal-original MVP generic side-view template pack.
 - [ ] Add template catalog API and Workbench selection.
 - [ ] Carry selected template context through generation, preview, edits, references, 3D fallback, and exports.
 - [ ] Add concept-only production readiness preflight and keep print-ready export blocked.
@@ -134,6 +134,7 @@ Shipped v1.0 experience:
 | V2 features stay concept-only until production validation exists | Targeted edits, references, 3D preview, and handoff ZIPs can be mistaken for production wrap proof | ✓ Good — Phase 14 release notes and docs preserve not-print-ready boundaries |
 | V3 follows the final MVP delivery note | User supplied `C:/Users/25858/Downloads/MVP_FINAL.md` as the source for the next milestone after v2.0 archive | — Pending — v3.0 in progress |
 | Template governance before production handoff | Production handoff, true 3D, licensed templates, marketplace, and ordering all depend on trustworthy template provenance | ✓ Good — Phase 15 established source/license registry, readiness audit, and compatibility bridge |
+| Internal generic templates before catalog UI | The Workbench selector needs trustworthy, local, reusable template records and thumbnails before API/UI exposure | ✓ Good — Phase 16 added five internal-original templates and a package validator |
 
 ## Evolution
 
@@ -155,4 +156,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state.
 
 ---
-*Last updated: 2026-06-19 after Phase 15 completion*
+*Last updated: 2026-06-19 after Phase 16 completion*

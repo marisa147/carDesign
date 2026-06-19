@@ -1,0 +1,47 @@
+[
+  {
+    "height": 0.24,
+    "id": "door-main",
+    "kind": "body",
+    "label": "Door / main side panel",
+    "width": 0.32,
+    "x": 0.33,
+    "y": 0.45
+  },
+  {
+    "height": 0.16,
+    "id": "side-window",
+    "kind": "window",
+    "label": "Side window",
+    "width": 0.31,
+    "x": 0.31,
+    "y": 0.3
+  },
+  {
+    "height": 0.18,
+    "id": "front-wheel-arch",
+    "kind": "risky",
+    "label": "Front wheel arch",
+    "width": 0.14,
+    "x": 0.16,
+    "y": 0.56
+  },
+  {
+    "height": 0.18,
+    "id": "rear-wheel-arch",
+    "kind": "risky",
+    "label": "Rear wheel arch",
+    "width": 0.14,
+    "x": 0.7,
+    "y": 0.56
+  },
+  {
+    "height": 0.2,
+    "id": "rear-quarter",
+    "kind": "body",
+    "label": "Rear quarter panel",
+    "width": 0.18,
+    "x": 0.64,
+    "y": 0.44
+  }
+]

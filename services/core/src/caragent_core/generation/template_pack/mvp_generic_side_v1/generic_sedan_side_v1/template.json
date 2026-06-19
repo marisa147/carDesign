@@ -1,0 +1,30 @@
+{
+  "aliases": [],
+  "asset_slots": {
+    "base": "base.png",
+    "body_mask": "body_mask.png",
+    "handle_mask": "handle_mask.png",
+    "metadata": "template.json",
+    "panel_lines": "panel_lines.png",
+    "safe_zones": "safe_zones.json",
+    "thumbnail": "thumbnail.png",
+    "wheel_mask": "wheel_mask.png",
+    "window_mask": "window_mask.png"
+  },
+  "canvas_height": 768,
+  "canvas_width": 1536,
+  "id": "generic_sedan_side_v1",
+  "label": "Generic sedan side-view",
+  "source": {
+    "allowed_usage_scope": "mvp_concept_preview",
+    "audit_timestamp": "2026-06-19T14:40:00Z",
+    "distribution_allowed": true,
+    "license_evidence": "internal-mvp-generic-template-pack-v1",
+    "license_status": "approved",
+    "rights_notes": "Internal generic side-view silhouette generated from geometric primitives for concept preview templates.",
+    "source_type": "internal_original"
+  },
+  "thumbnail_height": 192,
+  "thumbnail_width": 384,
+  "view": "side"
+}
