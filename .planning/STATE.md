@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: V2 MVP
 status: executing
-stopped_at: Completed Phase 13; ready for Phase 14 planning
-last_updated: "2026-06-19T10:10:00Z"
-last_activity: "2026-06-19 -- Completed Phase 13 Plan 07 verification, docs, browser UAT, and traceability"
+stopped_at: Planned Phase 14; ready for Phase 14 Plan 01
+last_updated: "2026-06-19T10:35:00Z"
+last_activity: "2026-06-19 -- Planned Phase 14 release hardening, smoke, docs, UAT, and completion evidence"
 progress:
   total_phases: 7
   completed_phases: 6
@@ -26,10 +26,10 @@ See: .planning/PROJECT.md (updated 2026-06-18)
 ## Current Position
 
 Milestone: v2.0 V2 MVP — PHASE 14 READY
-Phase: 14 (V2 MVP Hardening, Docs, Smoke, And UAT) — READY TO PLAN
+Phase: 14 (V2 MVP Hardening, Docs, Smoke, And UAT) — READY TO EXECUTE
 Plan: 14-01-PLAN.md — Root aggregate validation, contract drift, and regression closure
-Status: Ready to plan Phase 14
-Last activity: 2026-06-19 -- Completed Phase 13 Plan 07 verification, docs, browser UAT, and traceability
+Status: Ready to execute Phase 14 Plan 01
+Last activity: 2026-06-19 -- Planned Phase 14 release hardening, smoke, docs, UAT, and completion evidence
 
 Progress: [#########-] 88%
 
@@ -54,7 +54,7 @@ v2.0 MVP is scoped to the following phase sequence:
 | Phase 11 | Reference-Guided Generation MVP | 7/7 complete | V2-REF-01..05 |
 | Phase 12 | Lightweight 3D Preview MVP | 8/8 complete | V2-3D-01..05 |
 | Phase 13 | Enhanced Concept Handoff Package MVP | 7/7 complete | V2-HANDOFF-01..05 |
-| Phase 14 | V2 MVP Hardening, Docs, Smoke, And UAT | 0/6 | V2-REL-01..05 |
+| Phase 14 | V2 MVP Hardening, Docs, Smoke, And UAT | 0/6 ready | V2-REL-01..05 |
 
 ## Prior Milestone Metrics
 
@@ -124,6 +124,7 @@ Recent decisions affecting v2.0:
 - [Phase 13 Plan 05]: The Workbench now exposes feature-flagged ZIP handoff export mode with package readiness preview, safe request manifests, selected `generated_image` source artifacts, and ZIP history rows with returned package evidence.
 - [Phase 13 Plan 06]: Enhanced handoff package creation now blocks missing, rejected, or source-less included reference rights metadata in core/API, while the Workbench shows `缺少版权或来源信息` and keeps missing 3D screenshots as warning-only.
 - [Phase 13 Plan 07]: Phase 13 closed with focused validation, regenerated/current contracts, provider-off worker dry-run, elevated aggregate validation, desktop/mobile browser UAT evidence, docs, and V2-HANDOFF-01..05 traceability complete; enhanced handoff ZIPs remain concept-only and not print-ready.
+- [Phase 14 Planning]: Release hardening is planned as six plans covering aggregate validation, Docker smoke, manual hosted-provider smoke, desktop/mobile V2 browser UAT, feature-flag/docs reference, and final V2 MVP release evidence.
 
 ### Pending Todos
 
@@ -155,8 +156,8 @@ Items acknowledged and deferred beyond v2.0 MVP:
 
 ## Session Continuity
 
-Last session: 2026-06-19T10:10:00Z
-Stopped at: Completed Phase 13; ready for Phase 14 planning
+Last session: 2026-06-19T10:35:00Z
+Stopped at: Planned Phase 14; ready for Phase 14 Plan 01
 Resume files:
 
 - `.planning/PROJECT.md`
@@ -254,6 +255,17 @@ Resume files:
 - `.planning/phases/13-enhanced-concept-handoff-package-mvp/13-HUMAN-UAT.md`
 - `.planning/phases/13-enhanced-concept-handoff-package-mvp/13-MILESTONE-NOTES.md`
 - `.planning/phases/13-enhanced-concept-handoff-package-mvp/13-07-SUMMARY.md`
+- `.planning/phases/14-v2-mvp-hardening-docs-smoke-and-uat/14-CONTEXT.md`
+- `.planning/phases/14-v2-mvp-hardening-docs-smoke-and-uat/14-RESEARCH.md`
+- `.planning/phases/14-v2-mvp-hardening-docs-smoke-and-uat/14-UI-SPEC.md`
+- `.planning/phases/14-v2-mvp-hardening-docs-smoke-and-uat/14-PATTERNS.md`
+- `.planning/phases/14-v2-mvp-hardening-docs-smoke-and-uat/14-VALIDATION.md`
+- `.planning/phases/14-v2-mvp-hardening-docs-smoke-and-uat/14-01-PLAN.md`
+- `.planning/phases/14-v2-mvp-hardening-docs-smoke-and-uat/14-02-PLAN.md`
+- `.planning/phases/14-v2-mvp-hardening-docs-smoke-and-uat/14-03-PLAN.md`
+- `.planning/phases/14-v2-mvp-hardening-docs-smoke-and-uat/14-04-PLAN.md`
+- `.planning/phases/14-v2-mvp-hardening-docs-smoke-and-uat/14-05-PLAN.md`
+- `.planning/phases/14-v2-mvp-hardening-docs-smoke-and-uat/14-06-PLAN.md`
 
-Next recommended command: `$gsd-plan-phase 14 --auto` starting with 14-01.
+Next recommended command: `$gsd-execute-phase 14 --auto --no-transition` starting with 14-01.
 Alternative: `$gsd-progress --next`
