@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: V2 MVP
 status: executing
-stopped_at: Phase 12 Plan 07 browser UAT blocked by local spawn restrictions and rejected elevated retry
-last_updated: "2026-06-18T18:05:00Z"
-last_activity: "2026-06-18 -- Partially executed Phase 12 Plan 07 accessibility/static pass; browser desktop/mobile evidence remains blocked"
+stopped_at: Phase 12 Plan 08 ready for smoke, docs, fixture tests, and UAT evidence
+last_updated: "2026-06-19T06:55:00Z"
+last_activity: "2026-06-19 -- Completed Phase 12 Plan 07 browser desktop/mobile UAT evidence and mobile 3D framing fix"
 progress:
   total_phases: 7
   completed_phases: 4
   total_plans: 48
-  completed_plans: 33
-  percent: 69
+  completed_plans: 34
+  percent: 71
 ---
 
 # Project State
@@ -27,11 +27,11 @@ See: .planning/PROJECT.md (updated 2026-06-18)
 
 Milestone: v2.0 V2 MVP — PHASE 12 IN PROGRESS
 Phase: 12 (Lightweight 3D Preview MVP) — IN PROGRESS
-Plan: 12-07-PLAN.md — Browser desktop/mobile performance and accessibility pass
-Status: Blocked on browser UAT for Phase 12 Plan 07
-Last activity: 2026-06-18 -- Partially executed Phase 12 Plan 07 accessibility/static pass; browser desktop/mobile evidence remains blocked
+Plan: 12-08-PLAN.md — Phase 12 smoke, docs, fixture tests, and UAT evidence
+Status: Ready to execute Phase 12 Plan 08
+Last activity: 2026-06-19 -- Completed Phase 12 Plan 07 browser desktop/mobile UAT evidence and mobile 3D framing fix
 
-Progress: [#######---] 69%
+Progress: [#######---] 71%
 
 ## Milestone Archives
 
@@ -52,7 +52,7 @@ v2.0 MVP is scoped to the following phase sequence:
 | Phase 9 | Hosted Provider Rollout MVP | 7/7 | V2-PROVIDER-01..05 |
 | Phase 10 | Targeted Regeneration And Masked Editing MVP | 8/8 | V2-EDIT-01..05 |
 | Phase 11 | Reference-Guided Generation MVP | 7/7 complete | V2-REF-01..05 |
-| Phase 12 | Lightweight 3D Preview MVP | 6/8 in progress | V2-3D-01..05 |
+| Phase 12 | Lightweight 3D Preview MVP | 7/8 in progress | V2-3D-01..05 |
 | Phase 13 | Enhanced Concept Handoff Package MVP | 0/7 | V2-HANDOFF-01..05 |
 | Phase 14 | V2 MVP Hardening, Docs, Smoke, And UAT | 0/6 | V2-REL-01..05 |
 
@@ -114,6 +114,7 @@ Recent decisions affecting v2.0:
 - [Phase 12 Plan 04]: PreviewSpec safe zones and overlays now map to bounded structural material entries with source artifact evidence, visible UV-not-verified warning text, and viewer marker rendering.
 - [Phase 12 Plan 05]: 3D preview screenshots now persist through a feature-flagged version-scoped API as immutable `preview_3d_screenshot` artifacts with generated contracts and a web capture action.
 - [Phase 12 Plan 06]: Required 3D preview screenshot warnings are now centralized in core contracts and restored server-side, while the web panel exposes persistent non-production labeling through visible text and an accessible region name.
+- [Phase 12 Plan 07]: Browser desktop/mobile UAT now has headless Chrome CDP screenshot evidence and screenshot-crop pixel statistics for a nonblank lightweight 3D preview; the viewer constrains WebGL canvas CSS sizing and adjusts camera distance for narrow aspect ratios while keeping non-production labels and accessible controls visible.
 
 ### Pending Todos
 
@@ -125,7 +126,7 @@ None.
 - Hosted provider quality, pricing, moderation, account access, quota behavior, and commercial terms must remain guarded before hosted generation rollout.
 - Hosted provider calls must stay feature-flagged and quota guarded to avoid accidental cost spikes.
 - 3D preview must keep non-production labels and avoid implying verified wrap-shop UV accuracy.
-- Phase 12 Plan 07 browser visual evidence is blocked until local child-process spawning is available; Next dev and Vitest both fail with `spawn EPERM`, and the elevated dev-server retry was rejected by environment usage limits.
+- Frontend Vitest remains blocked in the Codex sandbox by esbuild `spawn EPERM`; rerun outside the sandbox when local child-process spawning is available.
 - Hosted reference-image input remains manual-only until provider/model support, credentials, cost approval, and quota guards are verified.
 - Contract drift must be checked in each phase because v2.0 extends the v1.0 schema surface.
 
@@ -144,8 +145,8 @@ Items acknowledged and deferred beyond v2.0 MVP:
 
 ## Session Continuity
 
-Last session: 2026-06-18T18:05:00Z
-Stopped at: Phase 12 Plan 07 browser UAT blocked by local spawn restrictions and rejected elevated retry
+Last session: 2026-06-19T06:55:00Z
+Stopped at: Phase 12 Plan 08 ready for smoke, docs, fixture tests, and UAT evidence
 Resume files:
 
 - `.planning/PROJECT.md`
@@ -215,7 +216,9 @@ Resume files:
 - `.planning/phases/12-lightweight-3d-preview-mvp/12-06-PLAN.md`
 - `.planning/phases/12-lightweight-3d-preview-mvp/12-06-SUMMARY.md`
 - `.planning/phases/12-lightweight-3d-preview-mvp/12-07-PLAN.md`
+- `.planning/phases/12-lightweight-3d-preview-mvp/12-07-SUMMARY.md`
 - `.planning/phases/12-lightweight-3d-preview-mvp/12-HUMAN-UAT.md`
+- `.planning/phases/12-lightweight-3d-preview-mvp/12-08-PLAN.md`
 
-Next recommended command: retry `$gsd-execute-phase 12 --auto` after Codex usage limits reset, starting from Phase 12 Plan 07 browser UAT.
+Next recommended command: `$gsd-execute-phase 12 --auto`, starting from Phase 12 Plan 08.
 Alternative: `$gsd-progress --next`
