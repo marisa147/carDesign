@@ -1,0 +1,21 @@
+{
+  "api": "http://127.0.0.1:8140",
+  "web": "http://127.0.0.1:3140",
+  "created_at": "2026-06-19T11:00:41.411006+00:00",
+  "external_calls": false,
+  "workspace_id": "df3f87de-5dd6-42b9-9fd2-22c25d8ba543",
+  "message_id": "a62204b4-55c8-48cf-a91e-a143db36b006",
+  "brief_id": "e3e46113-3c98-4005-91cb-29daef236ad7",
+  "job_id": "7463f14e-61a6-49a5-a267-8d7e32b90cc1",
+  "model_run_id": "a7461170-78cf-493a-b22e-072407e2e4dd",
+  "ready_version_id": "4ca171a7-3136-4155-a48e-85ab3063d044",
+  "ready_concept_artifact_id": "d34bef89-124c-4334-bad7-eebe1149529a",
+  "preview_3d_screenshot_artifact_id": "9c192da5-0899-4ac3-9888-3ff0a7b665ca",
+  "targeted_child_version_id": "edbbeb43-5f80-468e-90af-6914fbcd0d9b",
+  "targeted_child_artifact_id": "1d8a8b2b-e6c4-40ba-bb24-85b09e36b5f8",
+  "missing_rights_asset_id": "cd6c801b-35fa-4edb-8d78-321ec777b742",
+  "confirmed_reference_asset_id": "b2769749-75e7-435d-832f-a2d5f72a2693",
+  "enhanced_export_id": "db429cb3-d557-41dd-bc7b-b10414e423ff",
+  "enhanced_export_artifact_id": "ec20be6c-8278-4563-8b97-9c65f3f7b860",
+  "feedback_id": "1316f793-debc-4fb4-8ce1-2f5157e40a9a"
+}
