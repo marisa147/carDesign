@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: V2 MVP
 status: executing
-stopped_at: Completed Phase 14 Plan 02; ready for Phase 14 Plan 03
-last_updated: "2026-06-19T10:52:00Z"
-last_activity: "2026-06-19 -- Completed Phase 14 Plan 02 Docker local smoke and worker dry-run evidence"
+stopped_at: Completed Phase 14 Plan 03; ready for Phase 14 Plan 04
+last_updated: "2026-06-19T11:00:00Z"
+last_activity: "2026-06-19 -- Completed Phase 14 Plan 03 hosted-provider smoke runbook"
 progress:
   total_phases: 7
   completed_phases: 6
   total_plans: 48
-  completed_plans: 44
-  percent: 92
+  completed_plans: 45
+  percent: 94
 ---
 
 # Project State
@@ -25,13 +25,13 @@ See: .planning/PROJECT.md (updated 2026-06-18)
 
 ## Current Position
 
-Milestone: v2.0 V2 MVP — PHASE 14 READY
+Milestone: v2.0 V2 MVP — PHASE 14 IN PROGRESS
 Phase: 14 (V2 MVP Hardening, Docs, Smoke, And UAT) — READY TO EXECUTE
-Plan: 14-03-PLAN.md — Manual hosted-provider smoke checklist and cost-safety runbook
-Status: Ready to execute Phase 14 Plan 03
-Last activity: 2026-06-19 -- Completed Phase 14 Plan 02 Docker local smoke and worker dry-run evidence
+Plan: 14-04-PLAN.md — Browser UAT pass across V2 workbench flows
+Status: Ready to execute Phase 14 Plan 04
+Last activity: 2026-06-19 -- Completed Phase 14 Plan 03 hosted-provider smoke runbook
 
-Progress: [#########-] 92%
+Progress: [#########-] 94%
 
 ## Milestone Archives
 
@@ -54,7 +54,7 @@ v2.0 MVP is scoped to the following phase sequence:
 | Phase 11 | Reference-Guided Generation MVP | 7/7 complete | V2-REF-01..05 |
 | Phase 12 | Lightweight 3D Preview MVP | 8/8 complete | V2-3D-01..05 |
 | Phase 13 | Enhanced Concept Handoff Package MVP | 7/7 complete | V2-HANDOFF-01..05 |
-| Phase 14 | V2 MVP Hardening, Docs, Smoke, And UAT | 2/6 in progress | V2-REL-01..05 |
+| Phase 14 | V2 MVP Hardening, Docs, Smoke, And UAT | 3/6 in progress | V2-REL-01..05 |
 
 ## Prior Milestone Metrics
 
@@ -127,6 +127,7 @@ Recent decisions affecting v2.0:
 - [Phase 14 Planning]: Release hardening is planned as six plans covering aggregate validation, Docker smoke, manual hosted-provider smoke, desktop/mobile V2 browser UAT, feature-flag/docs reference, and final V2 MVP release evidence.
 - [Phase 14 Plan 01]: Fresh release baseline validation passed: aggregate `pnpm validate`, contract drift check, V1 compatibility, migration safety, and provider-off worker dry-run smoke are green; Docker/live smoke remains Phase 14 Plan 02.
 - [Phase 14 Plan 02]: Docker-backed `smoke:local` passed for PostgreSQL, Redis, MinIO, Alembic, Phase 2 durable data smoke, and Phase 3 local deterministic generation smoke; hosted-disabled worker dry-run passed; live worker smoke was attempted but not counted as passed.
+- [Phase 14 Plan 03]: Hosted-provider release smoke remains manual-only, credentialed, cost-guarded, one-job limited, and reversible; no live hosted output quality/account/pricing/moderation readiness is claimed without explicit evidence.
 
 ### Pending Todos
 
@@ -158,8 +159,8 @@ Items acknowledged and deferred beyond v2.0 MVP:
 
 ## Session Continuity
 
-Last session: 2026-06-19T10:52:00Z
-Stopped at: Completed Phase 14 Plan 02; ready for Phase 14 Plan 03
+Last session: 2026-06-19T11:00:00Z
+Stopped at: Completed Phase 14 Plan 03; ready for Phase 14 Plan 04
 Resume files:
 
 - `.planning/PROJECT.md`
@@ -272,6 +273,8 @@ Resume files:
 - `.planning/phases/14-v2-mvp-hardening-docs-smoke-and-uat/14-01-SUMMARY.md`
 - `.planning/phases/14-v2-mvp-hardening-docs-smoke-and-uat/14-DOCKER-SMOKE.md`
 - `.planning/phases/14-v2-mvp-hardening-docs-smoke-and-uat/14-02-SUMMARY.md`
+- `.planning/phases/14-v2-mvp-hardening-docs-smoke-and-uat/14-HOSTED-SMOKE-RUNBOOK.md`
+- `.planning/phases/14-v2-mvp-hardening-docs-smoke-and-uat/14-03-SUMMARY.md`
 
-Next recommended command: `$gsd-execute-phase 14 --auto --no-transition` starting with 14-03.
+Next recommended command: `$gsd-execute-phase 14 --auto --no-transition` starting with 14-04.
 Alternative: `$gsd-progress --next`

@@ -411,6 +411,8 @@ corepack pnpm validate
 
 If provider-on smoke is skipped because credentials are absent or cost approval is not available, record that skip explicitly in `.planning/phases/09-hosted-provider-rollout-mvp/09-HUMAN-UAT.md`. Do not claim live hosted success without a real provider-on run.
 
+For the V2 release pass, use `.planning/phases/14-v2-mvp-hardening-docs-smoke-and-uat/14-HOSTED-SMOKE-RUNBOOK.md` as the hosted-provider smoke checklist. It keeps hosted-provider smoke manual-only, credentialed, cost-guarded, one-job limited, and reversible. Do not claim live hosted release evidence unless that runbook is executed with real credentials, operator cost approval, and recorded job/model-run/version/artifact/cost evidence.
+
 ## Phase 10 Targeted Editing
 
 Phase 10 keeps default validation local, provider-off, and free. Targeted edit requests are child iterations with a durable `edit_intent`: parent version id, selected target, normalized region, mask artifact metadata, prompt delta, route preference, and provider intent where applicable. Parent versions and artifacts remain immutable.
