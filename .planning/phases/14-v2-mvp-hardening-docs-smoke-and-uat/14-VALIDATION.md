@@ -31,7 +31,7 @@ requirements: [V2-REL-01, V2-REL-02, V2-REL-03, V2-REL-04, V2-REL-05]
 | 14-02-01 | 02 | 2 | V2-REL-02 | T-14-02 | Docker smoke proves local deterministic infra and hosted-disabled behavior without secrets | docker/smoke | `corepack pnpm infra:up && corepack pnpm smoke:local && corepack pnpm smoke:worker -- --dry-run && corepack pnpm infra:down` | yes | green |
 | 14-03-01 | 03 | 2 | V2-REL-03 | T-14-03 | Hosted-provider smoke is manual-only, cost-guarded, reversible, and secret-safe | docs/manual | docs token check plus optional manual evidence | yes | green |
 | 14-04-01 | 04 | 3 | V2-REL-04 | T-14-04 | Browser UAT covers desktop/mobile V2 workbench flows without overlap or false production claims | browser | browser screenshots and UAT checklist | yes | green |
-| 14-05-01 | 05 | 4 | V2-REL-05 | T-14-05 | Docs explain flags, provider config, quotas, references, 3D limits, and handoff boundaries | docs | `rg -n "V2_|feature flag|quota|reference|3D|handoff|concept-only" README.md docs/development.md .planning/phases/14-v2-mvp-hardening-docs-smoke-and-uat` | planned | pending |
+| 14-05-01 | 05 | 4 | V2-REL-05 | T-14-05 | Docs explain flags, provider config, quotas, references, 3D limits, and handoff boundaries | docs | `rg -n "V2_|feature flag|quota|reference|3D|handoff|concept-only" README.md docs/development.md .planning/phases/14-v2-mvp-hardening-docs-smoke-and-uat` | yes | green |
 | 14-06-01 | 06 | 5 | V2-REL-01..05 | T-14-06 | Final evidence closes all V2 release requirements and updates traceability truthfully | release | final validation command set plus docs/UAT evidence | planned | pending |
 
 *Status: pending / green / red / flaky*
@@ -66,7 +66,8 @@ requirements: [V2-REL-01, V2-REL-02, V2-REL-03, V2-REL-04, V2-REL-05]
 - [ ] Docker-backed smoke passed or blocker is honestly recorded.
 - [ ] Hosted-provider manual smoke is documented and either performed with evidence or explicitly skipped with reason.
 - [ ] Browser UAT desktop/mobile evidence exists.
-- [ ] Docs and release notes explain V2 flags, provider config, quota behavior, reference usage, 3D limits, and concept-only handoff.
+- [x] Docs explain V2 flags, provider config, quota behavior, reference usage, 3D limits, and concept-only handoff.
+- [ ] Release notes explain V2 flags, provider config, quota behavior, reference usage, 3D limits, and concept-only handoff.
 - [ ] Requirements V2-REL-01..05 are marked complete only after evidence exists.
 - [ ] `nyquist_compliant: true` set in frontmatter.
 

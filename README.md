@@ -2,7 +2,7 @@
 
 痛车设计 Agent is an AI web workbench for turning natural-language itasha design requests into previewable, iterable, and exportable concept designs.
 
-Phase 1 established the runnable foundation. Phase 2 adds durable workspaces, messages, asset metadata and rights records, job/event/output ledgers, generated frontend wrappers, worker no-provider simulation, and a minimal web refresh/status proof. Phase 3 adds structured generation briefs, prompt traceability, a local deterministic text-to-2D generation slice, generation API routes, and a compact web proof. Phase 4 integrates those pieces into the first real web workbench: GPT-style chat-to-brief, editable parameters, reference asset upload and rights confirmation, job progress/events, 2D preview controls, version history, and explicit future-feature gates. Phase 5 adds selected-version iteration, parent/child lineage comparison, feedback/rating/approval records, and concept export records with a metadata manifest labeled as not print-ready. Phase 6 adds itasha-specific controls, deterministic text/logo overlay evidence, safe-zone/template warnings, and PreviewSpec metadata for future renderer work while keeping output a concept preview. Phase 7 adds provider/worker operations visibility, classified failures, job cancellation, bounded retry/fallback controls, hosted-call quota guards, and a live worker queue smoke path. Phase 8 starts V2 from a verified V1 baseline. Phase 9 adds a default-off hosted BFL rollout path with explicit provider selection, preflight guards, trace/cost/failure diagnostics, and local deterministic fallback. Phase 10 adds targeted edit selection, mask preview, deterministic recomposition, provider-mask guardrails, retry-safe failure states, and parent/child comparison with metadata-backed changed-region highlighting. Phase 11 adds role-based reference guidance, rights/source snapshots, provider unsupported-role warnings, durable reference trace metadata, workbench diagnostics, and child-iteration reference reuse. Phase 12 adds a feature-flagged lightweight Three.js 3D preview shell, Preview3DSpec contracts, camera controls, screenshot artifact persistence, browser UAT evidence, and persistent non-production/UV-not-verified labels. Phase 13 adds a feature-flagged enhanced concept handoff ZIP with stable manifest, Markdown reports, prompt/provider trace, reference manifest, package export ledger records, Workbench ZIP UX, and rights/source guardrails.
+Phase 1 established the runnable foundation. Phase 2 adds durable workspaces, messages, asset metadata and rights records, job/event/output ledgers, generated frontend wrappers, worker no-provider simulation, and a minimal web refresh/status proof. Phase 3 adds structured generation briefs, prompt traceability, a local deterministic text-to-2D generation slice, generation API routes, and a compact web proof. Phase 4 integrates those pieces into the first real web workbench: GPT-style chat-to-brief, editable parameters, reference asset upload and rights confirmation, job progress/events, 2D preview controls, version history, and explicit future-feature gates. Phase 5 adds selected-version iteration, parent/child lineage comparison, feedback/rating/approval records, and concept export records with a metadata manifest labeled as not print-ready. Phase 6 adds itasha-specific controls, deterministic text/logo overlay evidence, safe-zone/template warnings, and PreviewSpec metadata for future renderer work while keeping output a concept preview. Phase 7 adds provider/worker operations visibility, classified failures, job cancellation, bounded retry/fallback controls, hosted-call quota guards, and a live worker queue smoke path. Phase 8 starts V2 from a verified V1 baseline. Phase 9 adds a default-off hosted BFL rollout path with explicit provider selection, preflight guards, trace/cost/failure diagnostics, and local deterministic fallback. Phase 10 adds targeted edit selection, mask preview, deterministic recomposition, provider-mask guardrails, retry-safe failure states, and parent/child comparison with metadata-backed changed-region highlighting. Phase 11 adds role-based reference guidance, rights/source snapshots, provider unsupported-role warnings, durable reference trace metadata, workbench diagnostics, and child-iteration reference reuse. Phase 12 adds a feature-flagged lightweight Three.js 3D preview shell, Preview3DSpec contracts, camera controls, screenshot artifact persistence, browser UAT evidence, and persistent non-production/UV-not-verified labels. Phase 13 adds a feature-flagged enhanced concept handoff ZIP with stable manifest, Markdown reports, prompt/provider trace, reference manifest, package export ledger records, Workbench ZIP UX, and rights/source guardrails. Phase 14 hardens the V2 MVP release with fresh aggregate validation, Docker smoke, hosted-provider smoke runbook, Browser UAT evidence, feature-flag docs, and release notes.
 
 The project still does not implement production-ready wrap output, authentication, billing, verified production UV mapping, hosted provider production rollout by default, marketplace/community flows, or production deployment. The lightweight 3D viewer and enhanced handoff ZIP are concept-only review aids, not print-shop proof or print-ready production handoff. `init.MD` and `UI.png` remain seed references for product direction.
 
@@ -16,7 +16,7 @@ The project still does not implement production-ready wrap output, authenticatio
 | `services/worker` | Celery work-plane process, local deterministic generation, BFL hosted adapter behind guardrails, and text-to-2D generation task. |
 | `packages/contracts` | OpenAPI and generated TypeScript contracts. |
 | `infra` | Local PostgreSQL, Redis, and MinIO Compose services. |
-| `docs/development.md` | Full developer runbook for foundation, durable data, generation, Phase 4/5/6/7 workbench operations, validation, smoke, and UAT. |
+| `docs/development.md` | Full developer runbook for foundation, durable data, generation, V2 workbench operations, release validation, Docker smoke, hosted-provider smoke, Browser UAT, and troubleshooting. |
 
 ## Quickstart
 
@@ -83,6 +83,33 @@ For the Phase 11 reference-guided generation flow, upload reference assets, conf
 For the Phase 12 lightweight 3D preview flow, set `V2_LIGHTWEIGHT_3D_PREVIEW_ENABLED=true`, generate or seed a version with PreviewSpec metadata, then use the `3D 预览` tab on the selected version. The viewer uses the `generic-side-coupe-lightweight-v1` shell for compatible side-view templates, exposes rotate/zoom/reset/screenshot controls, and stores screenshots as immutable `preview_3d_screenshot` artifacts linked to the version. Unsupported templates show a clear 2D fallback and keep generation, targeted edits, references, and export available. The 3D panel always remains `非生产贴膜参考`; it is not production UV or print-ready wrap evidence.
 
 For the Phase 13 enhanced handoff package flow, set `V2_ENHANCED_HANDOFF_PACKAGE_ENABLED=true` for the API and `NEXT_PUBLIC_V2_ENHANCED_HANDOFF_PACKAGE_ENABLED=true` for the web app, select a generated version with a `generated_image` artifact, confirmed included-reference rights/source metadata, and optional `preview_3d_screenshot` artifacts, then choose `ZIP` in the export panel. The Workbench shows `交接包预览`, concept-only copy, required package files, warnings, and an export history row after `POST /workspaces/{workspace_id}/versions/{version_id}/exports` records an `enhanced_concept_handoff_zip`. Missing or rejected rights/source metadata blocks ZIP creation while PNG/JPG concept export controls remain available. The ZIP is for concept review only and is not a print-ready handoff.
+
+## V2 MVP Release Validation
+
+Phase 14 is the V2 MVP release hardening pass. Release evidence lives under `.planning/phases/14-v2-mvp-hardening-docs-smoke-and-uat/` and should be read together with the source docs:
+
+- Feature flag and provider guard reference: `.planning/phases/14-v2-mvp-hardening-docs-smoke-and-uat/14-FEATURE-FLAGS.md`
+- Hosted-provider smoke checklist: `.planning/phases/14-v2-mvp-hardening-docs-smoke-and-uat/14-HOSTED-SMOKE-RUNBOOK.md`
+- Docker smoke evidence: `.planning/phases/14-v2-mvp-hardening-docs-smoke-and-uat/14-DOCKER-SMOKE.md`
+- Browser UAT evidence: `.planning/phases/14-v2-mvp-hardening-docs-smoke-and-uat/14-HUMAN-UAT.md`
+
+Run the V2 MVP release command set before claiming a fresh release baseline:
+
+```powershell
+pnpm validate
+pnpm contracts:check
+pnpm compat:v1
+pnpm migration:safety
+pnpm infra:up
+pnpm smoke:local
+pnpm smoke:worker -- --dry-run
+```
+
+Docker smoke proves local PostgreSQL, Redis, MinIO, Alembic, durable data, and local deterministic generation. `pnpm smoke:worker` without `--dry-run` is optional host evidence and requires Docker, migrated API, running API, and running worker processes.
+
+Hosted-provider smoke is manual-only. Follow `14-HOSTED-SMOKE-RUNBOOK.md`, keep `V2_HOSTED_PROVIDER_ROLLOUT_ENABLED`, `AI_PROVIDER_CALLS_ENABLED`, `AI_HOSTED_DAILY_CALL_LIMIT`, `AI_HOSTED_RATE_LIMIT_PER_MINUTE`, `AI_MAX_ESTIMATED_COST_PER_JOB`, and `AI_PROVIDER_BFL_API_KEY` in ignored env files only, submit at most one job after cost approval, record evidence, then reverse the flags.
+
+Browser UAT should cover desktop and mobile hosted guard visibility, targeted edit controls and comparison, reference warnings, lightweight 3D concept-only labels, enhanced ZIP handoff preview/history, and no horizontal overflow. The V2 MVP remains concept-only and not print-ready; production wrap output, verified production UV mapping, auth, billing, marketplace/community flows, quotes/orders/payments, installer workflows, and production deployment remain deferred.
 
 ## Core Commands
 
@@ -265,5 +292,19 @@ corepack pnpm validate
 ```
 
 The Phase 13 command set is provider-off by default. It validates package schemas, report sanitization, ZIP contents, API export ledger records, Workbench ZIP UX, rights/source guardrails, contract drift, worker dry-run wiring, aggregate validation, and desktop/mobile browser UAT without making hosted calls. Browser UAT evidence is recorded in `.planning/phases/13-enhanced-concept-handoff-package-mvp/13-HUMAN-UAT.md`.
+
+Focused Phase 14 V2 MVP release commands:
+
+```powershell
+corepack pnpm validate
+corepack pnpm contracts:check
+corepack pnpm compat:v1
+corepack pnpm migration:safety
+corepack pnpm infra:up
+corepack pnpm smoke:local
+corepack pnpm smoke:worker -- --dry-run
+```
+
+The Phase 14 command set is provider-off by default. It validates the V2 MVP release baseline, contract drift, V1 compatibility, migration safety, Docker smoke, hosted-disabled worker dry-run wiring, docs token coverage, and Browser UAT evidence. Manual hosted-provider smoke remains credentialed, cost-guarded, reversible, and documented in `.planning/phases/14-v2-mvp-hardening-docs-smoke-and-uat/14-HOSTED-SMOKE-RUNBOOK.md`.
 
 See [docs/development.md](docs/development.md) for environment setup, command details, requirement coverage, and troubleshooting for blocked host prerequisites such as missing `uv`, Node/Corepack profile `EPERM`, and Docker daemon availability. If `pnpm` cannot start, run `node scripts/check-host-prereqs.mjs` from the repository root for a direct prerequisite report.
