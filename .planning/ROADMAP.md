@@ -53,7 +53,7 @@ v2.0 MVP is successful when:
 - [x] **Phase 9: Hosted Provider Rollout MVP** — Enable controlled real hosted image generation with provider routing, quota, cost, failure, and moderation visibility.
 - [x] **Phase 10: Targeted Regeneration And Masked Editing MVP** — Add editable regions, mask-aware regeneration requests, and layer-level iteration without full concept overwrite.
 - [x] **Phase 11: Reference-Guided Generation MVP** — Improve character/style/vehicle consistency using uploaded reference assets, rights gates, and provider-specific capability checks.
-- [ ] **Phase 12: Lightweight 3D Preview MVP** — Add a simple interactive 3D or pseudo-3D preview that consumes existing PreviewSpec and remains clearly labeled non-production.
+- [x] **Phase 12: Lightweight 3D Preview MVP** — Add a simple interactive 3D or pseudo-3D preview that consumes existing PreviewSpec and remains clearly labeled non-production.
 - [ ] **Phase 13: Enhanced Concept Handoff Package MVP** — Export a richer concept package with overlays, manifest, prompt trace, warnings, and review notes.
 - [ ] **Phase 14: V2 MVP Hardening, Docs, Smoke, And UAT** — Close validation, documentation, regression checks, browser UAT, and release evidence.
 
@@ -195,7 +195,7 @@ v2.0 MVP is successful when:
 - [x] 12-05-PLAN.md — Screenshot capture, artifact persistence, and version linkage.
 - [x] 12-06-PLAN.md — 3D preview warnings, non-production labels, and safe-zone overlay compatibility.
 - [x] 12-07-PLAN.md — Browser desktop/mobile performance and accessibility pass.
-- [ ] 12-08-PLAN.md — Phase 12 smoke, docs, fixture tests, and UAT evidence.
+- [x] 12-08-PLAN.md — Phase 12 smoke, docs, fixture tests, and UAT evidence.
 
 **UI hint:** yes
 
@@ -333,7 +333,7 @@ A single end-to-end V2 MVP UAT should prove:
 | 9. Hosted Provider Rollout MVP | 7/7 | Complete | 2026-06-18 |
 | 10. Targeted Regeneration And Masked Editing MVP | 8/8 | Complete | 2026-06-18 |
 | 11. Reference-Guided Generation MVP | 7/7 | Complete | 2026-06-18 |
-| 12. Lightweight 3D Preview MVP | 7/8 | In Progress | - |
+| 12. Lightweight 3D Preview MVP | 8/8 | Complete | 2026-06-19 |
 | 13. Enhanced Concept Handoff Package MVP | 0/7 | Not started | - |
 | 14. V2 MVP Hardening, Docs, Smoke, And UAT | 0/6 | Not started | - |
 

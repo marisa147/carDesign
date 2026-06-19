@@ -2,9 +2,9 @@
 
 痛车设计 Agent is an AI web workbench for turning natural-language itasha design requests into previewable, iterable, and exportable concept designs.
 
-Phase 1 established the runnable foundation. Phase 2 adds durable workspaces, messages, asset metadata and rights records, job/event/output ledgers, generated frontend wrappers, worker no-provider simulation, and a minimal web refresh/status proof. Phase 3 adds structured generation briefs, prompt traceability, a local deterministic text-to-2D generation slice, generation API routes, and a compact web proof. Phase 4 integrates those pieces into the first real web workbench: GPT-style chat-to-brief, editable parameters, reference asset upload and rights confirmation, job progress/events, 2D preview controls, version history, and explicit future-feature gates. Phase 5 adds selected-version iteration, parent/child lineage comparison, feedback/rating/approval records, and concept export records with a metadata manifest labeled as not print-ready. Phase 6 adds itasha-specific controls, deterministic text/logo overlay evidence, safe-zone/template warnings, and PreviewSpec metadata for future renderer work while keeping output a concept preview. Phase 7 adds provider/worker operations visibility, classified failures, job cancellation, bounded retry/fallback controls, hosted-call quota guards, and a live worker queue smoke path. Phase 8 starts V2 from a verified V1 baseline. Phase 9 adds a default-off hosted BFL rollout path with explicit provider selection, preflight guards, trace/cost/failure diagnostics, and local deterministic fallback. Phase 10 adds targeted edit selection, mask preview, deterministic recomposition, provider-mask guardrails, retry-safe failure states, and parent/child comparison with metadata-backed changed-region highlighting. Phase 11 adds role-based reference guidance, rights/source snapshots, provider unsupported-role warnings, durable reference trace metadata, workbench diagnostics, and child-iteration reference reuse.
+Phase 1 established the runnable foundation. Phase 2 adds durable workspaces, messages, asset metadata and rights records, job/event/output ledgers, generated frontend wrappers, worker no-provider simulation, and a minimal web refresh/status proof. Phase 3 adds structured generation briefs, prompt traceability, a local deterministic text-to-2D generation slice, generation API routes, and a compact web proof. Phase 4 integrates those pieces into the first real web workbench: GPT-style chat-to-brief, editable parameters, reference asset upload and rights confirmation, job progress/events, 2D preview controls, version history, and explicit future-feature gates. Phase 5 adds selected-version iteration, parent/child lineage comparison, feedback/rating/approval records, and concept export records with a metadata manifest labeled as not print-ready. Phase 6 adds itasha-specific controls, deterministic text/logo overlay evidence, safe-zone/template warnings, and PreviewSpec metadata for future renderer work while keeping output a concept preview. Phase 7 adds provider/worker operations visibility, classified failures, job cancellation, bounded retry/fallback controls, hosted-call quota guards, and a live worker queue smoke path. Phase 8 starts V2 from a verified V1 baseline. Phase 9 adds a default-off hosted BFL rollout path with explicit provider selection, preflight guards, trace/cost/failure diagnostics, and local deterministic fallback. Phase 10 adds targeted edit selection, mask preview, deterministic recomposition, provider-mask guardrails, retry-safe failure states, and parent/child comparison with metadata-backed changed-region highlighting. Phase 11 adds role-based reference guidance, rights/source snapshots, provider unsupported-role warnings, durable reference trace metadata, workbench diagnostics, and child-iteration reference reuse. Phase 12 adds a feature-flagged lightweight Three.js 3D preview shell, Preview3DSpec contracts, camera controls, screenshot artifact persistence, browser UAT evidence, and persistent non-production/UV-not-verified labels.
 
-The project still does not implement production-ready wrap output, authentication, billing, true 3D, hosted provider production rollout by default, marketplace/community flows, or production deployment. `init.MD` and `UI.png` remain seed references for product direction.
+The project still does not implement production-ready wrap output, authentication, billing, verified production UV mapping, hosted provider production rollout by default, marketplace/community flows, or production deployment. The lightweight 3D viewer is concept-only inspection, not print-shop proof. `init.MD` and `UI.png` remain seed references for product direction.
 
 ## Repository Layout
 
@@ -66,11 +66,11 @@ For the Phase 2 browser refresh proof, start infrastructure and the API/web serv
 
 For the Phase 3 concept-generation proof, keep the same workspace, edit `自然语言 brief` if needed, click `创建概念任务`, and confirm the page shows a structured brief, queued/succeeded generation job, generated artifact count, and design version count from API-backed durable state.
 
-For the Phase 4 workbench, start the same API, worker, infrastructure, and web services, then use the first screen as the app surface: submit design text in chat, inspect/save structured parameters, upload reference assets and confirm rights before selecting them for generation, monitor job status/events, inspect 2D preview/version history, and confirm true 3D/export/marketplace gates remain disabled or deferred.
+For the Phase 4 workbench, start the same API, worker, infrastructure, and web services, then use the first screen as the app surface: submit design text in chat, inspect/save structured parameters, upload reference assets and confirm rights before selecting them for generation, monitor job status/events, inspect 2D preview/version history, and confirm production UV-mapped 3D/export/marketplace gates remain disabled or deferred.
 
-For the Phase 5 iteration/export flow, use a generated version from the workbench, select a version in history, submit a child iteration request, inspect lineage/parameter comparison, save feedback or approval notes, and create a PNG/JPG concept export. The export UI and manifest describe the output as a concept preview and not print-ready; production handoff, layered source packages, print preflight, true 3D, and marketplace flows remain deferred.
+For the Phase 5 iteration/export flow, use a generated version from the workbench, select a version in history, submit a child iteration request, inspect lineage/parameter comparison, save feedback or approval notes, and create a PNG/JPG concept export. The export UI and manifest describe the output as a concept preview and not print-ready; production handoff, layered source packages, print preflight, production UV-mapped 3D, and marketplace flows remain deferred.
 
-For the Phase 6 itasha/template intelligence flow, edit `痛车设计控制` fields in the parameter panel, inspect `质量提示`, select a generated version with `PreviewSpec 摘要`, toggle `文字/Logo 图层` and `安全区`, and inspect the template reference zone. Text/logo overlays and safe zones are concept-preview guidance; they do not create print-ready wrap files or true 3D UV output.
+For the Phase 6 itasha/template intelligence flow, edit `痛车设计控制` fields in the parameter panel, inspect `质量提示`, select a generated version with `PreviewSpec 摘要`, toggle `文字/Logo 图层` and `安全区`, and inspect the template reference zone. Text/logo overlays and safe zones are concept-preview guidance; they do not create print-ready wrap files or verified production UV output.
 
 For the Phase 7 operations flow, keep Docker infrastructure, API, worker, and web running. Use the progress panel to refresh compact provider/worker status, inspect failure classification, cancel queued/running jobs, and confirm terminal canceled jobs no longer show the cancel control. Use `pnpm smoke:worker` for a live API -> Redis/Celery -> worker -> durable artifact/version smoke once the worker is running.
 
@@ -79,6 +79,8 @@ For the Phase 9 hosted-provider rollout flow, default validation remains provide
 For the Phase 10 targeted edit flow, use a generated version with PreviewSpec metadata, enable `局部编辑`, select a safe zone or overlay layer, preview the mask, and submit a recomposition-safe edit such as moving or changing text. The worker creates a child version and leaves the parent immutable. Comparison shows parent/child, route (`deterministic_recomposition` or `provider_masked_generation`), target, prompt delta, provider/model evidence when present, and a metadata-backed changed-region highlight. Provider-mask hosted smoke is manual-only and skippable without credentials: keep default validation provider-off, and only run a paid mask edit after explicit cost approval, small quota/rate/cost guards, and verified provider mask support.
 
 For the Phase 11 reference-guided generation flow, upload reference assets, confirm rights/source metadata, assign one of the six roles (`角色`, `风格`, `车辆`, `Logo`, `配色`, `仅灵感`), and save parameters so `reference_usage` is persisted. Local deterministic generation records references as prompt guidance and durable trace metadata only. BFL reference-image input remains unsupported in the current capability map, so unsupported roles show `引用受限` / `供应商不支持` or fail closed before provider execution. Generated versions, progress diagnostics, child iterations, and concept export source data carry compact reference trace evidence. Hosted reference smoke is manual-only and skippable without real credentials, cost approval, quota guards, and verified provider support.
+
+For the Phase 12 lightweight 3D preview flow, set `V2_LIGHTWEIGHT_3D_PREVIEW_ENABLED=true`, generate or seed a version with PreviewSpec metadata, then use the `3D 预览` tab on the selected version. The viewer uses the `generic-side-coupe-lightweight-v1` shell for compatible side-view templates, exposes rotate/zoom/reset/screenshot controls, and stores screenshots as immutable `preview_3d_screenshot` artifacts linked to the version. Unsupported templates show a clear 2D fallback and keep generation, targeted edits, references, and export available. The 3D panel always remains `非生产贴膜参考`; it is not production UV or print-ready wrap evidence.
 
 ## Core Commands
 
@@ -227,5 +229,23 @@ corepack pnpm validate
 ```
 
 The Phase 11 command set is provider-off by default. It validates role assignment, rights/source gates, provider capability filtering, unsupported-role warnings, durable reference trace, child iteration reuse, export source metadata, and aggregate validation without making hosted calls.
+
+Focused Phase 12 lightweight 3D preview commands:
+
+```powershell
+cd services/core
+uv run pytest -q tests/test_models.py tests/test_generation_jobs.py
+cd ../api
+uv run pytest -q tests/test_jobs.py tests/test_generation.py
+cd ../..
+corepack pnpm --filter @caragent/web test
+corepack pnpm --filter @caragent/web lint
+corepack pnpm --filter @caragent/web typecheck
+corepack pnpm contracts:check
+corepack pnpm smoke:worker -- --dry-run
+corepack pnpm validate
+```
+
+The Phase 12 command set is provider-off by default. It validates Preview3DSpec contracts, shell compatibility, 2D fallback, camera controls, screenshot artifact metadata, browser-safe labels, and aggregate validation without making hosted calls. Browser UAT evidence is recorded in `.planning/phases/12-lightweight-3d-preview-mvp/12-HUMAN-UAT.md`.
 
 See [docs/development.md](docs/development.md) for environment setup, command details, requirement coverage, and troubleshooting for blocked host prerequisites such as missing `uv`, Node/Corepack profile `EPERM`, and Docker daemon availability. If `pnpm` cannot start, run `node scripts/check-host-prereqs.mjs` from the repository root for a direct prerequisite report.

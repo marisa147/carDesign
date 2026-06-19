@@ -1,8 +1,8 @@
 # Development Guide
 
-This guide is the local runbook for the foundation stack, durable-data work, first text-to-2D generation slice, Phase 4 integrated workbench, Phase 5 iteration/feedback/concept export flow, Phase 6 itasha/template intelligence, Phase 7 operations/provider strategy, Phase 10 targeted edit workflow, and Phase 11 reference-guided generation workflow. It documents how to install prerequisites, configure local environment files, run the web/API/worker processes, start local infrastructure, run migrations, generate contracts, run validation, perform smoke checks, run browser UAT, and troubleshoot host setup failures.
+This guide is the local runbook for the foundation stack, durable-data work, first text-to-2D generation slice, Phase 4 integrated workbench, Phase 5 iteration/feedback/concept export flow, Phase 6 itasha/template intelligence, Phase 7 operations/provider strategy, Phase 10 targeted edit workflow, Phase 11 reference-guided generation workflow, and Phase 12 lightweight 3D preview workflow. It documents how to install prerequisites, configure local environment files, run the web/API/worker processes, start local infrastructure, run migrations, generate contracts, run validation, perform smoke checks, run browser UAT, and troubleshoot host setup failures.
 
-`init.MD` and `UI.png` are seed references for the product direction. Phase 1 established the runnable foundation; Phase 2 adds durable workspace/message/asset/job data and a minimal web refresh proof; Phase 3 adds structured brief parsing, prompt traceability, local deterministic concept generation, generation API routes, retry behavior, and a compact web proof. Phase 4 replaces the proof-first page with a workbench that connects chat, parameters, asset upload/rights state, progress events, 2D preview, version history, and future gates to canonical API-backed state. Phase 5 adds selected-version iteration, parent/child lineage comparison, durable feedback, approval/rejection comments, and concept export records with a metadata manifest that says the output is not print-ready. Phase 6 adds itasha-specific controls, deterministic text/logo overlay evidence, safe-zone/template warnings, and PreviewSpec metadata for future renderer work. Phase 7 adds operations status, classified failure metadata, cancel/revoke handoff, bounded provider retry/fallback, hosted-call quota preflight, and worker queue smoke checks. Phase 8 starts V2 from a verified V1 baseline. Phase 9 adds a default-off hosted BFL rollout path with provider capability metadata, BFL adapter polling, API/worker preflight, trace/cost/failure diagnostics, a workbench provider selector, and provider-off/provider-on runbooks. Phase 10 adds targeted edit selection, mask preview, deterministic recomposition, provider-mask guardrails, retry-safe failure states, and comparison for parent/child versions with metadata-backed changed-region highlighting. Phase 11 adds six-role reference guidance, rights/source snapshots, provider unsupported-role warnings, durable reference trace metadata, workbench diagnostics, and child-iteration reference reuse. Production-ready wrap output, authentication, hosted provider calls by default, billing, true 3D, marketplace/community flows, and production deployment remain out of scope.
+`init.MD` and `UI.png` are seed references for the product direction. Phase 1 established the runnable foundation; Phase 2 adds durable workspace/message/asset/job data and a minimal web refresh proof; Phase 3 adds structured brief parsing, prompt traceability, local deterministic concept generation, generation API routes, retry behavior, and a compact web proof. Phase 4 replaces the proof-first page with a workbench that connects chat, parameters, asset upload/rights state, progress events, 2D preview, version history, and future gates to canonical API-backed state. Phase 5 adds selected-version iteration, parent/child lineage comparison, durable feedback, approval/rejection comments, and concept export records with a metadata manifest that says the output is not print-ready. Phase 6 adds itasha-specific controls, deterministic text/logo overlay evidence, safe-zone/template warnings, and PreviewSpec metadata for future renderer work. Phase 7 adds operations status, classified failure metadata, cancel/revoke handoff, bounded provider retry/fallback, hosted-call quota preflight, and worker queue smoke checks. Phase 8 starts V2 from a verified V1 baseline. Phase 9 adds a default-off hosted BFL rollout path with provider capability metadata, BFL adapter polling, API/worker preflight, trace/cost/failure diagnostics, a workbench provider selector, and provider-off/provider-on runbooks. Phase 10 adds targeted edit selection, mask preview, deterministic recomposition, provider-mask guardrails, retry-safe failure states, and comparison for parent/child versions with metadata-backed changed-region highlighting. Phase 11 adds six-role reference guidance, rights/source snapshots, provider unsupported-role warnings, durable reference trace metadata, workbench diagnostics, and child-iteration reference reuse. Phase 12 adds a feature-flagged lightweight Three.js preview shell, typed Preview3DSpec contracts, camera controls, screenshot artifact persistence, fallback states, browser evidence, and persistent concept-only/UV-not-verified labeling. Production-ready wrap output, authentication, hosted provider calls by default, billing, verified production UV mapping, marketplace/community flows, and production deployment remain out of scope.
 
 ## Prerequisites
 
@@ -193,7 +193,7 @@ uv run alembic upgrade head
 uv run alembic current
 ```
 
-API settings cover database URL, Redis URL, S3/MinIO endpoint and bucket settings, CORS origins, runtime mode, and the provider placeholder contract: `AI_PROVIDER_DEFAULT`, `AI_PROVIDER_CALLS_ENABLED`, `AI_PROVIDER_OPENAI_API_KEY`, `AI_PROVIDER_FAL_API_KEY`, and `AI_PROVIDER_BFL_API_KEY`. The API exposes Phase 2 workspace, message, asset, rights, job, event, version, artifact, feedback, export, and cost/idempotency contract surfaces plus Phase 3 structured brief creation/update, generation submission, and failed-job retry routes through FastAPI and generated OpenAPI. Phase 5 adds workspace/version-scoped creation routes for feedback, concept export, and child iteration submission. Phase 6 extends existing generation brief create/update contracts with itasha fields for character focus, supporting graphics, racing/JDM cues, typography intent, color harmony, and overlay logo asset ids. Phase 7 adds `/operations/provider-status` and `POST /jobs/{job_id}/cancel`. Phase 10 extends iteration submission with typed targeted edit intent, mask metadata, route preference, and parent-version validation while keeping provider calls disabled in local mode. Phase 11 extends brief/provider contracts with structured `reference_usage`, six reference roles, rights/source trace snapshots, and browser-safe reference capability metadata.
+API settings cover database URL, Redis URL, S3/MinIO endpoint and bucket settings, CORS origins, runtime mode, and the provider placeholder contract: `AI_PROVIDER_DEFAULT`, `AI_PROVIDER_CALLS_ENABLED`, `AI_PROVIDER_OPENAI_API_KEY`, `AI_PROVIDER_FAL_API_KEY`, and `AI_PROVIDER_BFL_API_KEY`. The API exposes Phase 2 workspace, message, asset, rights, job, event, version, artifact, feedback, export, and cost/idempotency contract surfaces plus Phase 3 structured brief creation/update, generation submission, and failed-job retry routes through FastAPI and generated OpenAPI. Phase 5 adds workspace/version-scoped creation routes for feedback, concept export, and child iteration submission. Phase 6 extends existing generation brief create/update contracts with itasha fields for character focus, supporting graphics, racing/JDM cues, typography intent, color harmony, and overlay logo asset ids. Phase 7 adds `/operations/provider-status` and `POST /jobs/{job_id}/cancel`. Phase 10 extends iteration submission with typed targeted edit intent, mask metadata, route preference, and parent-version validation while keeping provider calls disabled in local mode. Phase 11 extends brief/provider contracts with structured `reference_usage`, six reference roles, rights/source trace snapshots, and browser-safe reference capability metadata. Phase 12 adds typed `Preview3DSpec` response fields and version-scoped `preview_3d_screenshot` artifact creation with server-restored warning metadata.
 
 ## Worker
 
@@ -257,7 +257,7 @@ corepack pnpm --filter @caragent/web build
 corepack pnpm contracts:check
 ```
 
-Future gates are intentional product boundaries. True 3D preview, print-ready export, marketplace/community flows, payment/order flows, hosted provider production rollout, auth, billing, and production handoff must be disabled, experimental, or documented as deferred until later phases implement and verify them.
+Future gates are intentional product boundaries. Production UV-mapped 3D preview, print-ready export, marketplace/community flows, payment/order flows, hosted provider production rollout, auth, billing, and production handoff must be disabled, experimental, or documented as deferred until later phases implement and verify them.
 
 ## Phase 5 Iteration, Feedback, And Concept Export
 
@@ -467,6 +467,32 @@ corepack pnpm validate
 
 Manual hosted reference smoke is optional and must be skipped unless all prerequisites are explicit: real credentials in ignored service env files, small quota/rate/cost guards, operator cost approval, account/model access, and verified provider reference-image support for the tested role/content type. If it is run, submit exactly one small reference-guided job, record job/version/artifact/model-run/provider/cost/reference trace evidence, then disable hosted flags and remove active credentials.
 
+## Phase 12 Lightweight 3D Preview
+
+Phase 12 keeps default validation local, provider-off, and free. Enable the lightweight preview in local service env with `V2_LIGHTWEIGHT_3D_PREVIEW_ENABLED=true`; hosted image-provider flags are not required. The MVP registers one shell fixture, `generic-side-coupe-lightweight-v1`, for compatible `generic-side-coupe` side-view PreviewSpec templates.
+
+The workbench `3D 预览` tab is client-only and uses Three.js for the lightweight shell. It supports rotate, zoom, reset camera, screenshot capture, visible `非生产贴膜参考` labeling, and fallback copy when no compatible shell exists. Screenshot capture creates immutable `preview_3d_screenshot` artifacts linked to the selected version and stores Preview3DSpec/camera/warning metadata; metadata must not contain binary image data, secrets, bearer tokens, or raw local paths.
+
+The viewer is concept-only. It does not prove vehicle-specific UV mapping, print scale, bleed, DPI, color profile, physical installability, or print-ready wrap output. If a template is unsupported, the 2D PreviewSpec, generation, targeted edits, references, version history, and export flows must remain usable.
+
+Focused Phase 12 provider-off checks:
+
+```powershell
+cd services/core
+uv run pytest -q tests/test_models.py tests/test_generation_jobs.py
+cd ../api
+uv run pytest -q tests/test_jobs.py tests/test_generation.py
+cd ../..
+corepack pnpm --filter @caragent/web test
+corepack pnpm --filter @caragent/web lint
+corepack pnpm --filter @caragent/web typecheck
+corepack pnpm contracts:check
+corepack pnpm smoke:worker -- --dry-run
+corepack pnpm validate
+```
+
+Browser evidence for Phase 12 should include desktop and mobile screenshots, the active `3D 预览` tab, visible non-production labels, camera/screenshot controls, fallback behavior, and a nonblank canvas or screenshot-crop pixel check. The current evidence is stored in `.planning/phases/12-lightweight-3d-preview-mvp/12-HUMAN-UAT.md` and `.planning/phases/12-lightweight-3d-preview-mvp/evidence/`.
+
 ## Web
 
 Run the web workbench:
@@ -547,6 +573,21 @@ pnpm smoke:worker
 pnpm infra:down
 ```
 
+## Phase 12 Lightweight 3D Preview UAT
+
+Use this browser UAT after `pnpm infra:up`, `uv run alembic upgrade head`, `pnpm dev:api`, a Windows-safe worker command with `--pool=solo --concurrency=1`, and `pnpm dev:web` are running:
+
+1. Set `V2_LIGHTWEIGHT_3D_PREVIEW_ENABLED=true` in the relevant local service env before starting API/web paths that need the flag.
+2. Create or resume a workspace and generate or seed a version with `PreviewSpec` metadata for a compatible side-view template.
+3. Select the generated version and open `3D 预览`.
+4. Confirm the lightweight shell is nonblank and shows `概念 3D 预览` plus `非生产贴膜参考`.
+5. Use rotate left/right, zoom out/in, reset camera, and screenshot controls; confirm the controls are keyboard reachable and do not overlap on narrow screens.
+6. Confirm source artifact id/object key, shell id, camera preset, UV warning, safe-zone chips, and overlay chips are visible without exposing secrets or local paths.
+7. Capture a 3D screenshot and confirm a `preview_3d_screenshot` artifact is linked to the selected version with concept-only and UV-not-verified warning metadata.
+8. Test or seed an unsupported template and confirm the 2D fallback copy appears while 2D preview, generation, iteration, references, and export remain available.
+9. Repeat at desktop and mobile widths. There should be no horizontal document scroll, incoherent overlap, clipped shell, or hidden critical controls.
+10. Record screenshot paths, viewport sizes, and a nonblank canvas/screenshot-crop pixel check in the Phase 12 UAT artifact.
+
 ## Phase 11 Reference Guidance UAT
 
 Use this browser UAT after `pnpm infra:up`, `uv run alembic upgrade head`, `pnpm dev:api`, a Windows-safe worker command with `--pool=solo --concurrency=1`, and `pnpm dev:web` are running:
@@ -617,7 +658,7 @@ Use this browser UAT after `pnpm infra:up`, `uv run alembic upgrade head`, `pnpm
 7. Run `pnpm smoke:worker` and record the workspace id, job id, version id, artifact id, and event count printed by the script.
 8. Repeat the visibility checks at desktop and mobile widths. There should be no horizontal document scroll, incoherent overlap, or fresh console errors.
 
-This UAT covers Phase 7 operational visibility, cancellation, and local worker smoke. It does not prove hosted provider production readiness, hosted image quality, commercial rights, auth, billing, production deployment, true 3D, or print-ready wrap output.
+This UAT covers Phase 7 operational visibility, cancellation, and local worker smoke. It does not prove hosted provider production readiness, hosted image quality, commercial rights, auth, billing, production deployment, production UV-mapped 3D, or print-ready wrap output.
 
 ## Phase 6 Itasha And Template Intelligence UAT
 
@@ -631,7 +672,7 @@ Use this browser UAT after `pnpm infra:up`, `uv run alembic upgrade head`, `pnpm
 6. Toggle `文字/Logo 图层`; confirm selected state changes and deterministic overlay labels remain bounded inside the 2D preview region.
 7. Toggle `安全区`; confirm safe-zone labels such as `door-main` appear inside the preview and `模板参考区` remains visible.
 8. Inspect concept export and export history; confirm PreviewSpec summary can appear with manifest context and the UI still says `概念预览，不是生产印刷文件。`.
-9. Confirm missing-rights reference/logo assets are not used for generation and future true 3D, production handoff, print-ready export, broad template library, and marketplace/community gates remain disabled or deferred.
+9. Confirm missing-rights reference/logo assets are not used for generation and future production UV-mapped 3D, production handoff, print-ready export, broad template library, and marketplace/community gates remain disabled or deferred.
 10. Repeat the visibility checks at desktop and mobile widths. There should be no horizontal document scroll, incoherent overlap, or fresh console errors.
 
 This UAT covers Phase 6 itasha/template intelligence. It does not prove production-ready wrap files, vector logo/text conversion, broad vehicle-template coverage, true UV-mapped 3D, hosted provider quality, auth, billing, quotas, marketplace/community flows, or production deployment.
@@ -647,7 +688,7 @@ Use this browser UAT after `pnpm infra:up`, `uv run alembic upgrade head`, `pnpm
 5. Add a rating, approval or rejection state, and comment; confirm feedback history renders the saved record for the selected version.
 6. Select PNG or JPG in concept export, create the export, and confirm export history renders the saved record.
 7. Inspect the manifest preview and confirm it includes the selected version/artifact context and the disclaimer `概念预览，不是生产印刷文件。`.
-8. Confirm true 3D, production handoff, print preflight, layered source export, and marketplace/community gates remain disabled or deferred.
+8. Confirm production UV-mapped 3D, production handoff, print preflight, layered source export, and marketplace/community gates remain disabled or deferred.
 9. Repeat the visibility checks at desktop and mobile widths. The iteration, feedback, concept export, manifest, history, and future-gate controls should have no horizontal document scroll or incoherent overlap.
 
 This UAT covers Phase 5 iteration, feedback, and concept export. It does not prove print-ready wrap production files, layered source packages, true UV-mapped 3D, hosted provider quality, auth, billing, quotas, marketplace/community flows, or production deployment.
@@ -663,7 +704,7 @@ Use this browser UAT after `pnpm infra:up`, `uv run alembic upgrade head`, `pnpm
 5. Upload or inspect a reference asset; confirm missing-rights assets cannot be selected for generation until rights/source details are confirmed.
 6. Start generation from the current brief and confirm queued/running/succeeded/failed states and recent events are visible.
 7. Select a generated version/history item and confirm the selected 2D preview context changes without clearing chat, parameters, assets, or progress state.
-8. Confirm true 3D, print-ready export, marketplace/community, and production handoff controls are disabled, experimental, or explicitly deferred.
+8. Confirm production UV-mapped 3D, print-ready export, marketplace/community, and production handoff controls are disabled, experimental, or explicitly deferred.
 9. Repeat the visibility checks at desktop and mobile widths; there should be no incoherent text or panel overlap, and the chat input should remain reachable.
 
 This UAT covers the Phase 4 MVP workbench. It does not prove production-ready wrap export, true UV-mapped 3D, hosted provider quality, auth, billing, marketplace/community flows, quotas, or production deployment.
@@ -681,7 +722,7 @@ Use this browser UAT after `pnpm infra:up`, `uv run alembic upgrade head`, `pnpm
 7. Refresh the browser and confirm the stored workspace/job state can be refreshed.
 8. For retry behavior, use API tests or a forced failed worker test; do not rely on hosted provider failure during baseline UAT.
 
-This UAT does not cover the full GPT-style workbench, upload manager, rich 2D preview controls, export UX, production handoff, true 3D, auth, billing, quotas, or hosted provider quality.
+This UAT does not cover the full GPT-style workbench, upload manager, rich 2D preview controls, export UX, production handoff, production UV-mapped 3D, auth, billing, quotas, or hosted provider quality.
 
 ## Phase 2 Durable UAT
 
@@ -726,7 +767,7 @@ This UAT does not cover real image generation, full workbench chat, uploads in t
 | UI-04 | Progress panel renders queued/running/succeeded/failed job states, retry action, and recent durable events. | Run `corepack pnpm --filter @caragent/web test` and Phase 4 Workbench UAT. |
 | UI-05 | 2D preview workspace supports selected artifact/version context, local zoom/reset, thumbnail history, and supported view switching. | Run `corepack pnpm --filter @caragent/web test` and Phase 4 Workbench UAT at desktop/mobile widths. |
 | UI-06 | Version history selection changes preview context without clearing chat, parameters, assets, or job history. | Run `corepack pnpm --filter @caragent/web test` and Phase 4 Workbench UAT. |
-| UI-07 | True 3D, print-ready export, marketplace/community, and production handoff are disabled, experimental, or explicitly deferred. | Run `corepack pnpm --filter @caragent/web test` and Phase 4 Workbench UAT. |
+| UI-07 | Production UV-mapped 3D, print-ready export, marketplace/community, and production handoff are disabled, experimental, or explicitly deferred. | Run `corepack pnpm --filter @caragent/web test` and Phase 4 Workbench UAT. |
 | ITER-01 | Child iteration submission preserves the parent version by creating a new job/version lineage instead of overwriting existing versions. | Run API generation tests, worker generation task tests, web tests, and Phase 5 UAT. |
 | ITER-02 | Targeted style/palette/text/composition/coverage changes are captured as child iteration request metadata and worker version parameters. | Run API generation tests, worker generation task tests, and Phase 5 UAT. |
 | ITER-03 | Lineage and parameter comparison render parent/current version context in the workbench. | Run `corepack pnpm --filter @caragent/web test` and Phase 5 UAT. |
@@ -759,6 +800,11 @@ This UAT does not cover real image generation, full workbench chat, uploads in t
 | V2-REF-03 | Provider request planning includes only provider/model-supported reference roles. | Run core prompt planner tests, provider capability tests, worker preflight tests, and optional hosted reference smoke only with approval. |
 | V2-REF-04 | Unsupported reference roles produce clear warnings instead of silent failure. | Run web provider warning tests, progress diagnostics tests, worker BFL fail-closed tests, and Reference Guidance UAT. |
 | V2-REF-05 | Generated artifacts store exact reference assets, roles, provider parameters, and rights snapshots. | Run worker/API durable trace tests, export manifest tests, and generated-version reference trace UI tests. |
+| V2-3D-01 | At least one lightweight preview shell is registered and linked to existing vehicle templates and PreviewSpec. | Run core generation job tests, web compatibility tests, and Phase 12 verification. |
+| V2-3D-02 | Users can open a 3D preview panel for a selected 2D design version. | Run web page tests and Phase 12 desktop/mobile UAT. |
+| V2-3D-03 | Users can rotate, zoom, reset, capture screenshot, and see persistent non-production labeling. | Run web page tests, API screenshot tests, and Phase 12 UAT. |
+| V2-3D-04 | The system stores 3D preview specs, camera presets, screenshot artifacts, and warning metadata. | Run API jobs tests, contract checks, and inspect Phase 12 verification notes. |
+| V2-3D-05 | Unsupported shells fall back clearly to 2D preview without breaking generation or export. | Run web fallback tests and Phase 12 UAT. |
 
 ## Source Coverage
 
@@ -775,6 +821,7 @@ This UAT does not cover real image generation, full workbench chat, uploads in t
 | Phase 9 goal | Provider capability contracts, BFL adapter tests, API/worker preflight gates, provider trace/failure diagnostics, workbench selector tests, docs, verification, and provider-off/provider-on UAT runbooks prove controlled hosted rollout readiness without enabling hosted calls by default. |
 | Phase 10 goal | Edit intent contracts, workbench selection/mask preview, deterministic recomposition, provider-mask guardrails, retry/failure diagnostics, comparison UI, docs, verification, and UAT checklists prove targeted editing without enabling hosted calls by default. |
 | Phase 11 goal | Reference role contracts, rights/source snapshots, provider reference capability maps, prompt/worker filtering, durable trace metadata, workbench warnings, docs, verification, and UAT checklists prove reference guidance without enabling hosted calls by default. |
+| Phase 12 goal | Preview3DSpec contracts, one lightweight shell fixture, Three.js viewer controls, screenshot artifact persistence, fallback states, browser evidence, docs, and UAT checklists prove concept-only 3D inspection without production UV claims. |
 | FOUND-01 | `infra/compose.yml`, `infra/README.md`, `scripts/smoke-local.mjs`, and the documented dev commands cover local web, API, worker, PostgreSQL, Redis, and MinIO run paths. |
 | FOUND-02 | `scripts/validate-all.mjs` sequences frontend, contract, API, and worker lint/type/test checks from `pnpm validate`. |
 | FOUND-03 | `services/api/src/caragent_api/scripts/export_openapi.py`, `packages/contracts/openapi/openapi.json`, `packages/contracts/src/generated/client.ts`, `scripts/check-contracts.mjs`, and `apps/web/src/lib/api/health.ts` cover generated API contracts. |
@@ -809,8 +856,9 @@ This UAT does not cover real image generation, full workbench chat, uploads in t
 | D-23 | Phase 9 hosted BFL smoke is manual-only, credential-gated, cost-guarded, and reversible; provider-off validation remains the default completion path. |
 | D-24 | Phase 10 targeted edits are child iterations with immutable parents, metadata-backed comparison, deterministic recomposition for safe layer edits, and provider-mask smoke as manual-only. |
 | D-25 | Phase 11 references are six-role structured assignments with rights/source snapshots; local deterministic records prompt-only trace, and hosted reference-image smoke remains manual-only. |
+| D-26 | Phase 12 lightweight 3D is concept-only: one shell fixture, PreviewSpec-derived material mapping, version-linked screenshot artifacts, and persistent non-production/UV-not-verified labels. |
 
-Deferred items after Phase 11 remain out of scope for this milestone until later phases implement them: production-ready export UX, true 3D/UV preview, enhanced handoff packaging, auth, billing, marketplace/community flows, automated copyright/licensing verification, and production handoff. Hosted output quality, pricing, moderation, account status, mask/reference-image support, and commercial terms must still be rechecked before any non-local output is treated as production-ready evidence.
+Deferred items after Phase 12 remain out of scope for this milestone until later phases implement them: production-ready export UX, verified vehicle-specific UV mapping, enhanced handoff packaging, auth, billing, marketplace/community flows, automated copyright/licensing verification, and production handoff. Hosted output quality, pricing, moderation, account status, mask/reference-image support, and commercial terms must still be rechecked before any non-local output is treated as production-ready evidence.
 
 ## Security Notes
 
@@ -821,6 +869,7 @@ Deferred items after Phase 11 remain out of scope for this milestone until later
 - Provider-mask targeted edit smoke is manual-only; unsupported mask capability must fail closed instead of falling back to full regeneration.
 - Reference guidance requires rights/source gates and stores only metadata snapshots, not binary reference image data.
 - Hosted reference-image smoke is manual-only; unsupported reference capability must warn or fail closed before any provider call.
+- Lightweight 3D preview screenshots are concept evidence only; `preview_3d_screenshot` metadata must keep concept-only and UV-not-verified warnings and must not store secrets, raw local paths, or binary image data.
 - Workbench operational text should render structured category/stage/provider values and sanitize raw diagnostic text before displaying it.
 - Local deterministic generation remains the baseline verification path and must not require hosted keys.
 - Docker Compose credentials and ports are local-only and not a production hardening guide.
@@ -848,4 +897,4 @@ Deferred items after Phase 11 remain out of scope for this milestone until later
 
 ## Phase Boundary
 
-Phase 11 is complete when the foundation, durable data/job/asset surfaces, structured brief/prompt trace, local deterministic generation task, API generation routes, integrated web workbench, selected-version iteration, lineage comparison, feedback, concept export manifest, itasha controls, PreviewSpec metadata, safe-zone overlays, operations API, structured failures, cancellation, retry/fallback settings, hosted provider capability map, BFL adapter, hosted preflight, provider trace/cost/failure diagnostics, workbench provider selector, targeted edit schemas, mask preview, deterministic recomposition, provider-mask guardrails, retry-safe targeted failures, comparison UI, six-role reference assignments, rights/source snapshots, provider reference warnings, durable reference trace metadata, child-iteration reference reuse, provider-off validation, hosted smoke runbooks, and Browser UAT checklists can be run from documented commands. Production-ready wrap output, layered source packages, print preflight, true UV-mapped 3D, enhanced handoff packages, auth, billing, marketplace/community flows, automated licensing verification, and production deployment remain deferred to later phases.
+Phase 12 is complete when the foundation, durable data/job/asset surfaces, structured brief/prompt trace, local deterministic generation task, API generation routes, integrated web workbench, selected-version iteration, lineage comparison, feedback, concept export manifest, itasha controls, PreviewSpec metadata, safe-zone overlays, operations API, structured failures, cancellation, retry/fallback settings, hosted provider capability map, BFL adapter, hosted preflight, provider trace/cost/failure diagnostics, workbench provider selector, targeted edit schemas, mask preview, deterministic recomposition, provider-mask guardrails, retry-safe targeted failures, comparison UI, six-role reference assignments, rights/source snapshots, provider reference warnings, durable reference trace metadata, child-iteration reference reuse, lightweight 3D preview contracts/viewer/screenshot artifacts, provider-off validation, hosted smoke runbooks, and Browser UAT checklists can be run from documented commands. Production-ready wrap output, layered source packages, print preflight, verified UV-mapped 3D, enhanced handoff packages, auth, billing, marketplace/community flows, automated licensing verification, and production deployment remain deferred to later phases.

@@ -45,11 +45,13 @@ Completion evidence: `.planning/phases/11-reference-guided-generation-mvp/11-VER
 
 ### Lightweight 3D Preview
 
-- [ ] **V2-3D-01**: Developer can register at least one preview vehicle shell or pseudo-3D template linked to existing vehicle templates and PreviewSpec.
-- [ ] **V2-3D-02**: User can open a 3D preview panel for a selected 2D design version.
-- [ ] **V2-3D-03**: User can rotate, zoom, reset camera, capture a screenshot, and see persistent non-production labeling in the preview.
-- [ ] **V2-3D-04**: System stores 3D preview specs, camera presets, screenshot artifacts, and warning metadata.
-- [ ] **V2-3D-05**: User sees a clear 2D fallback when no compatible 3D shell exists, without breaking generation or export.
+- [x] **V2-3D-01**: Developer can register at least one preview vehicle shell or pseudo-3D template linked to existing vehicle templates and PreviewSpec.
+- [x] **V2-3D-02**: User can open a 3D preview panel for a selected 2D design version.
+- [x] **V2-3D-03**: User can rotate, zoom, reset camera, capture a screenshot, and see persistent non-production labeling in the preview.
+- [x] **V2-3D-04**: System stores 3D preview specs, camera presets, screenshot artifacts, and warning metadata.
+- [x] **V2-3D-05**: User sees a clear 2D fallback when no compatible 3D shell exists, without breaking generation or export.
+
+Completion evidence: `.planning/phases/12-lightweight-3d-preview-mvp/12-VERIFICATION.md`, `.planning/phases/12-lightweight-3d-preview-mvp/12-HUMAN-UAT.md`, and `.planning/phases/12-lightweight-3d-preview-mvp/12-MILESTONE-NOTES.md`. The preview is explicitly concept-only and does not prove production UV accuracy or print-ready wrap output.
 
 ### Concept Handoff Package
 
@@ -119,11 +121,11 @@ Completion evidence: `.planning/phases/11-reference-guided-generation-mvp/11-VER
 | V2-REF-03 | Phase 11 | Completed |
 | V2-REF-04 | Phase 11 | Completed |
 | V2-REF-05 | Phase 11 | Completed |
-| V2-3D-01 | Phase 12 | Pending |
-| V2-3D-02 | Phase 12 | Pending |
-| V2-3D-03 | Phase 12 | Pending |
-| V2-3D-04 | Phase 12 | Pending |
-| V2-3D-05 | Phase 12 | Pending |
+| V2-3D-01 | Phase 12 | Completed |
+| V2-3D-02 | Phase 12 | Completed |
+| V2-3D-03 | Phase 12 | Completed |
+| V2-3D-04 | Phase 12 | Completed |
+| V2-3D-05 | Phase 12 | Completed |
 | V2-HANDOFF-01 | Phase 13 | Pending |
 | V2-HANDOFF-02 | Phase 13 | Pending |
 | V2-HANDOFF-03 | Phase 13 | Pending |
@@ -143,4 +145,4 @@ Completion evidence: `.planning/phases/11-reference-guided-generation-mvp/11-VER
 
 ---
 *Requirements defined: 2026-06-18*
-*Last updated: 2026-06-18 after Phase 11 closure*
+*Last updated: 2026-06-19 after Phase 12 closure*

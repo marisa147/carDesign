@@ -1,7 +1,7 @@
 ---
 phase: 12
 slug: lightweight-3d-preview-mvp
-status: planned
+status: complete
 nyquist_compliant: true
 wave_0_complete: true
 created: 2026-06-18
@@ -33,14 +33,14 @@ created: 2026-06-18
 
 | Task ID | Plan | Wave | Requirement | Threat Ref | Secure Behavior | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|------------|-----------------|-----------|-------------------|-------------|--------|
-| 12-01-01 | 01 | 1 | V2-3D-01, V2-3D-04, V2-3D-05 | T-12-01 | Preview3DSpec and screenshot metadata are typed, versioned, and contract-generated | schema/contract | `cd services/core && uv run pytest -q tests/test_models.py tests/test_generation_jobs.py && cd ../api && uv run pytest -q tests/test_jobs.py tests/test_generation.py && cd ../.. && corepack pnpm contracts:check` | existing | pending |
-| 12-02-01 | 02 | 1 | V2-3D-01, V2-3D-05 | T-12-02 | Shell compatibility is explicit and unsupported templates fall back safely | core/web unit | `cd services/core && uv run pytest -q tests/test_generation_jobs.py && cd ../.. && corepack pnpm --filter @caragent/web exec vitest --run src/app/page.test.tsx` | existing | pending |
-| 12-03-01 | 03 | 2 | V2-3D-02, V2-3D-03, V2-3D-05 | T-12-03 | Viewer lazy-loads client-only and cannot break 2D preview fallback | web/unit | `corepack pnpm --filter @caragent/web exec vitest --run src/app/page.test.tsx src/lib/workbench/store.test.ts` | existing | pending |
-| 12-04-01 | 04 | 2 | V2-3D-01, V2-3D-02, V2-3D-03 | T-12-04 | PreviewSpec overlays map to material/decal plans without production UV claims | web/unit | `corepack pnpm --filter @caragent/web exec vitest --run src/app/page.test.tsx` | existing | pending |
-| 12-05-01 | 05 | 3 | V2-3D-03, V2-3D-04 | T-12-05 | Screenshot uploads are bounded, validated, and linked to selected version | api/web/contract | `cd services/api && uv run pytest -q tests/test_jobs.py tests/test_generation.py && cd ../.. && corepack pnpm contracts:check && corepack pnpm --filter @caragent/web exec vitest --run src/app/page.test.tsx src/lib/api/iteration.test.ts` | existing | pending |
-| 12-06-01 | 06 | 3 | V2-3D-03, V2-3D-05 | T-12-06 | Non-production labels and fallback warnings are persistent and metadata-backed | web/api | `corepack pnpm --filter @caragent/web exec vitest --run src/app/page.test.tsx && cd services/api && uv run pytest -q tests/test_jobs.py` | existing | pending |
-| 12-07-01 | 07 | 4 | V2-3D-02, V2-3D-03, V2-3D-05 | T-12-07 | Browser scene is nonblank, responsive, keyboard-accessible, and cleaned up | browser/web | `corepack pnpm --filter @caragent/web lint && corepack pnpm --filter @caragent/web typecheck` plus Browser/Playwright visual evidence | existing | pending |
-| 12-08-01 | 08 | 5 | V2-3D-01..05 | T-12-08 | Phase evidence separates automated checks from manual browser UAT and docs disclaimers | aggregate/docs | `corepack pnpm contracts:check && corepack pnpm smoke:worker -- --dry-run && corepack pnpm validate` | yes | pending |
+| 12-01-01 | 01 | 1 | V2-3D-01, V2-3D-04, V2-3D-05 | T-12-01 | Preview3DSpec and screenshot metadata are typed, versioned, and contract-generated | schema/contract | `cd services/core && uv run pytest -q tests/test_models.py tests/test_generation_jobs.py && cd ../api && uv run pytest -q tests/test_jobs.py tests/test_generation.py && cd ../.. && corepack pnpm contracts:check` | existing | green |
+| 12-02-01 | 02 | 1 | V2-3D-01, V2-3D-05 | T-12-02 | Shell compatibility is explicit and unsupported templates fall back safely | core/web unit | `cd services/core && uv run pytest -q tests/test_generation_jobs.py && cd ../.. && corepack pnpm --filter @caragent/web test` | existing | green |
+| 12-03-01 | 03 | 2 | V2-3D-02, V2-3D-03, V2-3D-05 | T-12-03 | Viewer lazy-loads client-only and cannot break 2D preview fallback | web/unit | `corepack pnpm --filter @caragent/web test` | existing | green |
+| 12-04-01 | 04 | 2 | V2-3D-01, V2-3D-02, V2-3D-03 | T-12-04 | PreviewSpec overlays map to material/decal plans without production UV claims | web/unit | `corepack pnpm --filter @caragent/web test` | existing | green |
+| 12-05-01 | 05 | 3 | V2-3D-03, V2-3D-04 | T-12-05 | Screenshot uploads are bounded, validated, and linked to selected version | api/web/contract | `cd services/api && uv run pytest -q tests/test_jobs.py tests/test_generation.py && cd ../.. && corepack pnpm contracts:check && corepack pnpm --filter @caragent/web test` | existing | green |
+| 12-06-01 | 06 | 3 | V2-3D-03, V2-3D-05 | T-12-06 | Non-production labels and fallback warnings are persistent and metadata-backed | web/api | `corepack pnpm --filter @caragent/web test && cd services/api && uv run pytest -q tests/test_jobs.py` | existing | green |
+| 12-07-01 | 07 | 4 | V2-3D-02, V2-3D-03, V2-3D-05 | T-12-07 | Browser scene is nonblank, responsive, keyboard-accessible, and cleaned up | browser/web | `corepack pnpm --filter @caragent/web lint && corepack pnpm --filter @caragent/web typecheck` plus browser visual evidence | existing | green |
+| 12-08-01 | 08 | 5 | V2-3D-01..05 | T-12-08 | Phase evidence separates automated checks from manual browser UAT and docs disclaimers | aggregate/docs | `corepack pnpm contracts:check && corepack pnpm smoke:worker -- --dry-run && corepack pnpm validate` | yes | green |
 
 *Status: pending / green / red / flaky*
 
@@ -70,12 +70,12 @@ Existing infrastructure covers Phase 12, but visual verification must be added d
 
 ## Validation Sign-Off
 
-- [ ] All plans have focused automated verification or documented manual-only gates.
-- [ ] No default validation path makes external provider calls.
-- [ ] Contract changes are reflected in generated OpenAPI/TypeScript client.
-- [ ] Screenshot metadata contains no binary image data, secrets, or raw local paths.
-- [ ] Browser visual evidence proves a nonblank 3D canvas on desktop and mobile.
-- [ ] Persistent non-production labels are verified in UI and metadata.
-- [ ] `nyquist_compliant: true` set in frontmatter.
+- [x] All plans have focused automated verification or documented manual-only gates.
+- [x] No default validation path makes external provider calls.
+- [x] Contract changes are reflected in generated OpenAPI/TypeScript client.
+- [x] Screenshot metadata contains no binary image data, secrets, or raw local paths.
+- [x] Browser visual evidence proves a nonblank 3D canvas on desktop and mobile.
+- [x] Persistent non-production labels are verified in UI and metadata.
+- [x] `nyquist_compliant: true` set in frontmatter.
 
-**Approval:** planned; complete during 12-08.
+**Approval:** complete on 2026-06-19. Evidence: `12-VERIFICATION.md`, `12-HUMAN-UAT.md`, and `12-MILESTONE-NOTES.md`.
