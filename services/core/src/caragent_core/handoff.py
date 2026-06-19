@@ -2,12 +2,18 @@ from __future__ import annotations
 
 import json
 import re
+import zipfile
 from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 from decimal import Decimal
+from hashlib import sha256
+from io import BytesIO
 from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
+
+from caragent_core.storage import ObjectStorage
 
 HANDOFF_PACKAGE_SCHEMA_VERSION = 1
 ENHANCED_HANDOFF_PACKAGE_TYPE = "enhanced_concept_handoff"
@@ -25,6 +31,20 @@ FORBIDDEN_HANDOFF_MARKERS = (
 _LOCAL_PATH_PATTERN = re.compile(r"[A-Za-z]:\\[^\s,)\]}]+")
 
 JsonObject = dict[str, object]
+
+
+class HandoffPackageBuildError(ValueError):
+    pass
+
+
+@dataclass(frozen=True)
+class HandoffPackageZipResult:
+    byte_size: int
+    checksum_sha256: str
+    content: bytes
+    content_type: str
+    files: list[HandoffPackageFile]
+    manifest: HandoffPackageManifest
 
 
 class HandoffBaseModel(BaseModel):
@@ -297,6 +317,153 @@ def render_handoff_references_json(
     return json.dumps(manifest.model_dump(mode="json"), indent=2, sort_keys=True)
 
 
+async def build_handoff_package_zip(
+    *,
+    package_object_key: str,
+    source_artifact: object,
+    storage: ObjectStorage,
+    version: object,
+    model_runs: Sequence[object] = (),
+    review_notes: Sequence[str] = (),
+    screenshot_artifacts: Sequence[object] = (),
+) -> HandoffPackageZipResult:
+    parameters = _mapping_value(getattr(version, "parameters", None))
+    preview_spec = _mapping_value(parameters.get("preview_spec"))
+    preview_3d = _mapping_value(parameters.get("preview_3d"))
+    warning_report = build_handoff_warning_report(
+        preview_3d=preview_3d,
+        preview_3d_screenshot={"warning_ids": _screenshot_warning_ids(screenshot_artifacts)}
+        if screenshot_artifacts
+        else None,
+        preview_spec=preview_spec,
+    )
+    references = build_handoff_reference_manifest(parameters)
+
+    source_object_key = _artifact_object_key(source_artifact)
+    source_object = await _read_required_object(
+        storage,
+        source_object_key,
+        "source concept image",
+    )
+    concept_path = (
+        f"images/concept{_artifact_extension(source_artifact, source_object.content_type)}"
+    )
+
+    binary_members: list[tuple[str, bytes, str]] = [
+        (concept_path, source_object.content, "concept_image"),
+    ]
+    for screenshot in screenshot_artifacts:
+        screenshot_object_key = _artifact_object_key(screenshot)
+        screenshot_path = (
+            f"screenshots/{_artifact_id(screenshot)}"
+            f"{_artifact_extension(screenshot, 'image/png')}"
+        )
+        try:
+            screenshot_object = await storage.get_object(screenshot_object_key)
+        except FileNotFoundError:
+            _append_warning_item(
+                warning_report.items,
+                {
+                    "artifact_id": _artifact_id(screenshot),
+                    "id": "preview_3d_screenshot_missing_object",
+                    "message": (
+                        "Preview 3D screenshot metadata exists, but the optional "
+                        "screenshot bytes could not be read from object storage."
+                    ),
+                    "severity": "warning",
+                    "source": "package_builder",
+                },
+            )
+            continue
+        binary_members.append((screenshot_path, screenshot_object.content, "screenshot"))
+
+    files = [
+        HandoffPackageFile(kind="manifest", path="manifest.json"),
+        HandoffPackageFile(kind="notes", path="handoff-notes.md"),
+        HandoffPackageFile(kind="warnings", path="warnings.md"),
+        HandoffPackageFile(kind="prompt_trace", path="prompt-trace.md"),
+        HandoffPackageFile(kind="references", path="references.json"),
+        HandoffPackageFile(kind="concept_image", path=concept_path),
+        *[
+            HandoffPackageFile(kind=kind, path=path, required=False)
+            for path, _content, kind in binary_members
+            if kind == "screenshot"
+        ],
+    ]
+    safe_zone_report = build_handoff_safe_zone_report(preview_spec)
+    prompt_trace = HandoffPromptTrace(
+        model_run_ids=[_model_run_id(model_run) for model_run in model_runs],
+        summary=_prompt_summary(model_runs),
+    )
+    provider_trace = _provider_trace_from_model_runs(model_runs)
+    manifest = HandoffPackageManifest(
+        brief_id=getattr(version, "brief_id", None),
+        files=files,
+        format=ENHANCED_HANDOFF_PACKAGE_FORMAT,
+        package_artifact=HandoffPackageArtifact(
+            content_type="application/zip",
+            object_key=package_object_key,
+        ),
+        package_type=ENHANCED_HANDOFF_PACKAGE_TYPE,
+        parent_version_id=getattr(version, "parent_version_id", None),
+        preview_3d=_json_object(preview_3d),
+        preview_spec=_json_object(preview_spec),
+        prompt_trace=prompt_trace,
+        provider_trace=provider_trace,
+        references=references,
+        review_notes=[_sanitize_text(note) for note in review_notes],
+        source_artifact=HandoffSourceArtifact(
+            byte_size=len(source_object.content),
+            checksum_sha256=getattr(source_artifact, "checksum_sha256", None),
+            content_type=(
+                getattr(source_artifact, "content_type", None)
+                or source_object.content_type
+            ),
+            height=getattr(source_artifact, "height", None),
+            id=UUID(_artifact_id(source_artifact)),
+            object_key=source_object_key,
+            width=getattr(source_artifact, "width", None),
+        ),
+        template=safe_zone_report.template,
+        version_id=version.id,
+        warnings=warning_report,
+        workspace_id=version.workspace_id,
+    )
+
+    text_members = {
+        "manifest.json": json.dumps(
+            manifest.model_dump(mode="json"),
+            indent=2,
+            sort_keys=True,
+        ),
+        "handoff-notes.md": render_handoff_notes_markdown(
+            references=references,
+            review_notes=review_notes,
+            safe_zones=safe_zone_report.safe_zones,
+            template=safe_zone_report.template,
+            warnings=warning_report,
+        ),
+        "warnings.md": render_handoff_warnings_markdown(warning_report),
+        "prompt-trace.md": render_handoff_prompt_trace_markdown(
+            model_runs=model_runs,
+            prompt_trace=prompt_trace,
+            provider_trace=provider_trace,
+        ),
+        "references.json": render_handoff_references_json(references),
+    }
+
+    content = _write_zip_members(text_members=text_members, binary_members=binary_members)
+    checksum = sha256(content).hexdigest()
+    return HandoffPackageZipResult(
+        byte_size=len(content),
+        checksum_sha256=checksum,
+        content=content,
+        content_type="application/zip",
+        files=files,
+        manifest=manifest,
+    )
+
+
 def _append_warning_items(
     items: list[JsonObject],
     warnings: Sequence[object],
@@ -497,11 +664,120 @@ def _join_markdown(lines: Sequence[str]) -> str:
     return "\n".join(lines).strip() + "\n"
 
 
+async def _read_required_object(
+    storage: ObjectStorage,
+    key: str,
+    label: str,
+) -> object:
+    try:
+        return await storage.get_object(key)
+    except FileNotFoundError as error:
+        raise HandoffPackageBuildError(f"Missing required {label}: {key}") from error
+
+
+def _artifact_id(artifact: object) -> str:
+    value = getattr(artifact, "id", None)
+    if value is None:
+        raise HandoffPackageBuildError("Artifact id is required")
+    return str(value)
+
+
+def _artifact_object_key(artifact: object) -> str:
+    value = getattr(artifact, "object_key", None)
+    if not isinstance(value, str) or not value.strip():
+        raise HandoffPackageBuildError("Artifact object_key is required")
+    return value.strip()
+
+
+def _artifact_extension(artifact: object, stored_content_type: str | None) -> str:
+    content_type = (
+        str(getattr(artifact, "content_type", "") or stored_content_type or "")
+        .strip()
+        .lower()
+    )
+    content_type_extensions = {
+        "image/jpeg": ".jpg",
+        "image/jpg": ".jpg",
+        "image/png": ".png",
+        "image/webp": ".webp",
+    }
+    if content_type in content_type_extensions:
+        return content_type_extensions[content_type]
+
+    object_key = _artifact_object_key(artifact).lower()
+    for extension in (".png", ".jpg", ".jpeg", ".webp"):
+        if object_key.endswith(extension):
+            return ".jpg" if extension == ".jpeg" else extension
+    return ".png"
+
+
+def _screenshot_warning_ids(screenshot_artifacts: Sequence[object]) -> list[str]:
+    warning_ids: list[str] = []
+    for screenshot in screenshot_artifacts:
+        metadata = _mapping_value(getattr(screenshot, "metadata_json", None))
+        screenshot_metadata = _mapping_value(metadata.get("preview_3d_screenshot"))
+        for warning_id in _sequence_value(screenshot_metadata.get("warning_ids")):
+            warning_text = str(warning_id)
+            if warning_text not in warning_ids:
+                warning_ids.append(warning_text)
+    return warning_ids
+
+
+def _model_run_id(model_run: object) -> str:
+    value = getattr(model_run, "id", None)
+    return str(value) if value is not None else "unknown"
+
+
+def _prompt_summary(model_runs: Sequence[object]) -> str | None:
+    for model_run in model_runs:
+        prompt_text = getattr(model_run, "prompt_text", None)
+        if isinstance(prompt_text, str) and prompt_text.strip():
+            return _sanitize_text(prompt_text[:240])
+    return None
+
+
+def _provider_trace_from_model_runs(
+    model_runs: Sequence[object],
+) -> HandoffProviderTrace:
+    if not model_runs:
+        return HandoffProviderTrace()
+    model_run = model_runs[-1]
+    return HandoffProviderTrace(
+        actual_cost=getattr(model_run, "actual_cost", None),
+        estimated_cost=getattr(model_run, "estimated_cost", None),
+        model=getattr(model_run, "model", None),
+        provider=getattr(model_run, "provider", None),
+        status=getattr(model_run, "status", None),
+    )
+
+
+def _write_zip_members(
+    *,
+    text_members: Mapping[str, str],
+    binary_members: Sequence[tuple[str, bytes, str]],
+) -> bytes:
+    buffer = BytesIO()
+    with zipfile.ZipFile(buffer, mode="w", compression=zipfile.ZIP_DEFLATED) as archive:
+        for path in [
+            "manifest.json",
+            "handoff-notes.md",
+            "warnings.md",
+            "prompt-trace.md",
+            "references.json",
+        ]:
+            archive.writestr(path, text_members[path].encode("utf-8"))
+        for path, content, _kind in binary_members:
+            archive.writestr(path, content)
+    return buffer.getvalue()
+
+
 __all__ = [
     "ENHANCED_HANDOFF_PACKAGE_FORMAT",
     "ENHANCED_HANDOFF_PACKAGE_TYPE",
     "HANDOFF_CONCEPT_ONLY_DISCLAIMER",
     "HANDOFF_PACKAGE_SCHEMA_VERSION",
+    "HandoffPackageBuildError",
+    "HandoffPackageZipResult",
     "HandoffSafeZoneReport",
     "HandoffPackageArtifact",
     "HandoffPackageFile",
@@ -513,6 +789,7 @@ __all__ = [
     "HandoffWarningReport",
     "build_handoff_reference_manifest",
     "build_handoff_safe_zone_report",
+    "build_handoff_package_zip",
     "build_handoff_warning_report",
     "render_handoff_notes_markdown",
     "render_handoff_prompt_trace_markdown",
