@@ -17,6 +17,7 @@ from caragent_core.enums import (
     JobStatus,
     ModelRunStatus,
 )
+from caragent_core.handoff import ENHANCED_HANDOFF_PACKAGE_FORMAT
 from caragent_core.models import (
     Artifact,
     DesignVersion,
@@ -32,7 +33,7 @@ from caragent_core.repositories import jobs as job_repository
 from caragent_core.services import workspaces
 
 JsonObject = dict[str, object]
-SUPPORTED_CONCEPT_EXPORT_FORMATS = {"jpeg", "jpg", "png"}
+SUPPORTED_CONCEPT_EXPORT_FORMATS = {"jpeg", "jpg", "png", ENHANCED_HANDOFF_PACKAGE_FORMAT}
 CONCEPT_EXPORT_DISCLAIMER = "Concept preview only, not print-ready."
 
 
