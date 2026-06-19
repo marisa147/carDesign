@@ -18,6 +18,9 @@ class ObjectStorage(Protocol):
     async def put_object(self, key: str, content: bytes, content_type: str) -> None:
         pass
 
+    async def get_object(self, key: str) -> StoredObject:
+        pass
+
 
 @dataclass(frozen=True)
 class StoredObject:
@@ -32,6 +35,12 @@ class InMemoryObjectStorage:
     async def put_object(self, key: str, content: bytes, content_type: str) -> None:
         self.objects[key] = StoredObject(content=content, content_type=content_type)
 
+    async def get_object(self, key: str) -> StoredObject:
+        try:
+            return self.objects[key]
+        except KeyError as error:
+            raise FileNotFoundError(key) from error
+
 
 class FileObjectStorage:
     def __init__(self, root: Path) -> None:
@@ -42,6 +51,15 @@ class FileObjectStorage:
         target = self.root / key
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes(content)
+
+    async def get_object(self, key: str) -> StoredObject:
+        target = self.root / key
+        if not target.is_file():
+            raise FileNotFoundError(key)
+        return StoredObject(
+            content=target.read_bytes(),
+            content_type="application/octet-stream",
+        )
 
 
 def build_object_key(
