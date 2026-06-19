@@ -775,7 +775,7 @@
             "type": "string"
           },
           "format": {
-            "maxLength": 20,
+            "maxLength": 64,
             "minLength": 1,
             "title": "Format",
             "type": "string"

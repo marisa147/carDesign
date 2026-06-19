@@ -6,8 +6,14 @@ import hashlib
 from typing import Annotated
 from uuid import UUID, uuid4
 
-from caragent_core.enums import ArtifactKind
-from caragent_core.models import Artifact
+from caragent_core.enums import ArtifactKind, ExportStatus
+from caragent_core.handoff import (
+    ENHANCED_HANDOFF_PACKAGE_FORMAT,
+    HandoffPackageBuildError,
+    HandoffPackageZipResult,
+    build_handoff_package_zip,
+)
+from caragent_core.models import Artifact, ExportRecord
 from caragent_core.preview3d import (
     Preview3DScreenshotArtifactMetadata,
     required_preview_3d_warning_ids,
@@ -315,23 +321,186 @@ async def create_export(
     workspace_id: UUID,
     version_id: UUID,
     payload: ExportCreateRequest,
+    request: Request,
     session: SessionDependency,
+    storage: StorageDependency,
 ) -> ExportResponse:
+    normalized_format = payload.format.strip().lower()
     try:
-        row = await jobs.record_export(
-            session,
-            workspace_id,
-            version_id,
-            artifact_id=payload.artifact_id,
-            concept_label=payload.concept_label,
-            export_format=payload.format,
-            manifest=payload.manifest,
-        )
+        if normalized_format == ENHANCED_HANDOFF_PACKAGE_FORMAT:
+            row = await _create_enhanced_handoff_export(
+                workspace_id=workspace_id,
+                version_id=version_id,
+                payload=payload,
+                request=request,
+                session=session,
+                storage=storage,
+            )
+        else:
+            row = await jobs.record_export(
+                session,
+                workspace_id,
+                version_id,
+                artifact_id=payload.artifact_id,
+                concept_label=payload.concept_label,
+                export_format=payload.format,
+                manifest=payload.manifest,
+            )
     except workspaces.WorkspaceNotFoundError as error:
         raise workspace_not_found(error) from error
-    except jobs.JobValidationError as error:
+    except (HandoffPackageBuildError, jobs.JobValidationError) as error:
         raise job_validation_failed(error) from error
     return ExportResponse.model_validate(row)
+
+
+async def _create_enhanced_handoff_export(
+    *,
+    workspace_id: UUID,
+    version_id: UUID,
+    payload: ExportCreateRequest,
+    request: Request,
+    session: AsyncSession,
+    storage: ObjectStorage,
+) -> ExportRecord:
+    settings = _settings_from_request(request)
+    if not settings.v2_enhanced_handoff_package_enabled:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="V2_ENHANCED_HANDOFF_PACKAGE_ENABLED is disabled.",
+        )
+
+    version = await jobs.get_workspace_version(session, workspace_id, version_id)
+    source_artifact = await _resolve_handoff_source_artifact(
+        session,
+        workspace_id,
+        version_id,
+        payload.artifact_id,
+    )
+    screenshot_artifacts = await _list_handoff_screenshot_artifacts(
+        session,
+        workspace_id,
+        version_id,
+    )
+    model_runs = (
+        await jobs.list_job_model_runs(session, version.job_id)
+        if version.job_id is not None
+        else []
+    )
+    review_notes = await _handoff_review_notes(session, workspace_id, version_id)
+    package_object_key = build_object_key(
+        workspace_id=workspace_id,
+        kind=ArtifactKind.EXPORT.value,
+        record_id=uuid4(),
+        filename="enhanced-concept-handoff.zip",
+    )
+    package = await build_handoff_package_zip(
+        model_runs=model_runs,
+        package_object_key=package_object_key,
+        review_notes=review_notes,
+        screenshot_artifacts=screenshot_artifacts,
+        source_artifact=source_artifact,
+        storage=storage,
+        version=version,
+    )
+    await storage.put_object(package_object_key, package.content, package.content_type)
+    package_artifact = await jobs.create_artifact(
+        session,
+        workspace_id,
+        byte_size=package.byte_size,
+        checksum_sha256=package.checksum_sha256,
+        content_type=package.content_type,
+        job_id=version.job_id,
+        kind=ArtifactKind.EXPORT.value,
+        metadata=_handoff_package_artifact_metadata(package),
+        object_key=package_object_key,
+        version_id=version.id,
+    )
+    return await jobs.record_export(
+        session,
+        workspace_id,
+        version_id,
+        artifact_id=package_artifact.id,
+        concept_label=payload.concept_label,
+        export_format=ENHANCED_HANDOFF_PACKAGE_FORMAT,
+        manifest=_handoff_export_manifest(package),
+        status=ExportStatus.SUCCEEDED.value,
+    )
+
+
+async def _resolve_handoff_source_artifact(
+    session: AsyncSession,
+    workspace_id: UUID,
+    version_id: UUID,
+    artifact_id: UUID | None,
+) -> Artifact:
+    if artifact_id is not None:
+        artifact = await session.get(Artifact, artifact_id)
+        if artifact is None or artifact.workspace_id != workspace_id:
+            raise jobs.JobValidationError("Handoff source artifact not found for workspace")
+        if artifact.version_id != version_id:
+            raise jobs.JobValidationError("Handoff source artifact not found for version")
+        return artifact
+
+    artifacts = await jobs.list_workspace_artifacts(session, workspace_id)
+    candidates = [
+        artifact
+        for artifact in artifacts
+        if artifact.version_id == version_id
+        and artifact.kind == ArtifactKind.GENERATED_IMAGE.value
+    ]
+    if not candidates:
+        raise jobs.JobValidationError("Handoff source concept image artifact not found")
+    return candidates[-1]
+
+
+async def _list_handoff_screenshot_artifacts(
+    session: AsyncSession,
+    workspace_id: UUID,
+    version_id: UUID,
+) -> list[Artifact]:
+    artifacts = await jobs.list_workspace_artifacts(session, workspace_id)
+    return [
+        artifact
+        for artifact in artifacts
+        if artifact.version_id == version_id
+        and artifact.kind == ArtifactKind.PREVIEW_3D_SCREENSHOT.value
+    ]
+
+
+async def _handoff_review_notes(
+    session: AsyncSession,
+    workspace_id: UUID,
+    version_id: UUID,
+) -> list[str]:
+    feedback_rows = await jobs.list_workspace_feedback(session, workspace_id)
+    return [
+        feedback.comment
+        for feedback in feedback_rows
+        if feedback.version_id == version_id and feedback.comment
+    ]
+
+
+def _handoff_export_manifest(package: HandoffPackageZipResult) -> dict[str, object]:
+    manifest = package.manifest.model_dump(mode="json")
+    package_artifact = dict(manifest["package_artifact"])
+    package_artifact["byte_size"] = package.byte_size
+    package_artifact["checksum_sha256"] = package.checksum_sha256
+    manifest["package_artifact"] = package_artifact
+    return manifest
+
+
+def _handoff_package_artifact_metadata(package: HandoffPackageZipResult) -> dict[str, object]:
+    manifest = _handoff_export_manifest(package)
+    return {
+        "handoff_package": {
+            "files": manifest["files"],
+            "format": manifest["format"],
+            "package_artifact": manifest["package_artifact"],
+            "schema_version": manifest["schema_version"],
+            "source_artifact_id": manifest["source_artifact"]["id"],
+            "warning_count": len(manifest["warnings"]["items"]),
+        },
+    }
 
 
 def _extract_queue_task_id(metadata: object) -> str | None:

@@ -445,7 +445,7 @@ class ExportResponse(BaseModel):
 
 
 class ExportCreateRequest(BaseModel):
-    format: str = Field(min_length=1, max_length=20)
+    format: str = Field(min_length=1, max_length=64)
     artifact_id: UUID | None = None
     concept_label: str = Field(default="concept_preview", min_length=1, max_length=120)
     manifest: dict[str, Any] = Field(default_factory=dict)

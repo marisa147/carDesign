@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass
+from datetime import datetime
 from decimal import Decimal
 from uuid import UUID
 
@@ -543,6 +544,7 @@ async def record_export(
     artifact_id: UUID | None = None,
     status: str = ExportStatus.REQUESTED.value,
     concept_label: str = "concept_preview",
+    completed_at: datetime | None = None,
     manifest: JsonObject | None = None,
 ) -> ExportRecord:
     await workspaces.get_workspace(session, workspace_id)
@@ -566,6 +568,9 @@ async def record_export(
         "export status",
     )
     normalized_label = _normalize_required(concept_label, "concept_label")
+    export_completed_at = completed_at
+    if normalized_status == ExportStatus.SUCCEEDED.value and export_completed_at is None:
+        export_completed_at = utc_now()
     export_manifest: JsonObject = {
         **(manifest or {}),
         "brief_id": str(version.brief_id) if version.brief_id is not None else None,
@@ -584,6 +589,7 @@ async def record_export(
     }
     export = ExportRecord(
         artifact_id=artifact_id,
+        completed_at=export_completed_at,
         concept_label=normalized_label,
         format=normalized_format,
         manifest=export_manifest,

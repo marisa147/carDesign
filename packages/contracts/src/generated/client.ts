@@ -336,7 +336,7 @@ export interface ExportCreateRequest {
   concept_label?: string;
   /**
      * @minLength 1
-     * @maxLength 20
+     * @maxLength 64
      */
   format: string;
   manifest?: ExportCreateRequestManifest;

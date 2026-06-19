@@ -68,6 +68,7 @@ def test_openapi_export_includes_phase_2_product_routes_and_schemas(tmp_path: Pa
         "/jobs/{job_id}/model-runs": "get",
         "/workspaces/{workspace_id}/feedback": "get",
         "/workspaces/{workspace_id}/exports": "get",
+        "/workspaces/{workspace_id}/versions/{version_id}/exports": "post",
     }.items():
         assert paths[path][method]
 
@@ -89,6 +90,8 @@ def test_openapi_export_includes_phase_2_product_routes_and_schemas(tmp_path: Pa
     assert schemas["GenerationJobCancelResponse"]["properties"]["queue_revoke"]
     assert schemas["QueueRevokeResponse"]["properties"]["status"]
     assert schemas["GenerationJobRetryResponse"]["properties"]["retry_of_job_id"]
+    assert schemas["ExportCreateRequest"]["properties"]["format"]
+    assert schemas["ExportResponse"]["properties"]["manifest"]
 
     phase_6_fields = {
         "character_focus",
