@@ -69,6 +69,8 @@ def test_build_prompt_plan_captures_text_payload_and_provider_trace() -> None:
         "view": brief.view,
         "canvas_width": brief.canvas_width,
         "canvas_height": brief.canvas_height,
+        "readiness": brief.template_readiness.model_dump(mode="json"),
+        "source": brief.template_source.model_dump(mode="json"),
     }
     assert payload["brief"] == {
         "character_focus": "door portrait",
@@ -86,6 +88,8 @@ def test_build_prompt_plan_captures_text_payload_and_provider_trace() -> None:
     assert preview_spec["canvas"] == {"width": 1536, "height": 768}
     assert preview_spec["template"]["id"] == brief.vehicle_template_id
     assert preview_spec["template"]["view"] == brief.view
+    assert preview_spec["template"]["source"]["source_type"] == "internal_original"
+    assert preview_spec["template"]["readiness"]["reusable_asset_allowed"] is True
     assert {zone["id"] for zone in preview_spec["safe_zones"]} >= {
         "door-main",
         "side-window",

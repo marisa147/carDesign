@@ -1305,6 +1305,12 @@
             "title": "Supporting Graphics",
             "type": "array"
           },
+          "template_readiness": {
+            "$ref": "#/components/schemas/TemplateReadinessReport"
+          },
+          "template_source": {
+            "$ref": "#/components/schemas/TemplateSourceMetadata"
+          },
           "text": {
             "items": {
               "type": "string"
@@ -1349,7 +1355,9 @@
           "style",
           "coverage",
           "canvas_width",
-          "canvas_height"
+          "canvas_height",
+          "template_source",
+          "template_readiness"
         ],
         "title": "GenerationBriefPayload",
         "type": "object"
@@ -3479,6 +3487,150 @@
         ],
         "title": "ReferenceRole",
         "type": "string"
+      },
+      "TemplateReadinessReport": {
+        "properties": {
+          "blocking_reasons": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Blocking Reasons",
+            "type": "array"
+          },
+          "catalog_eligible": {
+            "title": "Catalog Eligible",
+            "type": "boolean"
+          },
+          "missing_asset_slots": {
+            "items": {
+              "enum": [
+                "base",
+                "body_mask",
+                "window_mask",
+                "wheel_mask",
+                "handle_mask",
+                "panel_lines",
+                "safe_zones",
+                "metadata",
+                "thumbnail"
+              ],
+              "type": "string"
+            },
+            "title": "Missing Asset Slots",
+            "type": "array"
+          },
+          "required_asset_slots": {
+            "items": {
+              "enum": [
+                "base",
+                "body_mask",
+                "window_mask",
+                "wheel_mask",
+                "handle_mask",
+                "panel_lines",
+                "safe_zones",
+                "metadata",
+                "thumbnail"
+              ],
+              "type": "string"
+            },
+            "title": "Required Asset Slots",
+            "type": "array"
+          },
+          "reusable_asset_allowed": {
+            "title": "Reusable Asset Allowed",
+            "type": "boolean"
+          },
+          "schema_version": {
+            "const": 1,
+            "default": 1,
+            "title": "Schema Version",
+            "type": "integer"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "catalog_eligible",
+          "reusable_asset_allowed"
+        ],
+        "title": "TemplateReadinessReport",
+        "type": "object"
+      },
+      "TemplateSourceMetadata": {
+        "properties": {
+          "allowed_usage_scope": {
+            "default": "",
+            "title": "Allowed Usage Scope",
+            "type": "string"
+          },
+          "audit_timestamp": {
+            "title": "Audit Timestamp",
+            "type": "string"
+          },
+          "distribution_allowed": {
+            "default": false,
+            "title": "Distribution Allowed",
+            "type": "boolean"
+          },
+          "license_evidence": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "License Evidence"
+          },
+          "license_status": {
+            "enum": [
+              "approved",
+              "conditional",
+              "workspace_only",
+              "reference_only",
+              "blocked",
+              "missing"
+            ],
+            "title": "License Status",
+            "type": "string"
+          },
+          "rights_notes": {
+            "default": "",
+            "title": "Rights Notes",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": 1,
+            "default": 1,
+            "title": "Schema Version",
+            "type": "integer"
+          },
+          "source_type": {
+            "enum": [
+              "internal_original",
+              "licensed_template",
+              "user_provided_with_rights",
+              "third_party_reference_only",
+              "web_crawled_image"
+            ],
+            "title": "Source Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_type",
+          "license_status",
+          "audit_timestamp"
+        ],
+        "title": "TemplateSourceMetadata",
+        "type": "object"
       },
       "ValidationError": {
         "properties": {

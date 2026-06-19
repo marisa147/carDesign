@@ -427,6 +427,80 @@ export interface GenerationBriefCreateRequest {
 
 export type GenerationBriefPayloadSafeZonesItem = { [key: string]: unknown };
 
+export type TemplateReadinessReportMissingAssetSlotsItem = typeof TemplateReadinessReportMissingAssetSlotsItem[keyof typeof TemplateReadinessReportMissingAssetSlotsItem];
+
+
+export const TemplateReadinessReportMissingAssetSlotsItem = {
+  base: 'base',
+  body_mask: 'body_mask',
+  window_mask: 'window_mask',
+  wheel_mask: 'wheel_mask',
+  handle_mask: 'handle_mask',
+  panel_lines: 'panel_lines',
+  safe_zones: 'safe_zones',
+  metadata: 'metadata',
+  thumbnail: 'thumbnail',
+} as const;
+
+export type TemplateReadinessReportRequiredAssetSlotsItem = typeof TemplateReadinessReportRequiredAssetSlotsItem[keyof typeof TemplateReadinessReportRequiredAssetSlotsItem];
+
+
+export const TemplateReadinessReportRequiredAssetSlotsItem = {
+  base: 'base',
+  body_mask: 'body_mask',
+  window_mask: 'window_mask',
+  wheel_mask: 'wheel_mask',
+  handle_mask: 'handle_mask',
+  panel_lines: 'panel_lines',
+  safe_zones: 'safe_zones',
+  metadata: 'metadata',
+  thumbnail: 'thumbnail',
+} as const;
+
+export interface TemplateReadinessReport {
+  blocking_reasons?: string[];
+  catalog_eligible: boolean;
+  missing_asset_slots?: TemplateReadinessReportMissingAssetSlotsItem[];
+  required_asset_slots?: TemplateReadinessReportRequiredAssetSlotsItem[];
+  reusable_asset_allowed: boolean;
+  schema_version?: 1;
+  warnings?: string[];
+}
+
+export type TemplateSourceMetadataLicenseStatus = typeof TemplateSourceMetadataLicenseStatus[keyof typeof TemplateSourceMetadataLicenseStatus];
+
+
+export const TemplateSourceMetadataLicenseStatus = {
+  approved: 'approved',
+  conditional: 'conditional',
+  workspace_only: 'workspace_only',
+  reference_only: 'reference_only',
+  blocked: 'blocked',
+  missing: 'missing',
+} as const;
+
+export type TemplateSourceMetadataSourceType = typeof TemplateSourceMetadataSourceType[keyof typeof TemplateSourceMetadataSourceType];
+
+
+export const TemplateSourceMetadataSourceType = {
+  internal_original: 'internal_original',
+  licensed_template: 'licensed_template',
+  user_provided_with_rights: 'user_provided_with_rights',
+  third_party_reference_only: 'third_party_reference_only',
+  web_crawled_image: 'web_crawled_image',
+} as const;
+
+export interface TemplateSourceMetadata {
+  allowed_usage_scope?: string;
+  audit_timestamp: string;
+  distribution_allowed?: boolean;
+  license_evidence?: string | null;
+  license_status: TemplateSourceMetadataLicenseStatus;
+  rights_notes?: string;
+  schema_version?: 1;
+  source_type: TemplateSourceMetadataSourceType;
+}
+
 export interface GenerationBriefPayload {
   canvas_height: number;
   canvas_width: number;
@@ -447,6 +521,8 @@ export interface GenerationBriefPayload {
   /** @minLength 1 */
   style: string;
   supporting_graphics?: string[];
+  template_readiness: TemplateReadinessReport;
+  template_source: TemplateSourceMetadata;
   text?: string[];
   typography_intent?: string;
   /** @minLength 1 */

@@ -5,7 +5,12 @@ from typing import Any
 
 from pydantic import BaseModel, Field, field_validator
 
-from caragent_core.generation.templates import SafeZone, resolve_vehicle_template
+from caragent_core.generation.templates import (
+    SafeZone,
+    TemplateReadinessReport,
+    TemplateSourceMetadata,
+    resolve_vehicle_template,
+)
 from caragent_core.references import ReferenceAssignment
 
 
@@ -31,6 +36,8 @@ class GenerationBriefPayload(BaseModel):
     safe_zones: list[SafeZone] = Field(default_factory=list)
     canvas_width: int
     canvas_height: int
+    template_source: TemplateSourceMetadata
+    template_readiness: TemplateReadinessReport
 
     @field_validator(
         "character_focus",
@@ -119,6 +126,8 @@ def create_generation_brief(
         safe_zones=resolution.safe_zones,
         style=(style or "itasha concept"),
         supporting_graphics=supporting_graphics or [],
+        template_readiness=resolution.template_readiness,
+        template_source=resolution.template_source,
         text=text or [],
         typography_intent=typography_intent or "",
         vehicle_template_id=resolution.template_id,

@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Template Library And Production Readiness
-status: milestone-planned
-stopped_at: Planned v3.0 from MVP_FINAL.md; ready for Phase 15 planning
-last_updated: "2026-06-19T13:24:00Z"
-last_activity: "2026-06-19 -- Started v3.0 milestone from MVP_FINAL.md"
+status: in-progress
+stopped_at: Completed Phase 15; ready for Phase 16 planning
+last_updated: "2026-06-19T13:55:00Z"
+last_activity: "2026-06-19 -- Completed Phase 15 template source governance and compatibility"
 progress:
   total_phases: 6
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 33
-  completed_plans: 0
-  percent: 0
+  completed_plans: 5
+  percent: 17
 ---
 
 # Project State
@@ -21,17 +21,17 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-19)
 
 **Core value:** 用户能用自然语言快速得到一套可预览、可迭代、可导出的高质量痛车设计方案。
-**Current focus:** v3.0 Phase 15 planning
+**Current focus:** v3.0 Phase 16 planning
 
 ## Current Position
 
-Milestone: v3.0 Template Library And Production Readiness — PLANNED
-Phase: Phase 15 — Template Source Governance And Compatibility
+Milestone: v3.0 Template Library And Production Readiness — IN PROGRESS
+Phase: Phase 16 — MVP Generic Template Pack
 Plan: none active
-Status: Ready to discuss or plan Phase 15
-Last activity: 2026-06-19 -- Started v3.0 milestone from `C:/Users/25858/Downloads/MVP_FINAL.md`
+Status: Ready to discuss or plan Phase 16
+Last activity: 2026-06-19 -- Completed Phase 15 template source governance and compatibility
 
-Progress: [----------] 0%
+Progress: [##--------] 17%
 
 ## Milestone Archives
 
@@ -50,7 +50,7 @@ v3.0 Template Library And Production Readiness is scoped to the following phase 
 
 | Phase | Focus | Plans | Requirements |
 |-------|-------|-------|--------------|
-| Phase 15 | Template Source Governance And Compatibility | 0/5 | V3-TEMPLATE-01..05 |
+| Phase 15 | Template Source Governance And Compatibility | 5/5 complete | V3-TEMPLATE-01..05 complete |
 | Phase 16 | MVP Generic Template Pack | 0/6 | V3-PACK-01..06 |
 | Phase 17 | Template Catalog API And Workbench Selection | 0/6 | V3-CATALOG-01..05 |
 | Phase 18 | Template-Aware Generation, Preview, And Editing | 0/6 | V3-INTEGRATION-01..06 |
@@ -155,6 +155,11 @@ Recent decisions affecting v2.0 and v3.0:
 - [Milestone v3.0]: Prioritize template source governance, internal generic template pack, catalog selection, and concept-only production readiness before print-ready handoff, verified UV, marketplace, or ordering flows.
 - [Milestone v3.0]: Continue phase numbering from v2.0, so V3 work starts at Phase 15.
 - [Milestone v3.0]: Keep old v2 phase directories intact for evidence; new v3 planning starts with living `.planning/REQUIREMENTS.md` and `.planning/ROADMAP.md`.
+- [Phase 15 Plan 01]: Template source policies, source metadata, readiness reports, and audit item models now exist in `caragent_core.generation.templates`.
+- [Phase 15 Plan 02]: Template registration now requires reusable source/license state, usage scope, rights notes, and audit timestamp; registry audit exposes readiness and missing asset slots.
+- [Phase 15 Plan 03]: Prohibited source types and non-reusable license statuses fail closed before reusable template records can enter the registry.
+- [Phase 15 Plan 04]: `generic-side-coupe` remains the stable v1/v2 id, while `generic_coupe_side_v1` resolves as a compatibility alias and new brief/prompt/PreviewSpec payloads carry source/readiness metadata.
+- [Phase 15 Plan 05]: Template governance docs, OpenAPI, generated TypeScript contracts, focused validations, and code review now close V3-TEMPLATE-01..05.
 
 ### Pending Todos
 
@@ -201,8 +206,8 @@ Items acknowledged by `audit-open` at v2.0 milestone close on 2026-06-19:
 
 ## Session Continuity
 
-Last session: 2026-06-19T13:24:00Z
-Stopped at: Planned v3.0 from MVP_FINAL.md; ready for Phase 15 planning
+Last session: 2026-06-19T13:55:00Z
+Stopped at: Completed Phase 15; ready for Phase 16 planning
 Resume files:
 
 - `.planning/PROJECT.md`
@@ -210,6 +215,8 @@ Resume files:
 - `.planning/ROADMAP.md`
 - `.planning/STATE.md`
 - `.planning/research/V3-MVP-FINAL-ANALYSIS.md`
+- `.planning/phases/15-template-source-governance-and-compatibility/15-VERIFICATION.md`
+- `.planning/phases/15-template-source-governance-and-compatibility/15-REVIEW.md`
 - `.planning/MILESTONES.md`
 - `.planning/RETROSPECTIVE.md`
 - `C:/Users/25858/Downloads/MVP_FINAL.md`
@@ -334,5 +341,5 @@ Resume files:
 - `.planning/phases/14-v2-mvp-hardening-docs-smoke-and-uat/14-06-SUMMARY.md`
 - `.planning/phases/14-v2-mvp-hardening-docs-smoke-and-uat/evidence/phase14-browser-metrics.json`
 
-Next recommended command: `$gsd-discuss-phase 15`
-Alternative: `$gsd-plan-phase 15`
+Next recommended command: `$gsd-discuss-phase 16`
+Alternative: `$gsd-plan-phase 16`

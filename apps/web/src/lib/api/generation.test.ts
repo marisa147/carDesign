@@ -20,6 +20,8 @@ import {
   type GenerationJobRetryResponse,
   type GenerationJobSubmissionResponse,
   type JobEventResponse,
+  type TemplateReadinessReport,
+  type TemplateSourceMetadata,
 } from "@caragent/contracts";
 
 import {
@@ -42,6 +44,45 @@ function jsonResponse(body: unknown, status = 200): Response {
 
 const generatedAt = "2026-06-17T00:00:00Z";
 
+const templateSourceFixture: TemplateSourceMetadata = {
+  allowed_usage_scope: "mvp_concept_preview",
+  audit_timestamp: "2026-06-19T00:00:00Z",
+  distribution_allowed: true,
+  license_evidence: "internal-template-seed-v1",
+  license_status: "approved",
+  rights_notes: "Internal generic side-view vehicle silhouette for concept previews.",
+  source_type: "internal_original",
+};
+
+const templateReadinessFixture: TemplateReadinessReport = {
+  blocking_reasons: [],
+  catalog_eligible: false,
+  missing_asset_slots: [
+    "base",
+    "body_mask",
+    "window_mask",
+    "wheel_mask",
+    "handle_mask",
+    "panel_lines",
+    "safe_zones",
+    "metadata",
+    "thumbnail",
+  ],
+  required_asset_slots: [
+    "base",
+    "body_mask",
+    "window_mask",
+    "wheel_mask",
+    "handle_mask",
+    "panel_lines",
+    "safe_zones",
+    "metadata",
+    "thumbnail",
+  ],
+  reusable_asset_allowed: true,
+  warnings: ["Template package is incomplete: base, body_mask, window_mask, wheel_mask, handle_mask, panel_lines, safe_zones, metadata, thumbnail asset slot(s) missing."],
+};
+
 const briefFixture: GenerationBriefResponse = {
   created_at: generatedAt,
   id: "brief-1",
@@ -54,6 +95,8 @@ const briefFixture: GenerationBriefResponse = {
     palette: ["white", "teal"],
     reference_asset_ids: [],
     style: "itasha concept",
+    template_readiness: templateReadinessFixture,
+    template_source: templateSourceFixture,
     text: ["MOON DRIVE"],
     vehicle_template_id: "generic-side-coupe",
     vehicle_template_label: "Generic side-view coupe",

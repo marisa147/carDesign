@@ -64,10 +64,10 @@ v3.0 从 `MVP_FINAL.md` 继续推进模板来源、授权、通用模板包、�
 - ✓ Lightweight 3D preview can consume existing PreviewSpec/template assets and remain labeled as non-production — v2.0 (3D)
 - ✓ Enhanced concept handoff export can package concept assets, overlays, traces, warnings, notes, and disclaimers without claiming print readiness — v2.0 (HANDOFF)
 - ✓ V2 MVP can be validated through aggregate tests, Docker smoke, hosted-provider manual smoke, Browser UAT, docs, and release notes — v2.0 (REL)
+- ✓ Template source governance, license metadata, readiness audit, prohibited-source blocking, and legacy template compatibility exist in core contracts — v3.0 Phase 15 (V3-TEMPLATE)
 
 ### Active
 
-- [ ] Build template source governance and compatibility for reusable template assets.
 - [ ] Create the internal-original MVP generic side-view template pack.
 - [ ] Add template catalog API and Workbench selection.
 - [ ] Carry selected template context through generation, preview, edits, references, 3D fallback, and exports.
@@ -132,8 +132,8 @@ Shipped v1.0 experience:
 | Hosted provider rollout remains opt-in | Provider model availability, costs, moderation, and rights constraints change quickly | ✓ Good — v2.0 shipped guarded hosted path and manual-only smoke posture |
 | V2 MVP follows the external roadmap file | User supplied `C:/Users/25858/Downloads/V2_MVP_ROADMAP (1).md` as the milestone source of truth | ✓ Good — v2.0 requirements and roadmap completed from that source |
 | V2 features stay concept-only until production validation exists | Targeted edits, references, 3D preview, and handoff ZIPs can be mistaken for production wrap proof | ✓ Good — Phase 14 release notes and docs preserve not-print-ready boundaries |
-| V3 follows the final MVP delivery note | User supplied `C:/Users/25858/Downloads/MVP_FINAL.md` as the source for the next milestone after v2.0 archive | — Pending — v3.0 requirements and roadmap initialized |
-| Template governance before production handoff | Production handoff, true 3D, licensed templates, marketplace, and ordering all depend on trustworthy template provenance | — Pending — v3.0 starts with source/license registry and MVP template pack |
+| V3 follows the final MVP delivery note | User supplied `C:/Users/25858/Downloads/MVP_FINAL.md` as the source for the next milestone after v2.0 archive | — Pending — v3.0 in progress |
+| Template governance before production handoff | Production handoff, true 3D, licensed templates, marketplace, and ordering all depend on trustworthy template provenance | ✓ Good — Phase 15 established source/license registry, readiness audit, and compatibility bridge |
 
 ## Evolution
 
@@ -155,4 +155,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state.
 
 ---
-*Last updated: 2026-06-19 after `$gsd-new-milestone` from MVP_FINAL.md*
+*Last updated: 2026-06-19 after Phase 15 completion*

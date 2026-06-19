@@ -10,11 +10,11 @@ v3.0 starts from the final MVP delivery note and focuses on the template/source/
 
 ### Template Governance
 
-- [ ] **V3-TEMPLATE-01**: User or operator can inspect a canonical source policy table that distinguishes `internal_original`, `licensed_template`, `user_provided_with_rights`, `third_party_reference_only`, and `web_crawled_image`.
-- [ ] **V3-TEMPLATE-02**: Operator can register template records with source type, license status, license evidence, rights notes, allowed usage scope, distribution flag, and audit timestamp.
-- [ ] **V3-TEMPLATE-03**: System blocks disallowed web-crawled or third-party-reference-only sources from becoming reusable template assets, masks, thumbnails, or catalog entries.
-- [ ] **V3-TEMPLATE-04**: Existing `generic-side-coupe` PreviewSpec usage remains compatible through migration, aliasing, or a documented bridge without breaking v1/v2 jobs, exports, or 3D fallback.
-- [ ] **V3-TEMPLATE-05**: Operator can review an audit list of template readiness, source, license, missing files, and blocking issues.
+- [x] **V3-TEMPLATE-01**: User or operator can inspect a canonical source policy table that distinguishes `internal_original`, `licensed_template`, `user_provided_with_rights`, `third_party_reference_only`, and `web_crawled_image`.
+- [x] **V3-TEMPLATE-02**: Operator can register template records with source type, license status, license evidence, rights notes, allowed usage scope, distribution flag, and audit timestamp.
+- [x] **V3-TEMPLATE-03**: System blocks disallowed web-crawled or third-party-reference-only sources from becoming reusable template assets, masks, thumbnails, or catalog entries.
+- [x] **V3-TEMPLATE-04**: Existing `generic-side-coupe` PreviewSpec usage remains compatible through migration, aliasing, or a documented bridge without breaking v1/v2 jobs, exports, or 3D fallback.
+- [x] **V3-TEMPLATE-05**: Operator can review an audit list of template readiness, source, license, missing files, and blocking issues.
 
 ### MVP Template Pack
 
@@ -95,11 +95,11 @@ v3.0 starts from the final MVP delivery note and focuses on the template/source/
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| V3-TEMPLATE-01 | Phase 15 | Pending |
-| V3-TEMPLATE-02 | Phase 15 | Pending |
-| V3-TEMPLATE-03 | Phase 15 | Pending |
-| V3-TEMPLATE-04 | Phase 15 | Pending |
-| V3-TEMPLATE-05 | Phase 15 | Pending |
+| V3-TEMPLATE-01 | Phase 15 | Complete |
+| V3-TEMPLATE-02 | Phase 15 | Complete |
+| V3-TEMPLATE-03 | Phase 15 | Complete |
+| V3-TEMPLATE-04 | Phase 15 | Complete |
+| V3-TEMPLATE-05 | Phase 15 | Complete |
 | V3-PACK-01 | Phase 16 | Pending |
 | V3-PACK-02 | Phase 16 | Pending |
 | V3-PACK-03 | Phase 16 | Pending |
@@ -129,10 +129,10 @@ v3.0 starts from the final MVP delivery note and focuses on the template/source/
 
 **Coverage:**
 
-- v3.0 requirements: 31 total
+- v3.0 requirements: 31 total; 5 complete
 - Mapped to phases: 31
 - Unmapped: 0
 
 ---
 *Requirements defined: 2026-06-19*
-*Last updated: 2026-06-19 after `$gsd-new-milestone` from MVP_FINAL.md*
+*Last updated: 2026-06-19 after Phase 15 completion*

@@ -84,6 +84,8 @@ def build_prompt_plan(
             "canvas_width": brief.canvas_width,
             "id": brief.vehicle_template_id,
             "label": brief.vehicle_template_label,
+            "readiness": brief.template_readiness.model_dump(mode="json"),
+            "source": brief.template_source.model_dump(mode="json"),
             "view": brief.view,
         },
         "preview_spec": _build_preview_spec(brief, input_artifact_ids),
@@ -130,6 +132,12 @@ def _build_prompt_text(
                 "Vehicle template: "
                 f"{brief.vehicle_template_label} ({brief.vehicle_template_id}), "
                 f"{brief.view} view, canvas {brief.canvas_width}x{brief.canvas_height}."
+            ),
+            (
+                "Template source: "
+                f"{brief.template_source.source_type}, "
+                f"license {brief.template_source.license_status}, "
+                f"catalog eligible {brief.template_readiness.catalog_eligible}."
             ),
             f"Character/theme: {brief.character_theme}.",
             f"Character focus: {character_focus}.",
@@ -181,6 +189,8 @@ def _build_preview_spec(
         "template": {
             "id": brief.vehicle_template_id,
             "label": brief.vehicle_template_label,
+            "readiness": brief.template_readiness.model_dump(mode="json"),
+            "source": brief.template_source.model_dump(mode="json"),
             "view": brief.view,
         },
         "warnings": [

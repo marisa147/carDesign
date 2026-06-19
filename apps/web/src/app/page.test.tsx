@@ -42,6 +42,8 @@ import {
   type MessageResponse,
   type OperationsProviderStatusResponse,
   type Preview3DScreenshotMetadata,
+  type TemplateReadinessReport,
+  type TemplateSourceMetadata,
   type WorkspaceResponse,
 } from "@caragent/contracts";
 
@@ -66,6 +68,45 @@ function jsonResponse(body: unknown, status = 200): Response {
 }
 
 const createdAt = "2026-06-17T00:00:00Z";
+
+const templateSourceFixture: TemplateSourceMetadata = {
+  allowed_usage_scope: "mvp_concept_preview",
+  audit_timestamp: "2026-06-19T00:00:00Z",
+  distribution_allowed: true,
+  license_evidence: "internal-template-seed-v1",
+  license_status: "approved",
+  rights_notes: "Internal generic side-view vehicle silhouette for concept previews.",
+  source_type: "internal_original",
+};
+
+const templateReadinessFixture: TemplateReadinessReport = {
+  blocking_reasons: [],
+  catalog_eligible: false,
+  missing_asset_slots: [
+    "base",
+    "body_mask",
+    "window_mask",
+    "wheel_mask",
+    "handle_mask",
+    "panel_lines",
+    "safe_zones",
+    "metadata",
+    "thumbnail",
+  ],
+  required_asset_slots: [
+    "base",
+    "body_mask",
+    "window_mask",
+    "wheel_mask",
+    "handle_mask",
+    "panel_lines",
+    "safe_zones",
+    "metadata",
+    "thumbnail",
+  ],
+  reusable_asset_allowed: true,
+  warnings: ["Template package is incomplete: base, body_mask, window_mask, wheel_mask, handle_mask, panel_lines, safe_zones, metadata, thumbnail asset slot(s) missing."],
+};
 
 const workspaceFixture: WorkspaceResponse = {
   created_at: createdAt,
@@ -119,6 +160,8 @@ const previewSpecFixture = {
   template: {
     id: "generic-side-coupe",
     label: "Generic side-view coupe",
+    readiness: templateReadinessFixture,
+    source: templateSourceFixture,
     view: "side",
   },
   warnings: [{ id: "warning-1", message: "Text may be hard to read." }],
@@ -142,6 +185,8 @@ const briefFixture: GenerationBriefResponse = {
     safe_zones: previewSpecFixture.safe_zones,
     style: "清爽赛博风",
     supporting_graphics: ["樱花瓣", "青绿色丝带"],
+    template_readiness: templateReadinessFixture,
+    template_source: templateSourceFixture,
     text: ["MOON DRIVE"],
     typography_intent: "车门大字，保持可读",
     vehicle_template_id: "generic-side-coupe",
