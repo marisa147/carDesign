@@ -41,6 +41,7 @@ import {
   type JobEventResponse,
   type MessageResponse,
   type OperationsProviderStatusResponse,
+  type Preview3DScreenshotMetadata,
   type WorkspaceResponse,
 } from "@caragent/contracts";
 
@@ -449,6 +450,67 @@ const secondArtifactFixture: ArtifactResponse = {
   version_id: "version-2",
 };
 
+const preview3dScreenshotMetadataFixture: Preview3DScreenshotMetadata = {
+  camera: {
+    position: { x: 2.8, y: 1.4, z: 4.2 },
+    preset_id: "front-left-default",
+    target: { x: 0, y: 0.4, z: 0 },
+    zoom: 1,
+  },
+  preview_3d: {
+    camera: {
+      position: { x: 2.8, y: 1.4, z: 4.2 },
+      preset_id: "front-left-default",
+      target: { x: 0, y: 0.4, z: 0 },
+      zoom: 1,
+    },
+    compatibility: {
+      shell_id: GENERIC_SIDE_COUPE_LIGHTWEIGHT_SHELL_ID,
+      status: "compatible",
+    },
+    materials: {
+      decal_strategy: "preview_spec_projection",
+      overlay_layers: previewSpecFixture.overlay_layers,
+      safe_zone_overlays: previewSpecFixture.safe_zones,
+      source_artifact_id: secondArtifactFixture.id,
+      source_kind: "preview_spec",
+    },
+    mode: "lightweight_shell",
+    schema_version: 1,
+    shell: {
+      dimensions: { height: 1.4, length: 4.4, width: 1.8 },
+      id: GENERIC_SIDE_COUPE_LIGHTWEIGHT_SHELL_ID,
+      label: "Generic side coupe lightweight shell",
+      material_slots: ["body", "side-decal-plane"],
+      template_id: "generic-side-coupe",
+    },
+    source: {
+      artifact_id: secondArtifactFixture.id,
+      artifact_object_key: secondArtifactFixture.object_key,
+      preview_spec_template_id: "generic-side-coupe",
+      preview_spec_view: "side",
+      version_id: "version-2",
+      workspace_id: "workspace-1",
+    },
+    warnings: [
+      {
+        id: "non_production_preview",
+        message: "Concept only.",
+        severity: "warning",
+      },
+      {
+        id: "uv_not_verified",
+        message: "UV not verified.",
+        severity: "warning",
+      },
+    ],
+  },
+  schema_version: 1,
+  shell_id: GENERIC_SIDE_COUPE_LIGHTWEIGHT_SHELL_ID,
+  source_artifact_id: secondArtifactFixture.id,
+  warning_ids: ["non_production_preview", "uv_not_verified"],
+};
+
 const versionFixture: DesignVersionResponse = {
   brief_id: "brief-1",
   created_at: createdAt,
@@ -661,20 +723,10 @@ const preview3dScreenshotArtifactFixture: ArtifactResponse = {
   id: "artifact-preview-3d-1",
   kind: "preview_3d_screenshot",
   metadata: {
-    preview_3d_screenshot: {
-      schema_version: 1,
-      shell_id: GENERIC_SIDE_COUPE_LIGHTWEIGHT_SHELL_ID,
-      source_artifact_id: "artifact-2",
-      warning_ids: ["non_production_preview", "uv_not_verified"],
-    },
+    preview_3d_screenshot: preview3dScreenshotMetadataFixture,
   },
   object_key: "workspaces/workspace-1/preview_3d_screenshot/artifact-preview-3d-1/capture.png",
-  preview_3d_screenshot: {
-    schema_version: 1,
-    shell_id: GENERIC_SIDE_COUPE_LIGHTWEIGHT_SHELL_ID,
-    source_artifact_id: "artifact-2",
-    warning_ids: ["non_production_preview", "uv_not_verified"],
-  },
+  preview_3d_screenshot: preview3dScreenshotMetadataFixture,
   version_id: "version-2",
   width: 1280,
 };

@@ -19,3 +19,6 @@ export const publicEnv = {
     process.env.NEXT_PUBLIC_V2_ENHANCED_HANDOFF_PACKAGE_ENABLED,
   ),
 } as const;
+
+export const isV2EnhancedHandoffPackageEnabled = (): boolean =>
+  readPublicBoolean(process.env.NEXT_PUBLIC_V2_ENHANCED_HANDOFF_PACKAGE_ENABLED);

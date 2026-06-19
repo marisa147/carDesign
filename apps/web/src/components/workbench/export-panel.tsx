@@ -3,14 +3,16 @@ import type {
   DesignVersionResponse,
   ExportResponse,
 } from "@caragent/contracts";
-import { Download, FileJson } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Download, FileArchive, FileJson } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 
-type ConceptExportFormat = "png" | "jpg";
+type ConceptExportFormat = "png" | "jpg" | "enhanced_concept_handoff_zip";
 
 interface ExportPanelProps {
   artifact: ArtifactResponse | null;
+  artifacts: ArtifactResponse[];
+  enhancedHandoffEnabled: boolean;
   error: string | null;
   exports: ExportResponse[];
   format: ConceptExportFormat;
@@ -24,12 +26,16 @@ interface ExportPanelProps {
 const formatOptions: Array<{ label: string; value: ConceptExportFormat }> = [
   { label: "PNG", value: "png" },
   { label: "JPG", value: "jpg" },
+  { label: "ZIP", value: "enhanced_concept_handoff_zip" },
 ];
 
 const manifestDisclaimer = "概念预览，不是生产印刷文件。";
+const handoffPackageDisclaimer = "概念交接包，仅供评审";
 
 export function ExportPanel({
   artifact,
+  artifacts,
+  enhancedHandoffEnabled,
   error,
   exports,
   format,
@@ -42,9 +48,17 @@ export function ExportPanel({
   const selectedExports = selectedVersion
     ? exports.filter((entry) => entry.version_id === selectedVersion.id)
     : [];
-  const canSubmit = selectedVersion !== null && artifact !== null && !isSubmitting;
+  const isHandoffPackage = format === "enhanced_concept_handoff_zip";
+  const baseCanSubmit = selectedVersion !== null && artifact !== null && !isSubmitting;
+  const canSubmit = baseCanSubmit && (!isHandoffPackage || enhancedHandoffEnabled);
   const objectKeyPreview = artifact ? summarizeObjectKey(artifact.object_key) : "-";
   const selectedPreviewSpec = readPreviewSpecSummary(selectedVersion?.parameters.preview_spec);
+  const packageReadiness = readPackageReadiness({
+    artifact,
+    artifacts,
+    selectedPreviewSpec,
+    selectedVersion,
+  });
 
   return (
     <form
@@ -67,16 +81,20 @@ export function ExportPanel({
       </div>
 
       <p className="rounded-md border border-dashed border-border bg-muted px-3 py-2 text-xs text-secondary-foreground">
-        {manifestDisclaimer}
+        {isHandoffPackage ? handoffPackageDisclaimer : manifestDisclaimer}
       </p>
 
       <div className="grid gap-2">
         <p className="text-xs font-medium text-secondary-foreground">导出格式</p>
-        <div className="grid grid-cols-2 gap-1">
+        <div className="grid grid-cols-3 gap-1">
           {formatOptions.map((option) => (
             <Button
               aria-pressed={format === option.value}
-              disabled={!canSubmit}
+              disabled={
+                !baseCanSubmit ||
+                (option.value === "enhanced_concept_handoff_zip" &&
+                  !enhancedHandoffEnabled)
+              }
               key={option.value}
               onClick={() => {
                 onFormatChange(option.value);
@@ -93,8 +111,12 @@ export function ExportPanel({
 
       <div className="grid gap-2 rounded-md border border-border bg-card px-3 py-2 text-xs">
         <div className="flex items-center gap-2 font-medium">
-          <FileJson aria-hidden="true" className="h-3.5 w-3.5 text-primary" />
-          Manifest 预览
+          {isHandoffPackage ? (
+            <FileArchive aria-hidden="true" className="h-3.5 w-3.5 text-primary" />
+          ) : (
+            <FileJson aria-hidden="true" className="h-3.5 w-3.5 text-primary" />
+          )}
+          {isHandoffPackage ? "交接包预览" : "Manifest 预览"}
         </div>
         <dl className="grid gap-1 text-secondary-foreground">
           <div className="grid grid-cols-[88px_minmax(0,1fr)] gap-2">
@@ -117,13 +139,16 @@ export function ExportPanel({
           </div>
         </dl>
         {selectedPreviewSpec ? <PreviewSpecSummary summary={selectedPreviewSpec} /> : null}
+        {isHandoffPackage ? (
+          <PackageReadinessRows rows={packageReadiness} />
+        ) : null}
       </div>
 
       {notice ? <p className="text-xs text-primary">{notice}</p> : null}
       {error ? <p className="text-xs text-destructive">{error}</p> : null}
 
       <Button disabled={!canSubmit} type="submit">
-        {isSubmitting ? "创建中" : "创建概念导出"}
+        {isSubmitting ? "创建中" : isHandoffPackage ? "生成交接包" : "创建概念导出"}
       </Button>
 
       <div className="grid gap-2 text-sm">
@@ -132,12 +157,13 @@ export function ExportPanel({
           selectedExports.map((entry) => (
             <div className="rounded-md border border-border bg-card px-3 py-2" key={entry.id}>
               <div className="flex flex-wrap gap-2 text-xs text-secondary-foreground">
-                <span>{entry.format.toUpperCase()}</span>
+                <span>{displayExportFormat(entry.format)}</span>
                 <span>{entry.status}</span>
                 <span>{entry.concept_label}</span>
               </div>
               <p className="mt-1 break-all text-xs text-secondary-foreground">
-                {stringManifestValue(entry.manifest, "source_artifact_object_key") ??
+                {packageArtifactObjectKey(entry.manifest) ??
+                  stringManifestValue(entry.manifest, "source_artifact_object_key") ??
                   stringManifestValue(entry.manifest, "source_artifact") ??
                   entry.artifact_id ??
                   "-"}
@@ -147,6 +173,7 @@ export function ExportPanel({
                   {stringManifestValue(entry.manifest, "disclaimer")}
                 </p>
               ) : null}
+              <ExportPackageFiles manifest={entry.manifest} />
               <ExportManifestPreviewSpec manifest={entry.manifest} />
             </div>
           ))
@@ -157,6 +184,34 @@ export function ExportPanel({
         )}
       </div>
     </form>
+  );
+}
+
+interface PackageReadinessRow {
+  label: string;
+  ready: boolean;
+  value: string;
+}
+
+function PackageReadinessRows({ rows }: { rows: PackageReadinessRow[] }) {
+  return (
+    <div className="mt-2 grid gap-1 text-xs">
+      {rows.map((row) => (
+        <div
+          className="grid grid-cols-[16px_minmax(0,1fr)] items-center gap-2 text-secondary-foreground"
+          key={row.label}
+        >
+          {row.ready ? (
+            <CheckCircle2 aria-hidden="true" className="h-3.5 w-3.5 text-primary" />
+          ) : (
+            <AlertTriangle aria-hidden="true" className="h-3.5 w-3.5 text-warning" />
+          )}
+          <span className="truncate">
+            {row.label} {row.value}
+          </span>
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -184,6 +239,25 @@ function ExportManifestPreviewSpec({ manifest }: { manifest: ExportResponse["man
   return summary ? <PreviewSpecSummary summary={summary} /> : null;
 }
 
+function ExportPackageFiles({ manifest }: { manifest: ExportResponse["manifest"] }) {
+  const files = Array.isArray(manifest.files) ? manifest.files : [];
+  const paths = files
+    .map((item) => (isRecord(item) && typeof item.path === "string" ? item.path : null))
+    .filter((path): path is string => path !== null);
+  if (paths.length === 0) {
+    return null;
+  }
+  return (
+    <div className="mt-2 flex flex-wrap gap-1 text-xs text-secondary-foreground">
+      {paths.slice(0, 4).map((path) => (
+        <span className="rounded-sm border border-border px-1.5 py-0.5" key={path}>
+          {path}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 function readPreviewSpecSummaryFromManifest(
   manifest: ExportResponse["manifest"],
 ): PreviewSpecSummaryData | null {
@@ -206,6 +280,62 @@ function readPreviewSpecSummary(value: unknown): PreviewSpecSummaryData | null {
   };
 }
 
+function readPackageReadiness({
+  artifact,
+  artifacts,
+  selectedPreviewSpec,
+  selectedVersion,
+}: {
+  artifact: ArtifactResponse | null;
+  artifacts: ArtifactResponse[];
+  selectedPreviewSpec: PreviewSpecSummaryData | null;
+  selectedVersion: DesignVersionResponse | null;
+}): PackageReadinessRow[] {
+  const parameters = selectedVersion?.parameters ?? {};
+  const screenshotCount =
+    selectedVersion === null
+      ? 0
+      : artifacts.filter(
+          (entry) =>
+            entry.version_id === selectedVersion.id && entry.kind === "preview_3d_screenshot",
+        ).length;
+  const referenceCount = readArrayLength(parameters.included_reference_asset_ids);
+  return [
+    {
+      label: "概念图",
+      ready: artifact !== null,
+      value: artifact ? "已选择" : "缺失",
+    },
+    {
+      label: "3D 截图",
+      ready: screenshotCount > 0,
+      value: `${screenshotCount}`,
+    },
+    {
+      label: "安全区/警告",
+      ready: selectedPreviewSpec !== null,
+      value: selectedPreviewSpec
+        ? `${selectedPreviewSpec.safeZoneCount}/${selectedPreviewSpec.warningCount}`
+        : "缺失",
+    },
+    {
+      label: "Prompt/Provider",
+      ready: selectedVersion?.job_id !== null && selectedVersion?.job_id !== undefined,
+      value: selectedVersion?.job_id ? "已关联" : "缺失",
+    },
+    {
+      label: "参考素材",
+      ready: referenceCount > 0,
+      value: `${referenceCount}`,
+    },
+    {
+      label: "评审备注",
+      ready: true,
+      value: "可选",
+    },
+  ];
+}
+
 function readArrayLength(value: unknown): number {
   return Array.isArray(value) ? value.length : 0;
 }
@@ -216,6 +346,18 @@ function stringManifestValue(
 ): string | null {
   const value = manifest[key];
   return typeof value === "string" ? value : null;
+}
+
+function packageArtifactObjectKey(manifest: ExportResponse["manifest"]): string | null {
+  const packageArtifact = manifest.package_artifact;
+  if (!isRecord(packageArtifact)) {
+    return null;
+  }
+  return typeof packageArtifact.object_key === "string" ? packageArtifact.object_key : null;
+}
+
+function displayExportFormat(format: string): string {
+  return format === "enhanced_concept_handoff_zip" ? "ZIP" : format.toUpperCase();
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -231,5 +373,5 @@ function summarizeObjectKey(objectKey: string): string {
   return [...parts.slice(0, -1), "..."].join("/");
 }
 
-export { manifestDisclaimer };
+export { handoffPackageDisclaimer, manifestDisclaimer };
 export type { ConceptExportFormat };

@@ -26,6 +26,7 @@ import { ChatPanel, type WorkbenchBrief } from "@/components/workbench/chat-pane
 import { ComparisonPanel } from "@/components/workbench/comparison-panel";
 import {
   ExportPanel,
+  handoffPackageDisclaimer,
   manifestDisclaimer,
   type ConceptExportFormat,
 } from "@/components/workbench/export-panel";
@@ -60,6 +61,7 @@ import {
   submitChildIteration,
 } from "@/lib/api/iteration";
 import { cancelGenerationJob, listWorkspaceJobs } from "@/lib/api/jobs";
+import { isV2EnhancedHandoffPackageEnabled } from "@/lib/config/public-env";
 import {
   LOCAL_PROVIDER_ID,
   getProviderOption,
@@ -489,6 +491,7 @@ export function WorkbenchApp() {
       return;
     }
 
+    const isHandoffPackage = exportFormat === "enhanced_concept_handoff_zip";
     setIsSubmittingExport(true);
     setExportError(null);
     setExportNotice(null);
@@ -498,8 +501,15 @@ export function WorkbenchApp() {
         concept_label: "client-review",
         format: exportFormat,
         manifest: {
-          disclaimer: manifestDisclaimer,
+          disclaimer: isHandoffPackage ? handoffPackageDisclaimer : manifestDisclaimer,
           ...referenceTraceManifest(selectedVersion.parameters),
+          ...(isHandoffPackage
+            ? handoffPackageRequestManifest({
+                artifacts,
+                selectedArtifact,
+                selectedVersion,
+              })
+            : {}),
           source: "web-workbench",
           source_artifact_object_key: selectedArtifact.object_key,
           version_id: selectedVersion.id,
@@ -517,7 +527,7 @@ export function WorkbenchApp() {
         workbenchQueryKeys.exports(workspace.id),
         (existing = []) => upsertExport(existing, savedExport),
       );
-      setExportNotice("概念导出已记录。");
+      setExportNotice(isHandoffPackage ? "交接包导出已记录。" : "概念导出已记录。");
     } catch {
       setExportError("概念导出创建失败，请稍后重试。");
     } finally {
@@ -637,6 +647,8 @@ export function WorkbenchApp() {
           />
           <ExportPanel
             artifact={selectedArtifact}
+            artifacts={artifacts}
+            enhancedHandoffEnabled={isV2EnhancedHandoffPackageEnabled()}
             error={exportError}
             exports={exports}
             format={exportFormat}
@@ -791,7 +803,12 @@ function selectArtifactForVersion(
     return null;
   }
 
-  return artifacts.find((artifact) => artifact.version_id === selectedVersion.id) ?? null;
+  return (
+    artifacts.find(
+      (artifact) =>
+        artifact.version_id === selectedVersion.id && artifact.kind === "generated_image",
+    ) ?? null
+  );
 }
 
 type TargetedEditIntentBuildResult =
@@ -904,4 +921,37 @@ function referenceTraceManifest(parameters: Record<string, unknown>): Record<str
     }
   }
   return trace;
+}
+
+function handoffPackageRequestManifest({
+  artifacts,
+  selectedArtifact,
+  selectedVersion,
+}: {
+  artifacts: ArtifactResponse[];
+  selectedArtifact: ArtifactResponse;
+  selectedVersion: DesignVersionResponse;
+}): Record<string, unknown> {
+  const preview3dScreenshotArtifactIds = artifacts
+    .filter(
+      (artifact) =>
+        artifact.version_id === selectedVersion.id && artifact.kind === "preview_3d_screenshot",
+    )
+    .map((artifact) => artifact.id);
+
+  return {
+    package_type: "enhanced_concept_handoff",
+    preview_3d_screenshot_artifact_ids: preview3dScreenshotArtifactIds,
+    requested_files: [
+      "manifest.json",
+      "handoff-notes.md",
+      "warnings.md",
+      "prompt-trace.md",
+      "references.json",
+      "images/concept.png",
+    ],
+    source_artifact_content_type: selectedArtifact.content_type,
+    source_artifact_id: selectedArtifact.id,
+    source_artifact_object_key: selectedArtifact.object_key,
+  };
 }
