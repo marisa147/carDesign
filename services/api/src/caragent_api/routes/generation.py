@@ -142,9 +142,7 @@ async def update_generation_brief_route(
         update_payload = payload.model_dump(exclude_unset=True)
         if not update_payload:
             raise ValueError("At least one brief field is required")
-        updated = refresh_generation_brief_warnings(
-            GenerationBriefPayload(**(current.model_dump() | update_payload)),
-        )
+        updated = _updated_brief_payload(current, update_payload)
     except ValueError as error:
         raise generation_validation_failed(error) from error
 
@@ -166,12 +164,16 @@ async def submit_generation_job(
     queue: QueueDependency,
 ) -> GenerationJobSubmissionResponse:
     brief = await _get_workspace_brief(session, workspace_id, payload.brief_id)
+    brief_payload = GenerationBriefPayload.model_validate(brief.payload)
     provider_intent = _provider_intent_from_submission(payload, _settings_from_request(request))
-    metadata: dict[str, Any] = {"source": "generation-api"}
+    metadata: dict[str, Any] = {
+        "source": "generation-api",
+        "vehicle_template": _brief_template_metadata(brief_payload),
+    }
     if provider_intent is not None:
         metadata["provider_intent"] = provider_intent.metadata
     reference_metadata = _reference_usage_metadata(
-        brief,
+        brief_payload,
         provider_intent.provider if provider_intent is not None else LOCAL_PROVIDER,
     )
     if reference_metadata is not None:
@@ -218,6 +220,7 @@ async def submit_generation_iteration_job(
     queue: QueueDependency,
 ) -> GenerationJobSubmissionResponse:
     brief = await _get_workspace_brief(session, workspace_id, payload.brief_id)
+    brief_payload = GenerationBriefPayload.model_validate(brief.payload)
     settings = _settings_from_request(request)
     provider_intent = _provider_intent_from_submission(payload, settings)
     try:
@@ -228,6 +231,7 @@ async def submit_generation_iteration_job(
             "iteration": True,
             "parameter_overrides": payload.parameter_overrides,
             "source": "generation-iteration-api",
+            "vehicle_template": _brief_template_metadata(brief_payload),
         }
         if payload.edit_intent is not None:
             edit_intent = payload.edit_intent.model_copy(
@@ -487,10 +491,9 @@ def _provider_intent_from_metadata(metadata: dict[str, Any]) -> ProviderIntent |
 
 
 def _reference_usage_metadata(
-    brief: DesignBrief,
+    brief_payload: GenerationBriefPayload,
     provider: str,
 ) -> dict[str, Any] | None:
-    brief_payload = GenerationBriefPayload.model_validate(brief.payload)
     reference_plan = plan_reference_usage(
         provider=provider,
         reference_asset_ids=brief_payload.reference_asset_ids,
@@ -499,6 +502,58 @@ def _reference_usage_metadata(
     if reference_plan.reference_warning_count == 0:
         return None
     return reference_plan.warning_metadata()
+
+
+def _updated_brief_payload(
+    current: GenerationBriefPayload,
+    update_payload: dict[str, Any],
+) -> GenerationBriefPayload:
+    merged: dict[str, Any] = current.model_dump(mode="json") | update_payload
+    if "vehicle_template_id" not in update_payload and "view" not in update_payload:
+        return refresh_generation_brief_warnings(GenerationBriefPayload(**merged))
+
+    return create_generation_brief(
+        character_focus=_optional_string(merged.get("character_focus")),
+        character_theme=_optional_string(merged.get("character_theme")),
+        color_harmony=_optional_string(merged.get("color_harmony")),
+        coverage=_optional_string(merged.get("coverage")),
+        overlay_logo_asset_ids=_string_list(merged.get("overlay_logo_asset_ids")),
+        original_request=str(merged["original_request"]),
+        palette=_string_list(merged.get("palette")),
+        racing_cues=_string_list(merged.get("racing_cues")),
+        reference_asset_ids=_string_list(merged.get("reference_asset_ids")),
+        reference_usage=_sequence_or_none(merged.get("reference_usage")),
+        style=_optional_string(merged.get("style")),
+        supporting_graphics=_string_list(merged.get("supporting_graphics")),
+        text=_string_list(merged.get("text")),
+        typography_intent=_optional_string(merged.get("typography_intent")),
+        vehicle_template_id=_optional_string(merged.get("vehicle_template_id")),
+        view=_optional_string(merged.get("view")),
+    )
+
+
+def _brief_template_metadata(brief_payload: GenerationBriefPayload) -> dict[str, Any]:
+    return {
+        "id": brief_payload.vehicle_template_id,
+        "label": brief_payload.vehicle_template_label,
+        "readiness": brief_payload.template_readiness.model_dump(mode="json"),
+        "source": brief_payload.template_source.model_dump(mode="json"),
+        "view": brief_payload.view,
+    }
+
+
+def _optional_string(value: object) -> str | None:
+    return value if isinstance(value, str) else None
+
+
+def _string_list(value: object) -> list[str] | None:
+    if not isinstance(value, list):
+        return None
+    return [item for item in value if isinstance(item, str)]
+
+
+def _sequence_or_none(value: object) -> list[Any] | None:
+    return value if isinstance(value, list) else None
 
 
 def _validate_provider_mask_route(

@@ -58,6 +58,9 @@ def test_openapi_export_includes_phase_2_product_routes_and_schemas(tmp_path: Pa
         "/workspaces/{workspace_id}/generation/briefs": "post",
         "/generation/briefs/{brief_id}": "patch",
         "/workspaces/{workspace_id}/generation/jobs": "post",
+        "/templates": "get",
+        "/templates/{template_id}": "get",
+        "/templates/{template_id}/thumbnail.png": "get",
         "/jobs/{job_id}": "get",
         "/jobs/{job_id}/cancel": "post",
         "/jobs/{job_id}/retry": "post",
@@ -85,8 +88,11 @@ def test_openapi_export_includes_phase_2_product_routes_and_schemas(tmp_path: Pa
     assert schemas["ProviderOperationsSummary"]["properties"]["hosted_calls_blocked_reason"]
     assert schemas["JobCreateResponse"]["properties"]["idempotent_reused"]
     assert schemas["GenerationBriefCreateRequest"]["properties"]["original_request"]
+    assert schemas["GenerationBriefUpdateRequest"]["properties"]["vehicle_template_id"]
     assert schemas["GenerationBriefResponse"]["properties"]["payload"]
     assert schemas["GenerationJobSubmissionRequest"]["properties"]["brief_id"]
+    assert schemas["TemplateCatalogItemResponse"]["properties"]["thumbnail_url"]
+    assert schemas["TemplateDetailResponse"]["properties"]["safe_zones"]
     assert schemas["GenerationJobCancelResponse"]["properties"]["queue_revoke"]
     assert schemas["QueueRevokeResponse"]["properties"]["status"]
     assert schemas["GenerationJobRetryResponse"]["properties"]["retry_of_job_id"]

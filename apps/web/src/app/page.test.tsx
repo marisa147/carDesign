@@ -17,6 +17,7 @@ import {
   getListFeedbackWorkspacesWorkspaceIdFeedbackGetUrl,
   getListJobsWorkspacesWorkspaceIdJobsGetUrl,
   getListMessagesWorkspacesWorkspaceIdMessagesGetUrl,
+  getListTemplatesTemplatesGetUrl,
   getListVersionsWorkspacesWorkspaceIdVersionsGetUrl,
   getCancelJobJobsJobIdCancelPostUrl,
   getProviderStatusOperationsProviderStatusGetUrl,
@@ -42,6 +43,7 @@ import {
   type MessageResponse,
   type OperationsProviderStatusResponse,
   type Preview3DScreenshotMetadata,
+  type TemplateCatalogItemResponse,
   type TemplateReadinessReport,
   type TemplateSourceMetadata,
   type WorkspaceResponse,
@@ -229,6 +231,28 @@ const phase6UpdatedBriefFixture: GenerationBriefResponse = {
     typography_intent: "堆叠式粗体",
   },
   updated_at: "2026-06-17T00:08:00Z",
+};
+
+const vanTemplateBriefFixture: GenerationBriefResponse = {
+  ...briefFixture,
+  payload: {
+    ...briefFixture.payload,
+    safe_zones: [
+      {
+        height: 0.29,
+        id: "door-main",
+        kind: "body",
+        label: "Large van side panel",
+        width: 0.43,
+        x: 0.3,
+        y: 0.42,
+      },
+    ],
+    vehicle_template_id: "generic_van_side_v1",
+    vehicle_template_label: "Generic van side-view",
+    view: "side",
+  },
+  updated_at: "2026-06-17T00:09:00Z",
 };
 
 const missingRightsAssetFixture: AssetResponse = {
@@ -469,6 +493,65 @@ const guardedHostedOperationsStatusFixture: OperationsProviderStatusResponse = {
     status: "ok",
   },
 };
+
+const templateCatalogFixture: TemplateCatalogItemResponse[] = [
+  {
+    aliases: ["generic-side-coupe"],
+    canvas_height: 768,
+    canvas_width: 1536,
+    id: "generic_coupe_side_v1",
+    label: "Generic coupe side-view",
+    readiness: {
+      ...templateReadinessFixture,
+      catalog_eligible: true,
+      missing_asset_slots: [],
+      warnings: [],
+    },
+    safe_zone_summary: [
+      {
+        height: 0.24,
+        id: "door-main",
+        kind: "body",
+        label: "Door / main side panel",
+        width: 0.32,
+        x: 0.33,
+        y: 0.45,
+      },
+    ],
+    source: templateSourceFixture,
+    supported_views: ["side"],
+    thumbnail_url: "/templates/generic_coupe_side_v1/thumbnail.png",
+    view: "side",
+  },
+  {
+    aliases: [],
+    canvas_height: 768,
+    canvas_width: 1536,
+    id: "generic_van_side_v1",
+    label: "Generic van side-view",
+    readiness: {
+      ...templateReadinessFixture,
+      catalog_eligible: true,
+      missing_asset_slots: [],
+      warnings: [],
+    },
+    safe_zone_summary: [
+      {
+        height: 0.29,
+        id: "door-main",
+        kind: "body",
+        label: "Large van side panel",
+        width: 0.43,
+        x: 0.3,
+        y: 0.42,
+      },
+    ],
+    source: templateSourceFixture,
+    supported_views: ["side"],
+    thumbnail_url: "/templates/generic_van_side_v1/thumbnail.png",
+    view: "side",
+  },
+];
 
 const artifactFixture: ArtifactResponse = {
   asset_id: null,
@@ -836,6 +919,7 @@ function mockResumeWithGenerationState({
     .mockResolvedValueOnce(jsonResponse([brief]))
     .mockResolvedValueOnce(jsonResponse(assets))
     .mockResolvedValueOnce(jsonResponse([job]))
+    .mockResolvedValueOnce(jsonResponse(templateCatalogFixture))
     .mockResolvedValueOnce(jsonResponse(job))
     .mockResolvedValueOnce(jsonResponse(events))
     .mockResolvedValueOnce(jsonResponse(artifacts))
@@ -1107,6 +1191,7 @@ describe("Phase 4 workbench shell", () => {
     const user = userEvent.setup();
     const fetchMock = vi
       .fn()
+      .mockResolvedValueOnce(jsonResponse(templateCatalogFixture))
       .mockResolvedValueOnce(jsonResponse(workspaceFixture, 201))
       .mockResolvedValueOnce(jsonResponse(messageFixture, 201))
       .mockResolvedValueOnce(jsonResponse(briefFixture, 201));
@@ -1127,13 +1212,11 @@ describe("Phase 4 workbench shell", () => {
     );
     expect(localStorage.getItem("caragent.workbench.briefId")).toBe("brief-1");
 
-    expect(fetchMock).toHaveBeenNthCalledWith(
-      1,
+    expect(fetchMock).toHaveBeenCalledWith(
       `http://localhost:8000${getCreateWorkspaceWorkspacesPostUrl()}`,
       expect.objectContaining({ method: "POST" }),
     );
-    expect(fetchMock).toHaveBeenNthCalledWith(
-      2,
+    expect(fetchMock).toHaveBeenCalledWith(
       `http://localhost:8000${getCreateMessageWorkspacesWorkspaceIdMessagesPostUrl("workspace-1")}`,
       expect.objectContaining({
         body: JSON.stringify({
@@ -1143,14 +1226,15 @@ describe("Phase 4 workbench shell", () => {
         method: "POST",
       }),
     );
-    expect(fetchMock).toHaveBeenNthCalledWith(
-      3,
+    expect(fetchMock).toHaveBeenCalledWith(
       `http://localhost:8000${getCreateGenerationBriefRouteWorkspacesWorkspaceIdGenerationBriefsPostUrl("workspace-1")}`,
       expect.objectContaining({
         body: JSON.stringify({
           original_request: messageFixture.content,
           source_message_id: "message-1",
           title: "Workbench brief",
+          vehicle_template_id: "generic_coupe_side_v1",
+          view: "side",
         }),
         method: "POST",
       }),
@@ -1173,7 +1257,8 @@ describe("Phase 4 workbench shell", () => {
       .mockResolvedValueOnce(jsonResponse([messageFixture]))
       .mockResolvedValueOnce(jsonResponse([designBriefFixture]))
       .mockResolvedValueOnce(jsonResponse([]))
-      .mockResolvedValueOnce(jsonResponse([]));
+      .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse(templateCatalogFixture));
     vi.stubGlobal("fetch", fetchMock);
 
     render(<Home />);
@@ -1200,11 +1285,20 @@ describe("Phase 4 workbench shell", () => {
       `http://localhost:8000${getListJobsWorkspacesWorkspaceIdJobsGetUrl("workspace-1")}`,
       expect.objectContaining({ method: "GET" }),
     );
+    expect(fetchMock).toHaveBeenCalledWith(
+      `http://localhost:8000${getListTemplatesTemplatesGetUrl({ catalog_eligible: true })}`,
+      expect.objectContaining({ method: "GET" }),
+    );
   });
 
-  it("shows an empty parameter state before a brief exists", () => {
+  it("shows an empty parameter state before a brief exists", async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(jsonResponse(templateCatalogFixture));
+    vi.stubGlobal("fetch", fetchMock);
+
     render(<Home />);
 
+    expect(await screen.findByText("Generic coupe side-view")).toBeVisible();
+    expect(screen.getByText("Generic van side-view")).toBeVisible();
     expect(screen.getByText("等待 brief")).toBeVisible();
     expect(
       screen.getByText("先发送设计需求以生成结构化 brief。"),
@@ -1212,6 +1306,10 @@ describe("Phase 4 workbench shell", () => {
     expect(screen.getByRole("button", { name: "保存参数" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "提交反馈" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "创建概念导出" })).toBeDisabled();
+    expect(fetchMock).toHaveBeenCalledWith(
+      `http://localhost:8000${getListTemplatesTemplatesGetUrl({ catalog_eligible: true })}`,
+      expect.objectContaining({ method: "GET" }),
+    );
   });
 
   it("edits structured brief parameters without submitting generation", async () => {
@@ -1225,6 +1323,7 @@ describe("Phase 4 workbench shell", () => {
       .mockResolvedValueOnce(jsonResponse([designBriefFixture]))
       .mockResolvedValueOnce(jsonResponse([]))
       .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse(templateCatalogFixture))
       .mockResolvedValueOnce(jsonResponse(updatedBriefFixture));
     vi.stubGlobal("fetch", fetchMock);
 
@@ -1232,7 +1331,7 @@ describe("Phase 4 workbench shell", () => {
 
     expect(await screen.findByDisplayValue("清爽赛博风")).toBeVisible();
     expect(screen.getByText("Generic side-view coupe")).toBeVisible();
-    expect(screen.getByText("side")).toBeVisible();
+    expect(screen.getAllByText("side").length).toBeGreaterThanOrEqual(1);
     expect(screen.getByDisplayValue("balanced side coverage")).toBeVisible();
     expect(screen.getByRole("textbox", { name: "配色" })).toHaveValue(
       "white\nteal",
@@ -1259,13 +1358,13 @@ describe("Phase 4 workbench shell", () => {
       "MOON DRIVE\nSAKURA MODE",
     );
     expect(fetchMock).toHaveBeenNthCalledWith(
-      6,
+      7,
       `http://localhost:8000${getUpdateGenerationBriefRouteGenerationBriefsBriefIdPatchUrl("brief-1")}`,
       expect.objectContaining({
         method: "PATCH",
       }),
     );
-    const patchInit = fetchMock.mock.calls[5]?.[1] as RequestInit;
+    const patchInit = fetchMock.mock.calls[6]?.[1] as RequestInit;
     expect(JSON.parse(String(patchInit.body))).toEqual({
       palette: ["white", "magenta"],
       style: "霓虹赛博风",
@@ -1280,6 +1379,51 @@ describe("Phase 4 workbench shell", () => {
     ).toBe(false);
   });
 
+  it("switches template catalog selection through the brief contract", async () => {
+    const user = userEvent.setup();
+    localStorage.setItem("caragent.workbench.workspaceId", "workspace-1");
+    localStorage.setItem("caragent.workbench.briefId", "brief-1");
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse(workspaceFixture))
+      .mockResolvedValueOnce(jsonResponse([messageFixture]))
+      .mockResolvedValueOnce(jsonResponse([designBriefFixture]))
+      .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse(templateCatalogFixture))
+      .mockResolvedValueOnce(jsonResponse(vanTemplateBriefFixture));
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<Home />);
+
+    const coupeTemplateButton = await screen.findByRole("button", {
+      name: "选择模板 Generic coupe side-view",
+    });
+    expect(coupeTemplateButton).toBeVisible();
+    expect(coupeTemplateButton).toHaveAttribute("aria-pressed", "true");
+
+    await user.type(screen.getByRole("textbox", { name: "模板筛选" }), "van");
+    await user.click(screen.getByRole("button", { name: "选择模板 Generic van side-view" }));
+
+    expect(await screen.findByText("参数已保存")).toBeVisible();
+    expect(screen.getAllByText("Generic van side-view").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByRole("button", { name: "选择模板 Generic van side-view" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    const templatePatchCall = fetchMock.mock.calls.find(([url]) =>
+      String(url).includes(
+        getUpdateGenerationBriefRouteGenerationBriefsBriefIdPatchUrl("brief-1"),
+      ),
+    );
+    expect(templatePatchCall).toBeDefined();
+    expect(templatePatchCall?.[1]).toEqual(expect.objectContaining({ method: "PATCH" }));
+    expect(JSON.parse(String((templatePatchCall?.[1] as RequestInit).body))).toEqual({
+      vehicle_template_id: "generic_van_side_v1",
+      view: "side",
+    });
+  });
+
   it("edits Phase 6 itasha controls without submitting generation", async () => {
     const user = userEvent.setup();
     localStorage.setItem("caragent.workbench.workspaceId", "workspace-1");
@@ -1291,6 +1435,7 @@ describe("Phase 4 workbench shell", () => {
       .mockResolvedValueOnce(jsonResponse([designBriefFixture]))
       .mockResolvedValueOnce(jsonResponse([]))
       .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse(templateCatalogFixture))
       .mockResolvedValueOnce(jsonResponse(phase6UpdatedBriefFixture));
     vi.stubGlobal("fetch", fetchMock);
 
@@ -1333,7 +1478,7 @@ describe("Phase 4 workbench shell", () => {
     await user.click(screen.getByRole("button", { name: "保存参数" }));
 
     expect(await screen.findByText("参数已保存")).toBeVisible();
-    const patchInit = fetchMock.mock.calls[5]?.[1] as RequestInit;
+    const patchInit = fetchMock.mock.calls[6]?.[1] as RequestInit;
     expect(JSON.parse(String(patchInit.body))).toEqual({
       character_focus: "后翼子板 chibi，车门保留大标题",
       color_harmony: "青绿色主导，白色留白",
@@ -1362,6 +1507,7 @@ describe("Phase 4 workbench shell", () => {
       .mockResolvedValueOnce(jsonResponse([designBriefFixture]))
       .mockResolvedValueOnce(jsonResponse([]))
       .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse(templateCatalogFixture))
       .mockResolvedValueOnce(jsonResponse(missingRightsAssetFixture, 201))
       .mockResolvedValueOnce(jsonResponse(confirmedAssetFixture))
       .mockResolvedValueOnce(jsonResponse(referenceBriefFixture));
@@ -1380,11 +1526,11 @@ describe("Phase 4 workbench shell", () => {
       screen.getByRole("checkbox", { name: "用于生成 reference.png" }),
     ).toBeDisabled();
     expect(fetchMock).toHaveBeenNthCalledWith(
-      6,
+      7,
       `http://localhost:8000${getUploadAssetWorkspacesWorkspaceIdAssetsPostUrl("workspace-1")}`,
       expect.objectContaining({ method: "POST" }),
     );
-    const uploadInit = fetchMock.mock.calls[5]?.[1] as RequestInit;
+    const uploadInit = fetchMock.mock.calls[6]?.[1] as RequestInit;
     expect(uploadInit.headers).toBeUndefined();
     expect(uploadInit.body).toBeInstanceOf(FormData);
     const uploadForm = uploadInit.body as FormData;
@@ -1401,7 +1547,7 @@ describe("Phase 4 workbench shell", () => {
     });
     expect(referenceCheckbox).toBeEnabled();
     expect(fetchMock).toHaveBeenNthCalledWith(
-      7,
+      8,
       `http://localhost:8000${getUpdateAssetRightsAssetsAssetIdRightsPatchUrl("asset-1")}`,
       expect.objectContaining({
         body: JSON.stringify({
@@ -1419,7 +1565,7 @@ describe("Phase 4 workbench shell", () => {
     await user.click(screen.getByRole("button", { name: "保存参数" }));
 
     expect(await screen.findByText("参数已保存")).toBeVisible();
-    const patchInit = fetchMock.mock.calls[7]?.[1] as RequestInit;
+    const patchInit = fetchMock.mock.calls[8]?.[1] as RequestInit;
     expect(JSON.parse(String(patchInit.body))).toEqual({
       reference_asset_ids: ["asset-1"],
       reference_usage: [
@@ -1461,6 +1607,7 @@ describe("Phase 4 workbench shell", () => {
         jsonResponse([missingRightsAssetFixture, confirmedCharacterAssetFixture]),
       )
       .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse(templateCatalogFixture))
       .mockResolvedValueOnce(jsonResponse(structuredReferenceBrief));
     vi.stubGlobal("fetch", fetchMock);
 
@@ -1488,7 +1635,7 @@ describe("Phase 4 workbench shell", () => {
     await user.click(screen.getByRole("button", { name: "保存参数" }));
 
     expect(await screen.findByText("参数已保存")).toBeVisible();
-    const patchInit = fetchMock.mock.calls[5]?.[1] as RequestInit;
+    const patchInit = fetchMock.mock.calls[6]?.[1] as RequestInit;
     expect(JSON.parse(String(patchInit.body))).toEqual({
       reference_asset_ids: ["asset-2"],
       reference_usage: [
@@ -1512,6 +1659,7 @@ describe("Phase 4 workbench shell", () => {
       .mockResolvedValueOnce(jsonResponse([referenceDesignBriefFixture]))
       .mockResolvedValueOnce(jsonResponse([confirmedCharacterAssetFixture]))
       .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse(templateCatalogFixture))
       .mockResolvedValueOnce(jsonResponse([]))
       .mockResolvedValueOnce(jsonResponse(guardedHostedOperationsStatusFixture));
     vi.stubGlobal("fetch", fetchMock);
@@ -1964,12 +2112,12 @@ describe("Phase 4 workbench shell", () => {
     expect(screen.getAllByText("Provider timeout").length).toBeGreaterThanOrEqual(1);
     await user.click(screen.getByRole("button", { name: "重试生成" }));
 
-    expect(fetchMock).toHaveBeenNthCalledWith(
-      12,
-      `http://localhost:8000${getRetryGenerationJobJobsJobIdRetryPostUrl("job-1")}`,
-      expect.objectContaining({ method: "POST" }),
+    const retryCall = fetchMock.mock.calls.find(([url]) =>
+      String(url).includes(getRetryGenerationJobJobsJobIdRetryPostUrl("job-1")),
     );
-    const retryInit = fetchMock.mock.calls[11]?.[1] as RequestInit;
+    expect(retryCall).toBeDefined();
+    expect(retryCall?.[1]).toEqual(expect.objectContaining({ method: "POST" }));
+    const retryInit = retryCall?.[1] as RequestInit;
     expect(JSON.parse(String(retryInit.body))).toEqual({
       idempotency_key: "retry-job-1",
       requested_by: "web-workbench",

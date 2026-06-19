@@ -9,5 +9,6 @@ export const workbenchQueryKeys = {
     ["iteration", workspaceId, versionId] as const,
   jobs: (workspaceId: string) => ["jobs", workspaceId] as const,
   messages: (workspaceId: string) => ["messages", workspaceId] as const,
+  templates: () => ["templates"] as const,
   workspace: (workspaceId: string) => ["workspace", workspaceId] as const,
 };

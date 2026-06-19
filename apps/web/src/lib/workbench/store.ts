@@ -3,6 +3,7 @@ import { create } from "zustand";
 export type WorkbenchView = "front" | "rear" | "side" | "top";
 export type WorkbenchTab = "assets" | "history" | "parameters";
 export type PreviewMode = "2d" | "3d";
+export const DEFAULT_WORKBENCH_TEMPLATE_ID = "generic_coupe_side_v1";
 export type TargetedEditRoutePreference =
   | "deterministic_recomposition"
   | "provider_masked_generation";
@@ -50,6 +51,7 @@ interface WorkbenchUiState {
   previewZoom: number;
   selectedComparisonChildId: string | null;
   selectedEditTarget: TargetedEditTarget | null;
+  selectedTemplateId: string;
   selectedVersionId: string | null;
   selectedView: WorkbenchView;
   showEditMaskPreview: boolean;
@@ -64,6 +66,7 @@ interface WorkbenchUiState {
   rotatePreview3D: (deltaDegrees: number) => void;
   setActiveInspectorTab: (tab: WorkbenchTab) => void;
   setSelectedComparisonChildId: (versionId: string | null) => void;
+  setSelectedTemplateId: (templateId: string) => void;
   setEditPromptDelta: (value: string) => void;
   setEditRoutePreference: (routePreference: TargetedEditRoutePreference) => void;
   setPreviewMode: (mode: PreviewMode) => void;
@@ -94,6 +97,7 @@ const initialWorkbenchUiState = {
   previewZoom: 1,
   selectedComparisonChildId: null,
   selectedEditTarget: null,
+  selectedTemplateId: DEFAULT_WORKBENCH_TEMPLATE_ID,
   selectedVersionId: null,
   selectedView: "side" as WorkbenchView,
   showEditMaskPreview: false,
@@ -151,6 +155,9 @@ export const useWorkbenchStore = create<WorkbenchUiState>()((set) => ({
         ? targetedEditDraftDefaults
         : {}),
     }));
+  },
+  setSelectedTemplateId: (selectedTemplateId) => {
+    set({ selectedTemplateId });
   },
   setEditPromptDelta: (editPromptDelta) => {
     set({ editPromptDelta });

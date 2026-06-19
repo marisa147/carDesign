@@ -559,6 +559,8 @@ export interface GenerationBriefUpdateRequest {
   supporting_graphics?: string[] | null;
   text?: string[] | null;
   typography_intent?: string | null;
+  vehicle_template_id?: string | null;
+  view?: string | null;
 }
 
 export type GenerationIterationSubmissionRequestParameterOverrides = { [key: string]: unknown };
@@ -865,6 +867,50 @@ export interface Preview3DScreenshotCreateRequest {
   width: number;
 }
 
+export interface TemplateSafeZoneSummaryResponse {
+  height: number;
+  id: string;
+  kind: string;
+  label: string;
+  width: number;
+  x: number;
+  y: number;
+}
+
+export interface TemplateCatalogItemResponse {
+  aliases?: string[];
+  canvas_height: number;
+  canvas_width: number;
+  id: string;
+  label: string;
+  readiness: TemplateReadinessReport;
+  safe_zone_summary: TemplateSafeZoneSummaryResponse[];
+  source: TemplateSourceMetadata;
+  supported_views: string[];
+  thumbnail_url: string;
+  view: string;
+}
+
+export type TemplateDetailResponseAssetSlots = {[key: string]: string | null};
+
+export type TemplateDetailResponseSafeZonesItem = { [key: string]: unknown };
+
+export interface TemplateDetailResponse {
+  aliases?: string[];
+  asset_slots: TemplateDetailResponseAssetSlots;
+  canvas_height: number;
+  canvas_width: number;
+  id: string;
+  label: string;
+  readiness: TemplateReadinessReport;
+  safe_zone_summary: TemplateSafeZoneSummaryResponse[];
+  safe_zones: TemplateDetailResponseSafeZonesItem[];
+  source: TemplateSourceMetadata;
+  supported_views: string[];
+  thumbnail_url: string;
+  view: string;
+}
+
 export interface WorkspaceCreateRequest {
   owner_id?: string | null;
   title?: string | null;
@@ -878,6 +924,11 @@ export interface WorkspaceResponse {
   title: string;
   updated_at: string;
 }
+
+export type ListTemplatesTemplatesGetParams = {
+view?: string | null;
+catalog_eligible?: boolean | null;
+};
 
 /**
  * @summary Get Asset
@@ -1997,6 +2048,391 @@ export function useProviderStatusOperationsProviderStatusGet<TData = Awaited<Ret
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
   const queryOptions = getProviderStatusOperationsProviderStatusGetQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+/**
+ * @summary List Templates
+ */
+export type listTemplatesTemplatesGetResponse200 = {
+  data: TemplateCatalogItemResponse[]
+  status: 200
+}
+
+export type listTemplatesTemplatesGetResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+
+export type listTemplatesTemplatesGetResponseSuccess = (listTemplatesTemplatesGetResponse200) & {
+  headers: Headers;
+};
+export type listTemplatesTemplatesGetResponseError = (listTemplatesTemplatesGetResponse422) & {
+  headers: Headers;
+};
+
+export type listTemplatesTemplatesGetResponse = (listTemplatesTemplatesGetResponseSuccess | listTemplatesTemplatesGetResponseError)
+
+export const getListTemplatesTemplatesGetUrl = (params?: ListTemplatesTemplatesGetParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/templates?${stringifiedParams}` : `/templates`
+}
+
+export const listTemplatesTemplatesGet = async (params?: ListTemplatesTemplatesGetParams, options?: RequestInit): Promise<listTemplatesTemplatesGetResponse> => {
+
+  const res = await fetch(getListTemplatesTemplatesGetUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+)
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: listTemplatesTemplatesGetResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as listTemplatesTemplatesGetResponse
+}
+
+
+
+
+
+export const getListTemplatesTemplatesGetQueryKey = (params?: ListTemplatesTemplatesGetParams,) => {
+    return [
+    `/templates`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListTemplatesTemplatesGetQueryOptions = <TData = Awaited<ReturnType<typeof listTemplatesTemplatesGet>>, TError = HTTPValidationError>(params?: ListTemplatesTemplatesGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listTemplatesTemplatesGet>>, TError, TData>>, fetch?: RequestInit}
+) => {
+
+const {query: queryOptions, fetch: fetchOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListTemplatesTemplatesGetQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listTemplatesTemplatesGet>>> = ({ signal }) => listTemplatesTemplatesGet(params, { ...(signal ? { signal } : {}), ...fetchOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listTemplatesTemplatesGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type ListTemplatesTemplatesGetQueryResult = NonNullable<Awaited<ReturnType<typeof listTemplatesTemplatesGet>>>
+export type ListTemplatesTemplatesGetQueryError = HTTPValidationError
+
+
+export function useListTemplatesTemplatesGet<TData = Awaited<ReturnType<typeof listTemplatesTemplatesGet>>, TError = HTTPValidationError>(
+ params: undefined |  ListTemplatesTemplatesGetParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof listTemplatesTemplatesGet>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listTemplatesTemplatesGet>>,
+          TError,
+          Awaited<ReturnType<typeof listTemplatesTemplatesGet>>
+        > , 'initialData'
+      >, fetch?: RequestInit}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useListTemplatesTemplatesGet<TData = Awaited<ReturnType<typeof listTemplatesTemplatesGet>>, TError = HTTPValidationError>(
+ params?: ListTemplatesTemplatesGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listTemplatesTemplatesGet>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listTemplatesTemplatesGet>>,
+          TError,
+          Awaited<ReturnType<typeof listTemplatesTemplatesGet>>
+        > , 'initialData'
+      >, fetch?: RequestInit}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useListTemplatesTemplatesGet<TData = Awaited<ReturnType<typeof listTemplatesTemplatesGet>>, TError = HTTPValidationError>(
+ params?: ListTemplatesTemplatesGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listTemplatesTemplatesGet>>, TError, TData>>, fetch?: RequestInit}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary List Templates
+ */
+
+export function useListTemplatesTemplatesGet<TData = Awaited<ReturnType<typeof listTemplatesTemplatesGet>>, TError = HTTPValidationError>(
+ params?: ListTemplatesTemplatesGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listTemplatesTemplatesGet>>, TError, TData>>, fetch?: RequestInit}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getListTemplatesTemplatesGetQueryOptions(params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+/**
+ * @summary Get Template
+ */
+export type getTemplateTemplatesTemplateIdGetResponse200 = {
+  data: TemplateDetailResponse
+  status: 200
+}
+
+export type getTemplateTemplatesTemplateIdGetResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+
+export type getTemplateTemplatesTemplateIdGetResponseSuccess = (getTemplateTemplatesTemplateIdGetResponse200) & {
+  headers: Headers;
+};
+export type getTemplateTemplatesTemplateIdGetResponseError = (getTemplateTemplatesTemplateIdGetResponse422) & {
+  headers: Headers;
+};
+
+export type getTemplateTemplatesTemplateIdGetResponse = (getTemplateTemplatesTemplateIdGetResponseSuccess | getTemplateTemplatesTemplateIdGetResponseError)
+
+export const getGetTemplateTemplatesTemplateIdGetUrl = (templateId: string,) => {
+
+
+
+
+  return `/templates/${templateId}`
+}
+
+export const getTemplateTemplatesTemplateIdGet = async (templateId: string, options?: RequestInit): Promise<getTemplateTemplatesTemplateIdGetResponse> => {
+
+  const res = await fetch(getGetTemplateTemplatesTemplateIdGetUrl(templateId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+)
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: getTemplateTemplatesTemplateIdGetResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as getTemplateTemplatesTemplateIdGetResponse
+}
+
+
+
+
+
+export const getGetTemplateTemplatesTemplateIdGetQueryKey = (templateId: string,) => {
+    return [
+    `/templates/${templateId}`
+    ] as const;
+    }
+
+
+export const getGetTemplateTemplatesTemplateIdGetQueryOptions = <TData = Awaited<ReturnType<typeof getTemplateTemplatesTemplateIdGet>>, TError = HTTPValidationError>(templateId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getTemplateTemplatesTemplateIdGet>>, TError, TData>>, fetch?: RequestInit}
+) => {
+
+const {query: queryOptions, fetch: fetchOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetTemplateTemplatesTemplateIdGetQueryKey(templateId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getTemplateTemplatesTemplateIdGet>>> = ({ signal }) => getTemplateTemplatesTemplateIdGet(templateId, { ...(signal ? { signal } : {}), ...fetchOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(templateId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getTemplateTemplatesTemplateIdGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetTemplateTemplatesTemplateIdGetQueryResult = NonNullable<Awaited<ReturnType<typeof getTemplateTemplatesTemplateIdGet>>>
+export type GetTemplateTemplatesTemplateIdGetQueryError = HTTPValidationError
+
+
+export function useGetTemplateTemplatesTemplateIdGet<TData = Awaited<ReturnType<typeof getTemplateTemplatesTemplateIdGet>>, TError = HTTPValidationError>(
+ templateId: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getTemplateTemplatesTemplateIdGet>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getTemplateTemplatesTemplateIdGet>>,
+          TError,
+          Awaited<ReturnType<typeof getTemplateTemplatesTemplateIdGet>>
+        > , 'initialData'
+      >, fetch?: RequestInit}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetTemplateTemplatesTemplateIdGet<TData = Awaited<ReturnType<typeof getTemplateTemplatesTemplateIdGet>>, TError = HTTPValidationError>(
+ templateId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getTemplateTemplatesTemplateIdGet>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getTemplateTemplatesTemplateIdGet>>,
+          TError,
+          Awaited<ReturnType<typeof getTemplateTemplatesTemplateIdGet>>
+        > , 'initialData'
+      >, fetch?: RequestInit}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetTemplateTemplatesTemplateIdGet<TData = Awaited<ReturnType<typeof getTemplateTemplatesTemplateIdGet>>, TError = HTTPValidationError>(
+ templateId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getTemplateTemplatesTemplateIdGet>>, TError, TData>>, fetch?: RequestInit}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Get Template
+ */
+
+export function useGetTemplateTemplatesTemplateIdGet<TData = Awaited<ReturnType<typeof getTemplateTemplatesTemplateIdGet>>, TError = HTTPValidationError>(
+ templateId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getTemplateTemplatesTemplateIdGet>>, TError, TData>>, fetch?: RequestInit}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetTemplateTemplatesTemplateIdGetQueryOptions(templateId,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+/**
+ * @summary Get Template Thumbnail
+ */
+export type getTemplateThumbnailTemplatesTemplateIdThumbnailPngGetResponse200 = {
+  data: void
+  status: 200
+}
+
+export type getTemplateThumbnailTemplatesTemplateIdThumbnailPngGetResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+
+export type getTemplateThumbnailTemplatesTemplateIdThumbnailPngGetResponseSuccess = (getTemplateThumbnailTemplatesTemplateIdThumbnailPngGetResponse200) & {
+  headers: Headers;
+};
+export type getTemplateThumbnailTemplatesTemplateIdThumbnailPngGetResponseError = (getTemplateThumbnailTemplatesTemplateIdThumbnailPngGetResponse422) & {
+  headers: Headers;
+};
+
+export type getTemplateThumbnailTemplatesTemplateIdThumbnailPngGetResponse = (getTemplateThumbnailTemplatesTemplateIdThumbnailPngGetResponseSuccess | getTemplateThumbnailTemplatesTemplateIdThumbnailPngGetResponseError)
+
+export const getGetTemplateThumbnailTemplatesTemplateIdThumbnailPngGetUrl = (templateId: string,) => {
+
+
+
+
+  return `/templates/${templateId}/thumbnail.png`
+}
+
+export const getTemplateThumbnailTemplatesTemplateIdThumbnailPngGet = async (templateId: string, options?: RequestInit): Promise<getTemplateThumbnailTemplatesTemplateIdThumbnailPngGetResponse> => {
+
+  const res = await fetch(getGetTemplateThumbnailTemplatesTemplateIdThumbnailPngGetUrl(templateId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+)
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: getTemplateThumbnailTemplatesTemplateIdThumbnailPngGetResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as getTemplateThumbnailTemplatesTemplateIdThumbnailPngGetResponse
+}
+
+
+
+
+
+export const getGetTemplateThumbnailTemplatesTemplateIdThumbnailPngGetQueryKey = (templateId: string,) => {
+    return [
+    `/templates/${templateId}/thumbnail.png`
+    ] as const;
+    }
+
+
+export const getGetTemplateThumbnailTemplatesTemplateIdThumbnailPngGetQueryOptions = <TData = Awaited<ReturnType<typeof getTemplateThumbnailTemplatesTemplateIdThumbnailPngGet>>, TError = HTTPValidationError>(templateId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getTemplateThumbnailTemplatesTemplateIdThumbnailPngGet>>, TError, TData>>, fetch?: RequestInit}
+) => {
+
+const {query: queryOptions, fetch: fetchOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetTemplateThumbnailTemplatesTemplateIdThumbnailPngGetQueryKey(templateId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getTemplateThumbnailTemplatesTemplateIdThumbnailPngGet>>> = ({ signal }) => getTemplateThumbnailTemplatesTemplateIdThumbnailPngGet(templateId, { ...(signal ? { signal } : {}), ...fetchOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(templateId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getTemplateThumbnailTemplatesTemplateIdThumbnailPngGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetTemplateThumbnailTemplatesTemplateIdThumbnailPngGetQueryResult = NonNullable<Awaited<ReturnType<typeof getTemplateThumbnailTemplatesTemplateIdThumbnailPngGet>>>
+export type GetTemplateThumbnailTemplatesTemplateIdThumbnailPngGetQueryError = HTTPValidationError
+
+
+export function useGetTemplateThumbnailTemplatesTemplateIdThumbnailPngGet<TData = Awaited<ReturnType<typeof getTemplateThumbnailTemplatesTemplateIdThumbnailPngGet>>, TError = HTTPValidationError>(
+ templateId: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getTemplateThumbnailTemplatesTemplateIdThumbnailPngGet>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getTemplateThumbnailTemplatesTemplateIdThumbnailPngGet>>,
+          TError,
+          Awaited<ReturnType<typeof getTemplateThumbnailTemplatesTemplateIdThumbnailPngGet>>
+        > , 'initialData'
+      >, fetch?: RequestInit}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetTemplateThumbnailTemplatesTemplateIdThumbnailPngGet<TData = Awaited<ReturnType<typeof getTemplateThumbnailTemplatesTemplateIdThumbnailPngGet>>, TError = HTTPValidationError>(
+ templateId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getTemplateThumbnailTemplatesTemplateIdThumbnailPngGet>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getTemplateThumbnailTemplatesTemplateIdThumbnailPngGet>>,
+          TError,
+          Awaited<ReturnType<typeof getTemplateThumbnailTemplatesTemplateIdThumbnailPngGet>>
+        > , 'initialData'
+      >, fetch?: RequestInit}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetTemplateThumbnailTemplatesTemplateIdThumbnailPngGet<TData = Awaited<ReturnType<typeof getTemplateThumbnailTemplatesTemplateIdThumbnailPngGet>>, TError = HTTPValidationError>(
+ templateId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getTemplateThumbnailTemplatesTemplateIdThumbnailPngGet>>, TError, TData>>, fetch?: RequestInit}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Get Template Thumbnail
+ */
+
+export function useGetTemplateThumbnailTemplatesTemplateIdThumbnailPngGet<TData = Awaited<ReturnType<typeof getTemplateThumbnailTemplatesTemplateIdThumbnailPngGet>>, TError = HTTPValidationError>(
+ templateId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getTemplateThumbnailTemplatesTemplateIdThumbnailPngGet>>, TError, TData>>, fetch?: RequestInit}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetTemplateThumbnailTemplatesTemplateIdThumbnailPngGetQueryOptions(templateId,options)
 
   const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 

@@ -29,7 +29,7 @@ v3.0 从 `MVP_FINAL.md` 继续推进模板来源、授权、通用模板包、�
 
 **Shipped:** v1.0 MVP on 2026-06-18 and v2.0 V2 MVP on 2026-06-19.
 
-**Next milestone:** v3.0 Template Library And Production Readiness is planned from `C:/Users/25858/Downloads/MVP_FINAL.md`. Phase 17 is next.
+**Next milestone:** v3.0 Template Library And Production Readiness is planned from `C:/Users/25858/Downloads/MVP_FINAL.md`. Phase 18 is next.
 
 ## Current State
 
@@ -41,6 +41,7 @@ v3.0 从 `MVP_FINAL.md` 继续推进模板来源、授权、通用模板包、�
 - PostgreSQL/object-storage-oriented data model for workspaces, messages, briefs, jobs, events, artifacts, versions, model runs, feedback, exports, and cost records.
 - Local Docker smoke path for PostgreSQL, Redis, MinIO, API, worker, web, and worker queue generation.
 - V2 evidence for hosted-provider runbooks, targeted edit lineage, reference rights/source snapshots, lightweight 3D screenshots, enhanced handoff packages, release docs, and Browser UAT.
+- V3 template governance, internal-original MVP template pack, template catalog API, thumbnail serving, and Workbench template selection with source/license/readiness visibility.
 
 **Codebase scale at v2.0 close:** about 30,301 source-plus-test lines across `apps/`, `packages/`, `services/`, `scripts/`, and `infra/`, excluding generated contracts and dependency folders.
 
@@ -66,10 +67,10 @@ v3.0 从 `MVP_FINAL.md` 继续推进模板来源、授权、通用模板包、�
 - ✓ V2 MVP can be validated through aggregate tests, Docker smoke, hosted-provider manual smoke, Browser UAT, docs, and release notes — v2.0 (REL)
 - ✓ Template source governance, license metadata, readiness audit, prohibited-source blocking, and legacy template compatibility exist in core contracts — v3.0 Phase 15 (V3-TEMPLATE)
 - ✓ Internal-original generic side-view template pack exists for coupe, sedan, hatchback, SUV, and van with required assets, deterministic thumbnails, validation command, and selected-template brief resolution — v3.0 Phase 16 (V3-PACK)
+- ✓ Template catalog API and Workbench selection expose filterable templates, thumbnails, source/license/readiness states, selected-template brief persistence, and job/export metadata trace — v3.0 Phase 17 (V3-CATALOG)
 
 ### Active
 
-- [ ] Add template catalog API and Workbench selection.
 - [ ] Carry selected template context through generation, preview, edits, references, 3D fallback, and exports.
 - [ ] Add concept-only production readiness preflight and keep print-ready export blocked.
 - [ ] Validate, document, smoke-test, UAT, and audit v3.0.
@@ -135,6 +136,7 @@ Shipped v1.0 experience:
 | V3 follows the final MVP delivery note | User supplied `C:/Users/25858/Downloads/MVP_FINAL.md` as the source for the next milestone after v2.0 archive | — Pending — v3.0 in progress |
 | Template governance before production handoff | Production handoff, true 3D, licensed templates, marketplace, and ordering all depend on trustworthy template provenance | ✓ Good — Phase 15 established source/license registry, readiness audit, and compatibility bridge |
 | Internal generic templates before catalog UI | The Workbench selector needs trustworthy, local, reusable template records and thumbnails before API/UI exposure | ✓ Good — Phase 16 added five internal-original templates and a package validator |
+| Catalog selection through brief contract | Template choice should survive refresh and job creation instead of living only in frontend state | ✓ Good — Phase 17 persists selected template id/view through brief create/update, job metadata, and export template trace |
 
 ## Evolution
 
@@ -156,4 +158,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state.
 
 ---
-*Last updated: 2026-06-19 after Phase 16 completion*
+*Last updated: 2026-06-19 after Phase 17 completion*

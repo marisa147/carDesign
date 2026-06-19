@@ -7,7 +7,11 @@ from uuid import UUID
 
 from caragent_core.editing import EditIntent
 from caragent_core.enums import MessageRole
-from caragent_core.generation import GenerationBriefPayload
+from caragent_core.generation import (
+    GenerationBriefPayload,
+    TemplateReadinessReport,
+    TemplateSourceMetadata,
+)
 from caragent_core.preview3d import Preview3DScreenshotMetadata, Preview3DSpec
 from caragent_core.references import ReferenceAssignment
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -87,6 +91,8 @@ class GenerationBriefCreateRequest(BaseModel):
 
 
 class GenerationBriefUpdateRequest(BaseModel):
+    vehicle_template_id: str | None = Field(default=None, min_length=1, max_length=120)
+    view: str | None = Field(default=None, min_length=1, max_length=40)
     character_theme: str | None = None
     character_focus: str | None = None
     style: str | None = None
@@ -113,6 +119,35 @@ class GenerationBriefResponse(BaseModel):
     payload: GenerationBriefPayload
     created_at: datetime
     updated_at: datetime
+
+
+class TemplateSafeZoneSummaryResponse(BaseModel):
+    id: str
+    label: str
+    kind: str
+    x: float
+    y: float
+    width: float
+    height: float
+
+
+class TemplateCatalogItemResponse(BaseModel):
+    id: str
+    label: str
+    view: str
+    supported_views: list[str]
+    aliases: list[str] = Field(default_factory=list)
+    canvas_width: int
+    canvas_height: int
+    thumbnail_url: str
+    source: TemplateSourceMetadata
+    readiness: TemplateReadinessReport
+    safe_zone_summary: list[TemplateSafeZoneSummaryResponse]
+
+
+class TemplateDetailResponse(TemplateCatalogItemResponse):
+    asset_slots: dict[str, str | None]
+    safe_zones: list[dict[str, Any]]
 
 
 class AssetResponse(BaseModel):

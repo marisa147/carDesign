@@ -18,6 +18,7 @@ from caragent_api.routes.assets import router as assets_router
 from caragent_api.routes.generation import router as generation_router
 from caragent_api.routes.jobs import router as jobs_router
 from caragent_api.routes.operations import router as operations_router
+from caragent_api.routes.templates import router as templates_router
 from caragent_api.routes.workspaces import router as workspaces_router
 
 DependencyStatus = Literal["ok", "configured", "unavailable", "not_configured"]
@@ -111,6 +112,7 @@ def create_app(settings: ApiSettings | None = None) -> FastAPI:
     app.include_router(assets_router)
     app.include_router(jobs_router)
     app.include_router(generation_router)
+    app.include_router(templates_router)
     app.include_router(operations_router)
 
     @app.get("/health", response_model=HealthResponse, tags=["health"])

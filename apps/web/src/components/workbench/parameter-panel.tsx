@@ -7,6 +7,7 @@ import type {
   GenerationBriefUpdateRequest,
   ReferenceAssignment,
   ReferenceRole,
+  TemplateCatalogItemResponse,
 } from "@caragent/contracts";
 import {
   AlertTriangle,
@@ -35,17 +36,21 @@ import {
   type WorkbenchProviderOption,
   type WorkbenchProviderStatus,
 } from "@/lib/api/operations";
+import { templateThumbnailUrl } from "@/lib/api/templates";
 
 interface ParameterPanelProps {
   assets: AssetResponse[];
   currentBrief: WorkbenchBrief | null;
   isLoading: boolean;
   onSave: (payload: GenerationBriefUpdateRequest) => Promise<GenerationBriefResponse>;
+  onTemplateChange: (templateId: string) => Promise<void>;
   onProviderChange: (providerId: string) => void;
   providerStatus: WorkbenchProviderStatus;
   referenceAssignments: ReferenceUsageDraft[];
   selectedReferenceAssetIds: string[];
+  selectedTemplateId: string;
   selectedProviderId: string;
+  templates: TemplateCatalogItemResponse[];
 }
 
 interface ParameterDraft {
@@ -84,21 +89,40 @@ export function ParameterPanel({
   currentBrief,
   isLoading,
   onSave,
+  onTemplateChange,
   onProviderChange,
   providerStatus,
   referenceAssignments,
   selectedReferenceAssetIds,
+  selectedTemplateId,
   selectedProviderId,
+  templates,
 }: ParameterPanelProps) {
   const [draft, setDraft] = useState(() =>
     createDraft(currentBrief, selectedReferenceAssetIds),
   );
   const [saveState, setSaveState] = useState<SaveState>("idle");
+  const payload = currentBrief ? readPayload(currentBrief) : {};
+  const activeTemplateId = readString(payload, "vehicle_template_id") || selectedTemplateId;
+  const handleTemplateSelect = async (templateId: string) => {
+    setSaveState("saving");
+    try {
+      await onTemplateChange(templateId);
+      setSaveState("saved");
+    } catch {
+      setSaveState("error");
+    }
+  };
 
   if (!currentBrief) {
     return (
       <div className="grid gap-3 text-sm">
-        <InfoRow label="车型模板" value="Generic side-view coupe" />
+        <TemplateCatalogSelector
+          activeTemplateId={activeTemplateId}
+          isLoading={isLoading}
+          onTemplateSelect={handleTemplateSelect}
+          templates={templates}
+        />
         <InfoRow label="视角" value="side" />
         <InfoRow label="风格" value="等待 brief" />
         <p className="rounded-md border border-dashed border-border bg-muted px-3 py-3 text-secondary-foreground">
@@ -112,7 +136,6 @@ export function ParameterPanel({
     );
   }
 
-  const payload = readPayload(currentBrief);
   const updatePayload = buildUpdatePayload(payload, draft, referenceAssignments);
   const isDirty = Object.keys(updatePayload).length > 0;
   const canSave = isDirty && saveState !== "saving" && !isLoading;
@@ -139,6 +162,12 @@ export function ParameterPanel({
         <InfoRow label="视角" value={readString(payload, "view") || "-"} />
       </div>
       <InfoRow label="画布" value={formatCanvas(payload)} />
+      <TemplateCatalogSelector
+        activeTemplateId={activeTemplateId}
+        isLoading={isLoading || saveState === "saving"}
+        onTemplateSelect={handleTemplateSelect}
+        templates={templates}
+      />
       <ProviderSelector
         onProviderChange={onProviderChange}
         providerStatus={providerStatus}
@@ -339,6 +368,112 @@ function ProviderSelector({
           </div>
           {blockedBflOption.blockedReasons.map((reason) => (
             <span key={reason}>{reason}</span>
+          ))}
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function TemplateCatalogSelector({
+  activeTemplateId,
+  isLoading,
+  onTemplateSelect,
+  templates,
+}: {
+  activeTemplateId: string;
+  isLoading: boolean;
+  onTemplateSelect: (templateId: string) => Promise<void>;
+  templates: TemplateCatalogItemResponse[];
+}) {
+  const [filterText, setFilterText] = useState("");
+  const normalizedFilter = filterText.trim().toLowerCase();
+  const visibleTemplates = templates.filter((template) => {
+    if (!normalizedFilter) {
+      return true;
+    }
+    return `${template.id} ${template.label}`.toLowerCase().includes(normalizedFilter);
+  });
+  const selectedTemplate =
+    findTemplate(templates, activeTemplateId) ?? templates.find((template) => template.id);
+  const selectedMessages = selectedTemplate
+    ? [
+        ...(selectedTemplate.readiness.blocking_reasons ?? []),
+        ...(selectedTemplate.readiness.warnings ?? []),
+      ]
+    : [];
+
+  return (
+    <section className="grid gap-3 rounded-md border border-border bg-card p-3">
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="text-sm font-semibold">模板目录</h3>
+        <Badge variant={selectedTemplate?.readiness.catalog_eligible ? "primary" : "warning"}>
+          {selectedTemplate?.readiness.catalog_eligible ? "可用" : "受限"}
+        </Badge>
+      </div>
+      <input
+        aria-label="模板筛选"
+        className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-ring"
+        onChange={(event) => {
+          setFilterText(event.target.value);
+        }}
+        placeholder="coupe / sedan / suv"
+        value={filterText}
+      />
+      <div className="grid gap-2">
+        {visibleTemplates.map((template) => {
+          const isSelected = template.id === selectedTemplate?.id;
+          const isDisabled = isLoading || !template.readiness.catalog_eligible;
+          return (
+            <button
+              aria-label={`选择模板 ${template.label}`}
+              aria-pressed={isSelected}
+              className={[
+                "grid min-h-20 grid-cols-[96px_1fr] items-center gap-3 rounded-md border p-2 text-left transition-colors",
+                isSelected ? "border-primary bg-primary/10" : "border-border bg-background",
+                isDisabled ? "cursor-not-allowed opacity-70" : "hover:border-primary",
+              ].join(" ")}
+              disabled={isDisabled}
+              key={template.id}
+              onClick={() => {
+                void onTemplateSelect(template.id);
+              }}
+              type="button"
+            >
+              <img
+                alt=""
+                className="h-12 w-24 rounded-sm border border-border bg-muted object-contain"
+                src={templateThumbnailUrl(template.thumbnail_url)}
+              />
+              <span className="grid min-w-0 gap-1">
+                <span className="truncate font-medium">{template.label}</span>
+                <span className="flex flex-wrap gap-1">
+                  <Badge variant="muted">{template.view}</Badge>
+                  <Badge variant="muted">{template.source.source_type}</Badge>
+                  <Badge variant={template.source.license_status === "approved" ? "primary" : "warning"}>
+                    {template.source.license_status}
+                  </Badge>
+                </span>
+              </span>
+            </button>
+          );
+        })}
+      </div>
+      {visibleTemplates.length === 0 ? (
+        <p className="rounded-md border border-dashed border-border bg-muted px-3 py-2 text-xs text-secondary-foreground">
+          没有匹配模板。
+        </p>
+      ) : null}
+      {selectedTemplate ? (
+        <div className="grid grid-cols-2 gap-2">
+          <InfoRow label="安全区" value={`${selectedTemplate.safe_zone_summary.length}`} />
+          <InfoRow label="缩略图" value={selectedTemplate.thumbnail_url} />
+        </div>
+      ) : null}
+      {selectedMessages.length > 0 ? (
+        <div className="grid gap-1 rounded-md border border-warning/30 bg-warning/10 p-2 text-xs text-warning">
+          {selectedMessages.map((message) => (
+            <span key={message}>{message}</span>
           ))}
         </div>
       ) : null}
@@ -723,6 +858,15 @@ function splitList(value: string): string[] {
 
 function readPayload(brief: WorkbenchBrief): Partial<GenerationBriefPayload> {
   return isRecord(brief.payload) ? (brief.payload as Partial<GenerationBriefPayload>) : {};
+}
+
+function findTemplate(
+  templates: TemplateCatalogItemResponse[],
+  templateId: string,
+): TemplateCatalogItemResponse | undefined {
+  return templates.find(
+    (template) => template.id === templateId || (template.aliases ?? []).includes(templateId),
+  );
 }
 
 function readString(payload: Record<string, unknown>, key: keyof GenerationBriefPayload): string {

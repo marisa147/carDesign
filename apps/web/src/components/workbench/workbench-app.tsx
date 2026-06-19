@@ -17,6 +17,7 @@ import type {
   MessageResponse,
   OperationsProviderStatusResponse,
   ReferenceRole,
+  TemplateCatalogItemResponse,
   WorkspaceResponse,
 } from "@caragent/contracts";
 
@@ -61,6 +62,7 @@ import {
   submitChildIteration,
 } from "@/lib/api/iteration";
 import { cancelGenerationJob, listWorkspaceJobs } from "@/lib/api/jobs";
+import { listTemplates } from "@/lib/api/templates";
 import { isV2EnhancedHandoffPackageEnabled } from "@/lib/config/public-env";
 import {
   LOCAL_PROVIDER_ID,
@@ -92,13 +94,16 @@ export function WorkbenchApp() {
   const editRoutePreference = useWorkbenchStore((state) => state.editRoutePreference);
   const isTargetedEditMode = useWorkbenchStore((state) => state.isTargetedEditMode);
   const selectedEditTarget = useWorkbenchStore((state) => state.selectedEditTarget);
+  const selectedTemplateId = useWorkbenchStore((state) => state.selectedTemplateId);
   const setEditPromptDelta = useWorkbenchStore((state) => state.setEditPromptDelta);
+  const setSelectedTemplateId = useWorkbenchStore((state) => state.setSelectedTemplateId);
   const [draft, setDraft] = useState("");
   const [workspace, setWorkspace] = useState<WorkspaceResponse | null>(null);
   const [messages, setMessages] = useState<MessageResponse[]>([]);
   const [currentBrief, setCurrentBrief] = useState<WorkbenchBrief | null>(null);
   const [assets, setAssets] = useState<AssetResponse[]>([]);
   const [jobs, setJobs] = useState<GenerationJobResponse[]>([]);
+  const [templates, setTemplates] = useState<TemplateCatalogItemResponse[]>([]);
   const [generationState, setGenerationState] = useState<GenerationState | null>(null);
   const [operationsStatus, setOperationsStatus] =
     useState<OperationsProviderStatusResponse | null>(null);
@@ -187,6 +192,7 @@ export function WorkbenchApp() {
         setJobs(nextJobs);
         setGenerationState(nextGenerationState);
         setReferenceAssignments(readBriefReferenceAssignments(nextBrief));
+        setSelectedTemplateId(readBriefTemplateId(nextBrief) ?? selectedTemplateId);
         queryClient.setQueryData(
           workbenchQueryKeys.workspace(nextWorkspace.id),
           nextWorkspace,
@@ -229,6 +235,28 @@ export function WorkbenchApp() {
     };
   }, [queryClient]);
 
+  useEffect(() => {
+    let isCancelled = false;
+
+    listTemplates({ catalog_eligible: true })
+      .then((nextTemplates) => {
+        if (isCancelled) {
+          return;
+        }
+        setTemplates(nextTemplates);
+        queryClient.setQueryData(workbenchQueryKeys.templates(), nextTemplates);
+      })
+      .catch(() => {
+        if (!isCancelled) {
+          setTemplates([]);
+        }
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [queryClient]);
+
   const handleChatSubmit = async () => {
     const prompt = draft.trim();
     if (prompt.length === 0 || isSubmitting || isLoadingSession) {
@@ -263,8 +291,11 @@ export function WorkbenchApp() {
         original_request: userMessage.content,
         source_message_id: userMessage.id,
         title: "Workbench brief",
+        vehicle_template_id: selectedTemplateId,
+        view: "side",
       });
       setCurrentBrief(nextBrief);
+      setSelectedTemplateId(readBriefTemplateId(nextBrief) ?? selectedTemplateId);
       setReferenceAssignments(readBriefReferenceAssignments(nextBrief));
       writeStoredId(WORKBENCH_BRIEF_ID_KEY, nextBrief.id);
       queryClient.setQueryData<WorkbenchBrief[]>(
@@ -286,6 +317,7 @@ export function WorkbenchApp() {
 
     const nextBrief = await updateGenerationBrief(currentBrief.id, payload);
     setCurrentBrief(nextBrief);
+    setSelectedTemplateId(readBriefTemplateId(nextBrief) ?? selectedTemplateId);
     setReferenceAssignments(readBriefReferenceAssignments(nextBrief));
     writeStoredId(WORKBENCH_BRIEF_ID_KEY, nextBrief.id);
     queryClient.setQueryData<WorkbenchBrief[]>(
@@ -294,6 +326,26 @@ export function WorkbenchApp() {
     );
 
     return nextBrief;
+  };
+
+  const handleTemplateChange = async (templateId: string) => {
+    setSelectedTemplateId(templateId);
+    if (!currentBrief) {
+      return;
+    }
+
+    const nextBrief = await updateGenerationBrief(currentBrief.id, {
+      vehicle_template_id: templateId,
+      view: "side",
+    });
+    setCurrentBrief(nextBrief);
+    setSelectedTemplateId(readBriefTemplateId(nextBrief) ?? templateId);
+    setReferenceAssignments(readBriefReferenceAssignments(nextBrief));
+    writeStoredId(WORKBENCH_BRIEF_ID_KEY, nextBrief.id);
+    queryClient.setQueryData<WorkbenchBrief[]>(
+      workbenchQueryKeys.briefs(nextBrief.workspace_id),
+      (existing = []) => upsertBrief(existing, nextBrief),
+    );
   };
 
   const handleAssetUpload = async ({ file, kind }: { file: File; kind: string }) => {
@@ -510,6 +562,7 @@ export function WorkbenchApp() {
                 selectedVersion,
               })
             : {}),
+          ...templateTraceManifest(selectedVersion.parameters),
           source: "web-workbench",
           source_artifact_object_key: selectedArtifact.object_key,
           version_id: selectedVersion.id,
@@ -675,11 +728,14 @@ export function WorkbenchApp() {
             referenceAssignments,
           )}`}
           onSave={handleParameterSave}
+          onTemplateChange={handleTemplateChange}
           onProviderChange={setSelectedProviderId}
           providerStatus={providerStatus}
           referenceAssignments={referenceAssignments}
           selectedReferenceAssetIds={selectedReferenceAssetIds}
+          selectedTemplateId={readBriefTemplateId(currentBrief) ?? selectedTemplateId}
           selectedProviderId={selectedProviderOption?.id ?? LOCAL_PROVIDER_ID}
+          templates={templates}
         />
       }
       preview={
@@ -896,6 +952,11 @@ function readBriefReferenceAssignments(brief: WorkbenchBrief | null): ReferenceU
   }));
 }
 
+function readBriefTemplateId(brief: WorkbenchBrief | null): string | null {
+  const value = brief?.payload.vehicle_template_id;
+  return typeof value === "string" && value.trim().length > 0 ? value : null;
+}
+
 function referenceAssignmentSignature(assignments: ReferenceUsageDraft[]): string {
   return assignments
     .map((assignment) => `${assignment.assetId}:${assignment.role}:${assignment.enabled}`)
@@ -921,6 +982,22 @@ function referenceTraceManifest(parameters: Record<string, unknown>): Record<str
     }
   }
   return trace;
+}
+
+function templateTraceManifest(parameters: Record<string, unknown>): Record<string, unknown> {
+  const previewSpec = parameters.preview_spec;
+  if (!isRecord(previewSpec) || !isRecord(previewSpec.template)) {
+    return {};
+  }
+
+  const template = previewSpec.template;
+  return {
+    preview_spec_template_id:
+      typeof template.id === "string" ? template.id : null,
+    preview_spec_template_view:
+      typeof template.view === "string" ? template.view : null,
+    vehicle_template: template,
+  };
 }
 
 function handoffPackageRequestManifest({
@@ -954,4 +1031,8 @@ function handoffPackageRequestManifest({
     source_artifact_id: selectedArtifact.id,
     source_artifact_object_key: selectedArtifact.object_key,
   };
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }

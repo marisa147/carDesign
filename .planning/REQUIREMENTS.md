@@ -27,11 +27,11 @@ v3.0 starts from the final MVP delivery note and focuses on the template/source/
 
 ### Template Catalog
 
-- [ ] **V3-CATALOG-01**: User can browse, filter, and select supported templates and side views from the Workbench before generation.
-- [ ] **V3-CATALOG-02**: API exposes template list/detail endpoints with thumbnail URLs, supported views, safe-zone summary, source/license status, and readiness flags.
-- [ ] **V3-CATALOG-03**: Workbench shows template source/license warnings, unavailable states, and missing-rights reasons before submission.
-- [ ] **V3-CATALOG-04**: Selected template is persisted through workspace parameters, generation jobs, prompt plans, versions, artifacts, model runs, and export metadata.
-- [ ] **V3-CATALOG-05**: User sees stable fallback or block messages when a selected template is unavailable, unsupported, or not licensed for the requested use.
+- [x] **V3-CATALOG-01**: User can browse, filter, and select supported templates and side views from the Workbench before generation.
+- [x] **V3-CATALOG-02**: API exposes template list/detail endpoints with thumbnail URLs, supported views, safe-zone summary, source/license status, and readiness flags.
+- [x] **V3-CATALOG-03**: Workbench shows template source/license warnings, unavailable states, and missing-rights reasons before submission.
+- [x] **V3-CATALOG-04**: Selected template is persisted through workspace parameters, generation jobs, prompt plans, versions, artifacts, model runs, and export metadata.
+- [x] **V3-CATALOG-05**: User sees stable fallback or block messages when a selected template is unavailable, unsupported, or not licensed for the requested use.
 
 ### Template-Aware Generation And Preview
 
@@ -106,11 +106,11 @@ v3.0 starts from the final MVP delivery note and focuses on the template/source/
 | V3-PACK-04 | Phase 16 | Complete |
 | V3-PACK-05 | Phase 16 | Complete |
 | V3-PACK-06 | Phase 16 | Complete |
-| V3-CATALOG-01 | Phase 17 | Pending |
-| V3-CATALOG-02 | Phase 17 | Pending |
-| V3-CATALOG-03 | Phase 17 | Pending |
-| V3-CATALOG-04 | Phase 17 | Pending |
-| V3-CATALOG-05 | Phase 17 | Pending |
+| V3-CATALOG-01 | Phase 17 | Complete |
+| V3-CATALOG-02 | Phase 17 | Complete |
+| V3-CATALOG-03 | Phase 17 | Complete |
+| V3-CATALOG-04 | Phase 17 | Complete |
+| V3-CATALOG-05 | Phase 17 | Complete |
 | V3-INTEGRATION-01 | Phase 18 | Pending |
 | V3-INTEGRATION-02 | Phase 18 | Pending |
 | V3-INTEGRATION-03 | Phase 18 | Pending |
@@ -129,10 +129,10 @@ v3.0 starts from the final MVP delivery note and focuses on the template/source/
 
 **Coverage:**
 
-- v3.0 requirements: 31 total; 11 complete
+- v3.0 requirements: 31 total; 16 complete
 - Mapped to phases: 31
 - Unmapped: 0
 
 ---
 *Requirements defined: 2026-06-19*
-*Last updated: 2026-06-19 after Phase 16 completion*
+*Last updated: 2026-06-19 after Phase 17 completion*

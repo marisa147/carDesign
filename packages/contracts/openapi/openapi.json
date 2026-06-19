@@ -1593,6 +1593,32 @@
               }
             ],
             "title": "Typography Intent"
+          },
+          "vehicle_template_id": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vehicle Template Id"
+          },
+          "view": {
+            "anyOf": [
+              {
+                "maxLength": 40,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "View"
           }
         },
         "title": "GenerationBriefUpdateRequest",
@@ -3488,6 +3514,168 @@
         "title": "ReferenceRole",
         "type": "string"
       },
+      "TemplateCatalogItemResponse": {
+        "properties": {
+          "aliases": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Aliases",
+            "type": "array"
+          },
+          "canvas_height": {
+            "title": "Canvas Height",
+            "type": "integer"
+          },
+          "canvas_width": {
+            "title": "Canvas Width",
+            "type": "integer"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "readiness": {
+            "$ref": "#/components/schemas/TemplateReadinessReport"
+          },
+          "safe_zone_summary": {
+            "items": {
+              "$ref": "#/components/schemas/TemplateSafeZoneSummaryResponse"
+            },
+            "title": "Safe Zone Summary",
+            "type": "array"
+          },
+          "source": {
+            "$ref": "#/components/schemas/TemplateSourceMetadata"
+          },
+          "supported_views": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Supported Views",
+            "type": "array"
+          },
+          "thumbnail_url": {
+            "title": "Thumbnail Url",
+            "type": "string"
+          },
+          "view": {
+            "title": "View",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "view",
+          "supported_views",
+          "canvas_width",
+          "canvas_height",
+          "thumbnail_url",
+          "source",
+          "readiness",
+          "safe_zone_summary"
+        ],
+        "title": "TemplateCatalogItemResponse",
+        "type": "object"
+      },
+      "TemplateDetailResponse": {
+        "properties": {
+          "aliases": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Aliases",
+            "type": "array"
+          },
+          "asset_slots": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "Asset Slots",
+            "type": "object"
+          },
+          "canvas_height": {
+            "title": "Canvas Height",
+            "type": "integer"
+          },
+          "canvas_width": {
+            "title": "Canvas Width",
+            "type": "integer"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "readiness": {
+            "$ref": "#/components/schemas/TemplateReadinessReport"
+          },
+          "safe_zone_summary": {
+            "items": {
+              "$ref": "#/components/schemas/TemplateSafeZoneSummaryResponse"
+            },
+            "title": "Safe Zone Summary",
+            "type": "array"
+          },
+          "safe_zones": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Safe Zones",
+            "type": "array"
+          },
+          "source": {
+            "$ref": "#/components/schemas/TemplateSourceMetadata"
+          },
+          "supported_views": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Supported Views",
+            "type": "array"
+          },
+          "thumbnail_url": {
+            "title": "Thumbnail Url",
+            "type": "string"
+          },
+          "view": {
+            "title": "View",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "view",
+          "supported_views",
+          "canvas_width",
+          "canvas_height",
+          "thumbnail_url",
+          "source",
+          "readiness",
+          "safe_zone_summary",
+          "asset_slots",
+          "safe_zones"
+        ],
+        "title": "TemplateDetailResponse",
+        "type": "object"
+      },
       "TemplateReadinessReport": {
         "properties": {
           "blocking_reasons": {
@@ -3560,6 +3748,49 @@
           "reusable_asset_allowed"
         ],
         "title": "TemplateReadinessReport",
+        "type": "object"
+      },
+      "TemplateSafeZoneSummaryResponse": {
+        "properties": {
+          "height": {
+            "title": "Height",
+            "type": "number"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "width": {
+            "title": "Width",
+            "type": "number"
+          },
+          "x": {
+            "title": "X",
+            "type": "number"
+          },
+          "y": {
+            "title": "Y",
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "kind",
+          "x",
+          "y",
+          "width",
+          "height"
+        ],
+        "title": "TemplateSafeZoneSummaryResponse",
         "type": "object"
       },
       "TemplateSourceMetadata": {
@@ -4224,6 +4455,153 @@
         "summary": "Provider Status",
         "tags": [
           "operations"
+        ]
+      }
+    },
+    "/templates": {
+      "get": {
+        "operationId": "list_templates_templates_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "view",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 40,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "View"
+            }
+          },
+          {
+            "in": "query",
+            "name": "catalog_eligible",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Catalog Eligible"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/TemplateCatalogItemResponse"
+                  },
+                  "title": "Response List Templates Templates Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Templates",
+        "tags": [
+          "templates"
+        ]
+      }
+    },
+    "/templates/{template_id}": {
+      "get": {
+        "operationId": "get_template_templates__template_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "template_id",
+            "required": true,
+            "schema": {
+              "title": "Template Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TemplateDetailResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Template",
+        "tags": [
+          "templates"
+        ]
+      }
+    },
+    "/templates/{template_id}/thumbnail.png": {
+      "get": {
+        "operationId": "get_template_thumbnail_templates__template_id__thumbnail_png_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "template_id",
+            "required": true,
+            "schema": {
+              "title": "Template Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Template Thumbnail",
+        "tags": [
+          "templates"
         ]
       }
     },

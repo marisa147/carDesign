@@ -160,6 +160,35 @@ def test_create_and_update_structured_generation_brief(tmp_path: Path) -> None:
     assert updated.json()["payload"]["typography_intent"] == "stacked block type"
 
 
+def test_update_generation_brief_recomputes_selected_template(tmp_path: Path) -> None:
+    client, _app, _queue = create_generation_client(tmp_path)
+    workspace_id = client.post("/workspaces", json={"title": "Template update"}).json()["id"]
+    brief_id = create_brief(client, workspace_id)
+
+    updated = client.patch(
+        f"/generation/briefs/{brief_id}",
+        json={"vehicle_template_id": "generic_van_side_v1", "view": "side"},
+    )
+    unsupported = client.patch(
+        f"/generation/briefs/{brief_id}",
+        json={"vehicle_template_id": "not-a-template", "view": "rear"},
+    )
+
+    assert updated.status_code == 200
+    payload = updated.json()["payload"]
+    assert payload["vehicle_template_id"] == "generic_van_side_v1"
+    assert payload["vehicle_template_label"] == "Generic van side-view"
+    assert payload["template_readiness"]["catalog_eligible"] is True
+    assert payload["template_readiness"]["missing_asset_slots"] == []
+    assert {zone["id"] for zone in payload["safe_zones"]} >= {"door-main", "rear-quarter"}
+
+    assert unsupported.status_code == 200
+    unsupported_payload = unsupported.json()["payload"]
+    assert unsupported_payload["vehicle_template_id"] == MVP_COUPE_TEMPLATE_ID
+    assert "Unsupported vehicle template" in " ".join(unsupported_payload["warnings"])
+    assert "Unsupported view" in " ".join(unsupported_payload["warnings"])
+
+
 def test_update_generation_brief_recomputes_quality_warnings(tmp_path: Path) -> None:
     client, _app, _queue = create_generation_client(tmp_path)
     workspace_id = client.post("/workspaces", json={"title": "Generation"}).json()["id"]
@@ -299,6 +328,13 @@ def test_submit_generation_job_enqueues_worker_task_and_reuses_idempotency(
         "task_name": "caragent_worker.generate_2d_concept_job",
         "queue": "caragent.default",
     }
+    assert first.json()["job"]["metadata"]["vehicle_template"]["id"] == MVP_COUPE_TEMPLATE_ID
+    assert first.json()["job"]["metadata"]["vehicle_template"]["source"]["source_type"] == (
+        "internal_original"
+    )
+    assert first.json()["job"]["metadata"]["vehicle_template"]["readiness"]["catalog_eligible"] is (
+        True
+    )
     assert first.json()["idempotent_reused"] is False
     assert duplicate.json()["job"]["id"] == first.json()["job"]["id"]
     assert duplicate.json()["idempotent_reused"] is True
@@ -749,7 +785,10 @@ def test_submit_iteration_job_records_parent_metadata_without_overwriting_parent
 
     stored_job = asyncio.run(read_job(app.state.session_factory, UUID(first.json()["job"]["id"])))
     parent = asyncio.run(read_version(app.state.session_factory, parent_version_id))
-    assert stored_job.metadata_json == {
+    metadata_without_template = {
+        key: value for key, value in stored_job.metadata_json.items() if key != "vehicle_template"
+    }
+    assert metadata_without_template == {
         "change_request": "Increase pink accents and keep the door text.",
         "iteration": True,
         "parameter_overrides": {"palette": ["white", "pink"]},
@@ -761,6 +800,7 @@ def test_submit_iteration_job_records_parent_metadata_without_overwriting_parent
         },
         "source": "generation-iteration-api",
     }
+    assert stored_job.metadata_json["vehicle_template"]["id"] == MVP_COUPE_TEMPLATE_ID
     assert parent.parent_version_id is None
     assert parent.lineage_depth == 0
     assert parent.parameters == {"concept_label": "parent_preview"}
