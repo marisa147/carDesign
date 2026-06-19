@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from collections.abc import AsyncIterator
 from decimal import Decimal
 
@@ -246,6 +247,111 @@ def test_preview_3d_resolver_returns_explicit_fallback_for_unknown_template() ->
     assert spec.source.preview_spec_template_id == "unknown-template"
     assert spec.materials.safe_zone_overlays[0]["id"] == "door-main"
     assert spec.warnings[0].id == "non_production_preview"
+
+
+async def test_phase_13_handoff_report_helpers_render_safe_metadata(
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    from caragent_core.handoff import (
+        build_handoff_reference_manifest,
+        build_handoff_warning_report,
+        render_handoff_notes_markdown,
+        render_handoff_prompt_trace_markdown,
+        render_handoff_references_json,
+        render_handoff_warnings_markdown,
+    )
+
+    reference_asset_id = "66666666-6666-6666-6666-666666666666"
+    async with session_scope(session_factory) as session:
+        workspace = await workspaces.create_workspace(session, title="Handoff reports")
+        created = await jobs.create_job(
+            session,
+            workspace.id,
+            idempotency_key="handoff-reports-001",
+            operation="generate_2d_concept",
+        )
+        source_artifact = await jobs.create_artifact(
+            session,
+            workspace.id,
+            byte_size=1024,
+            checksum_sha256="a" * 64,
+            content_type="image/png",
+            height=768,
+            job_id=created.job.id,
+            kind=ArtifactKind.GENERATED_IMAGE.value,
+            object_key=f"workspaces/{workspace.id}/generated/concept.png",
+            width=1536,
+        )
+        version = await jobs.create_design_version(
+            session,
+            workspace.id,
+            job_id=created.job.id,
+            parameters={
+                "included_reference_asset_ids": [reference_asset_id],
+                "omitted_reference_asset_ids": ["77777777-7777-7777-7777-777777777777"],
+                "preview_3d": preview_3d_spec().model_dump(mode="json"),
+                "preview_spec": preview_spec_payload(),
+                "reference_roles": {"character": [reference_asset_id]},
+                "reference_warning_count": 1,
+                "rights_snapshot": {
+                    reference_asset_id: {
+                        "rights_status": "confirmed",
+                        "source_label": "User upload",
+                    },
+                },
+                "unsupported_reference_roles": ["vehicle"],
+            },
+            title="Handoff report source",
+        )
+        model_run = await jobs.create_model_run(
+            session,
+            created.job.id,
+            actual_cost=Decimal("0.0000"),
+            estimated_cost=Decimal("0.0000"),
+            input_artifact_ids=[reference_asset_id],
+            model="local-concept-v1",
+            output_artifact_id=source_artifact.id,
+            prompt_text="Moon drive prompt api_key=secret image_base64 C:\\tmp\\concept.png",
+            provider="local-simulation",
+            status=ModelRunStatus.SUCCEEDED.value,
+        )
+
+        warning_report = build_handoff_warning_report(
+            preview_3d=version.parameters["preview_3d"],
+            preview_3d_screenshot={"warning_ids": ["non_production_preview", "uv_not_verified"]},
+            preview_spec=version.parameters["preview_spec"],
+        )
+        reference_manifest = build_handoff_reference_manifest(version.parameters)
+        notes_markdown = render_handoff_notes_markdown(
+            references=reference_manifest,
+            review_notes=["Approved for concept discussion."],
+            safe_zones=version.parameters["preview_spec"]["safe_zones"],
+            template=version.parameters["preview_spec"]["template"],
+            warnings=warning_report,
+        )
+        warnings_markdown = render_handoff_warnings_markdown(warning_report)
+        prompt_markdown = render_handoff_prompt_trace_markdown(model_runs=[model_run])
+        references_json = render_handoff_references_json(reference_manifest)
+
+    assert notes_markdown.startswith("# Concept Handoff Notes")
+    assert warnings_markdown.startswith("# Warning Report")
+    assert prompt_markdown.startswith("# Prompt Trace")
+    assert "Concept handoff package for review only" in notes_markdown
+    assert "door-main" in notes_markdown
+    assert "non_production_preview" in warnings_markdown
+    assert "uv_not_verified" in warnings_markdown
+    assert reference_asset_id in references_json
+    assert "local-simulation" in prompt_markdown
+    assert "local-concept-v1" in prompt_markdown
+    assert json.loads(references_json)["schema_version"] == 1
+
+    rendered = "\n".join(
+        [notes_markdown, warnings_markdown, prompt_markdown, references_json],
+    ).lower()
+    assert "api_key" not in rendered
+    assert "secret" not in rendered
+    assert "image_base64" not in rendered
+    assert "c:\\" not in rendered
 
 
 def preview_3d_spec() -> Preview3DSpec:
