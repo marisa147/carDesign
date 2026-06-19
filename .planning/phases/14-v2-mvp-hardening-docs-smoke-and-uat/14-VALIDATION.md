@@ -27,7 +27,7 @@ requirements: [V2-REL-01, V2-REL-02, V2-REL-03, V2-REL-04, V2-REL-05]
 
 | Task ID | Plan | Wave | Requirement | Threat Ref | Secure Behavior | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|------------|-----------------|-----------|-------------------|-------------|--------|
-| 14-01-01 | 01 | 1 | V2-REL-01 | T-14-01 | Aggregate validation proves source, contracts, tests, typing, and V1 compatibility are green | aggregate | `corepack pnpm validate && corepack pnpm contracts:check && corepack pnpm compat:v1 && corepack pnpm migration:safety && corepack pnpm smoke:worker -- --dry-run` | planned | pending |
+| 14-01-01 | 01 | 1 | V2-REL-01 | T-14-01 | Aggregate validation proves source, contracts, tests, typing, and V1 compatibility are green | aggregate | `corepack pnpm validate && corepack pnpm contracts:check && corepack pnpm compat:v1 && corepack pnpm migration:safety && corepack pnpm smoke:worker -- --dry-run` | yes | green |
 | 14-02-01 | 02 | 2 | V2-REL-02 | T-14-02 | Docker smoke proves local deterministic infra and hosted-disabled behavior without secrets | docker/smoke | `corepack pnpm infra:up && corepack pnpm smoke:local && corepack pnpm smoke:worker && corepack pnpm infra:down` | planned | pending |
 | 14-03-01 | 03 | 2 | V2-REL-03 | T-14-03 | Hosted-provider smoke is manual-only, cost-guarded, reversible, and secret-safe | docs/manual | docs token check plus optional manual evidence | planned | pending |
 | 14-04-01 | 04 | 3 | V2-REL-04 | T-14-04 | Browser UAT covers desktop/mobile V2 workbench flows without overlap or false production claims | browser | browser screenshots and UAT checklist | planned | pending |
