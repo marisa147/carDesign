@@ -60,6 +60,9 @@ export function Preview3DViewer({ camera, compatibility, surfaceLabel }: Preview
 
       renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
       renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+      renderer.domElement.style.display = "block";
+      renderer.domElement.style.height = "100%";
+      renderer.domElement.style.width = "100%";
       mountRef.current.appendChild(renderer.domElement);
 
       sceneCamera = new THREE.PerspectiveCamera(42, 2, 0.1, 100);
@@ -121,7 +124,7 @@ export function Preview3DViewer({ camera, compatibility, surfaceLabel }: Preview
         sceneCamera.updateProjectionMatrix();
 
         const radians = (camera.rotationY * Math.PI) / 180;
-        const distance = 5 / camera.zoom;
+        const distance = preview3DDistanceForAspect(canvasWidth / canvasHeight) / camera.zoom;
         sceneCamera.position.set(Math.sin(radians) * distance, 1.7, Math.cos(radians) * distance);
         sceneCamera.lookAt(0, 0.7, 0);
         shellGroup.rotation.y = radians * 0.18;
@@ -234,4 +237,11 @@ function materialBoundsStyle(bounds: {
 
 function prefersReducedMotion(): boolean {
   return window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+}
+
+function preview3DDistanceForAspect(aspect: number): number {
+  if (aspect < 1.55) {
+    return 5 * (1.55 / aspect);
+  }
+  return 5;
 }
