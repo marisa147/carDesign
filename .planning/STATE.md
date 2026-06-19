@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: V2 MVP
 status: executing
-stopped_at: Phase 13 ready for planning
-last_updated: "2026-06-19T07:08:00Z"
-last_activity: "2026-06-19 -- Completed Phase 12 Plan 08 validation, docs, UAT evidence, and traceability closure"
+stopped_at: Phase 13 ready to execute Plan 01
+last_updated: "2026-06-19T07:27:33Z"
+last_activity: "2026-06-19 -- Planned Phase 13 enhanced concept handoff package MVP with context, research, UI-SPEC, validation, patterns, and seven executable plans"
 progress:
   total_phases: 7
   completed_phases: 5
@@ -25,11 +25,11 @@ See: .planning/PROJECT.md (updated 2026-06-18)
 
 ## Current Position
 
-Milestone: v2.0 V2 MVP — PHASE 13 READY
-Phase: 13 (Enhanced Concept Handoff Package MVP) — READY TO PLAN
-Plan: Phase 13 plans not created yet
-Status: Ready to plan Phase 13
-Last activity: 2026-06-19 -- Completed Phase 12 Plan 08 validation, docs, UAT evidence, and traceability closure
+Milestone: v2.0 V2 MVP — PHASE 13 PLANNED
+Phase: 13 (Enhanced Concept Handoff Package MVP) — READY TO EXECUTE
+Plan: 13-01-PLAN.md — HandoffPackage schema, manifest version, and export-type taxonomy
+Status: Ready to execute Phase 13 Plan 01
+Last activity: 2026-06-19 -- Planned Phase 13 enhanced concept handoff package MVP with context, research, UI-SPEC, validation, patterns, and seven executable plans
 
 Progress: [#######---] 73%
 
@@ -53,7 +53,7 @@ v2.0 MVP is scoped to the following phase sequence:
 | Phase 10 | Targeted Regeneration And Masked Editing MVP | 8/8 | V2-EDIT-01..05 |
 | Phase 11 | Reference-Guided Generation MVP | 7/7 complete | V2-REF-01..05 |
 | Phase 12 | Lightweight 3D Preview MVP | 8/8 complete | V2-3D-01..05 |
-| Phase 13 | Enhanced Concept Handoff Package MVP | 0/7 ready | V2-HANDOFF-01..05 |
+| Phase 13 | Enhanced Concept Handoff Package MVP | 0/7 planned, ready to execute | V2-HANDOFF-01..05 |
 | Phase 14 | V2 MVP Hardening, Docs, Smoke, And UAT | 0/6 | V2-REL-01..05 |
 
 ## Prior Milestone Metrics
@@ -116,6 +116,7 @@ Recent decisions affecting v2.0:
 - [Phase 12 Plan 06]: Required 3D preview screenshot warnings are now centralized in core contracts and restored server-side, while the web panel exposes persistent non-production labeling through visible text and an accessible region name.
 - [Phase 12 Plan 07]: Browser desktop/mobile UAT now has headless Chrome CDP screenshot evidence and screenshot-crop pixel statistics for a nonblank lightweight 3D preview; the viewer constrains WebGL canvas CSS sizing and adjusts camera distance for narrow aspect ratios while keeping non-production labels and accessible controls visible.
 - [Phase 12 Plan 08]: Phase 12 closed with focused validation, elevated aggregate `pnpm validate`, worker dry-run smoke, browser UAT evidence, docs, and V2-3D-01..05 traceability complete; lightweight 3D remains concept-only and not production UV proof.
+- [Phase 13 Planning]: Enhanced concept handoff package is planned around `enhanced_concept_handoff_zip`, typed schema-versioned manifests, object storage reads, ZIP package building, immutable export artifacts, workbench package preview/history, rights/source guardrails, provider-off validation, and browser UAT.
 
 ### Pending Todos
 
@@ -127,6 +128,7 @@ None.
 - Hosted provider quality, pricing, moderation, account access, quota behavior, and commercial terms must remain guarded before hosted generation rollout.
 - Hosted provider calls must stay feature-flagged and quota guarded to avoid accidental cost spikes.
 - 3D preview must keep non-production labels and avoid implying verified wrap-shop UV accuracy.
+- Enhanced handoff packages must remain concept-only review ZIPs and must not imply print-ready PSD/AI/PDF, verified scale/bleed/color/DPI, production UV, ordering, quoting, payment, marketplace, or installer workflows.
 - Frontend Vitest remains blocked in the Codex sandbox by esbuild `spawn EPERM`; rerun outside the sandbox when local child-process spawning is available.
 - Hosted reference-image input remains manual-only until provider/model support, credentials, cost approval, and quota guards are verified.
 - Contract drift must be checked in each phase because v2.0 extends the v1.0 schema surface.
@@ -146,8 +148,8 @@ Items acknowledged and deferred beyond v2.0 MVP:
 
 ## Session Continuity
 
-Last session: 2026-06-19T07:08:00Z
-Stopped at: Phase 13 ready for planning
+Last session: 2026-06-19T07:27:33Z
+Stopped at: Phase 13 ready to execute Plan 01
 Resume files:
 
 - `.planning/PROJECT.md`
@@ -223,6 +225,18 @@ Resume files:
 - `.planning/phases/12-lightweight-3d-preview-mvp/12-08-SUMMARY.md`
 - `.planning/phases/12-lightweight-3d-preview-mvp/12-VERIFICATION.md`
 - `.planning/phases/12-lightweight-3d-preview-mvp/12-MILESTONE-NOTES.md`
+- `.planning/phases/13-enhanced-concept-handoff-package-mvp/13-CONTEXT.md`
+- `.planning/phases/13-enhanced-concept-handoff-package-mvp/13-RESEARCH.md`
+- `.planning/phases/13-enhanced-concept-handoff-package-mvp/13-UI-SPEC.md`
+- `.planning/phases/13-enhanced-concept-handoff-package-mvp/13-PATTERNS.md`
+- `.planning/phases/13-enhanced-concept-handoff-package-mvp/13-VALIDATION.md`
+- `.planning/phases/13-enhanced-concept-handoff-package-mvp/13-01-PLAN.md`
+- `.planning/phases/13-enhanced-concept-handoff-package-mvp/13-02-PLAN.md`
+- `.planning/phases/13-enhanced-concept-handoff-package-mvp/13-03-PLAN.md`
+- `.planning/phases/13-enhanced-concept-handoff-package-mvp/13-04-PLAN.md`
+- `.planning/phases/13-enhanced-concept-handoff-package-mvp/13-05-PLAN.md`
+- `.planning/phases/13-enhanced-concept-handoff-package-mvp/13-06-PLAN.md`
+- `.planning/phases/13-enhanced-concept-handoff-package-mvp/13-07-PLAN.md`
 
-Next recommended command: `$gsd-plan-phase 13 --auto`.
+Next recommended command: `$gsd-execute-phase 13 --auto --no-transition`.
 Alternative: `$gsd-progress --next`
