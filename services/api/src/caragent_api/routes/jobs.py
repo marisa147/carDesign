@@ -497,8 +497,8 @@ def _handoff_package_artifact_metadata(package: HandoffPackageZipResult) -> dict
             "format": manifest["format"],
             "package_artifact": manifest["package_artifact"],
             "schema_version": manifest["schema_version"],
-            "source_artifact_id": manifest["source_artifact"]["id"],
-            "warning_count": len(manifest["warnings"]["items"]),
+            "source_artifact_id": str(package.manifest.source_artifact.id),
+            "warning_count": len(package.manifest.warnings.items),
         },
     }
 

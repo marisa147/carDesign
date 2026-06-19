@@ -54,7 +54,7 @@ v2.0 MVP is successful when:
 - [x] **Phase 10: Targeted Regeneration And Masked Editing MVP** — Add editable regions, mask-aware regeneration requests, and layer-level iteration without full concept overwrite.
 - [x] **Phase 11: Reference-Guided Generation MVP** — Improve character/style/vehicle consistency using uploaded reference assets, rights gates, and provider-specific capability checks.
 - [x] **Phase 12: Lightweight 3D Preview MVP** — Add a simple interactive 3D or pseudo-3D preview that consumes existing PreviewSpec and remains clearly labeled non-production.
-- [ ] **Phase 13: Enhanced Concept Handoff Package MVP** — Export a richer concept package with overlays, manifest, prompt trace, warnings, and review notes.
+- [x] **Phase 13: Enhanced Concept Handoff Package MVP** — Export a richer concept package with overlays, manifest, prompt trace, warnings, and review notes.
 - [ ] **Phase 14: V2 MVP Hardening, Docs, Smoke, And UAT** — Close validation, documentation, regression checks, browser UAT, and release evidence.
 
 ## Phase Details
@@ -223,7 +223,7 @@ v2.0 MVP is successful when:
 - [x] 13-04-PLAN.md — Export ledger updates, immutable package artifacts, and lineage linkage.
 - [x] 13-05-PLAN.md — Workbench export dialog, package preview, history, and download UX.
 - [x] 13-06-PLAN.md — Rights/source guardrails and blocked-export failure states.
-- [ ] 13-07-PLAN.md — Phase 13 smoke, docs, manifest tests, and Browser UAT.
+- [x] 13-07-PLAN.md — Phase 13 smoke, docs, manifest tests, and Browser UAT.
 
 **UI hint:** yes
 

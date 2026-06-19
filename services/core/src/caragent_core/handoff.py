@@ -8,16 +8,20 @@ from dataclasses import dataclass
 from decimal import Decimal
 from hashlib import sha256
 from io import BytesIO
-from typing import Literal
+from typing import Final, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from caragent_core.storage import ObjectStorage
+from caragent_core.storage import ObjectStorage, StoredObject
 
 HANDOFF_PACKAGE_SCHEMA_VERSION = 1
-ENHANCED_HANDOFF_PACKAGE_TYPE = "enhanced_concept_handoff"
-ENHANCED_HANDOFF_PACKAGE_FORMAT = "enhanced_concept_handoff_zip"
+ENHANCED_HANDOFF_PACKAGE_TYPE: Final[Literal["enhanced_concept_handoff"]] = (
+    "enhanced_concept_handoff"
+)
+ENHANCED_HANDOFF_PACKAGE_FORMAT: Final[Literal["enhanced_concept_handoff_zip"]] = (
+    "enhanced_concept_handoff_zip"
+)
 HANDOFF_CONCEPT_ONLY_DISCLAIMER = (
     "Concept handoff package for review only; not print-ready production artwork."
 )
@@ -312,20 +316,24 @@ def render_handoff_prompt_trace_markdown(
 ) -> str:
     lines = ["# Prompt Trace", "", HANDOFF_CONCEPT_ONLY_DISCLAIMER]
     if prompt_trace is not None:
-        trace = _prompt_trace(prompt_trace)
+        prompt_trace_model = _prompt_trace(prompt_trace)
         lines.extend(["", "## Summary"])
-        if trace.summary:
-            lines.append(f"- {_sanitize_text(trace.summary)}")
+        if prompt_trace_model.summary:
+            lines.append(f"- {_sanitize_text(prompt_trace_model.summary)}")
         lines.append(
             "- Model runs: "
-            + (", ".join(trace.model_run_ids) if trace.model_run_ids else "none"),
+            + (
+                ", ".join(prompt_trace_model.model_run_ids)
+                if prompt_trace_model.model_run_ids
+                else "none"
+            ),
         )
     if provider_trace is not None:
-        trace = _provider_trace(provider_trace)
+        provider_trace_model = _provider_trace(provider_trace)
         lines.extend(["", "## Provider"])
         lines.extend(
             _markdown_key_values(
-                trace.model_dump(mode="json", exclude_none=True),
+                provider_trace_model.model_dump(mode="json", exclude_none=True),
                 fallback="- Not specified.",
             ),
         )
@@ -452,9 +460,9 @@ async def build_handoff_package_zip(
             width=getattr(source_artifact, "width", None),
         ),
         template=safe_zone_report.template,
-        version_id=version.id,
+        version_id=_required_uuid_attr(version, "id"),
         warnings=warning_report,
-        workspace_id=version.workspace_id,
+        workspace_id=_required_uuid_attr(version, "workspace_id"),
     )
 
     text_members = {
@@ -631,8 +639,9 @@ def _provider_trace(
 
 
 def _markdown_model_run(model_run: object) -> list[str]:
-    record = {
-        "id": str(getattr(model_run, "id", "")),
+    model_run_id = str(getattr(model_run, "id", ""))
+    record: dict[str, object] = {
+        "id": model_run_id,
         "provider": getattr(model_run, "provider", None),
         "model": getattr(model_run, "model", None),
         "status": getattr(model_run, "status", None),
@@ -642,7 +651,7 @@ def _markdown_model_run(model_run: object) -> list[str]:
         "output_artifact_id": str(getattr(model_run, "output_artifact_id", "") or ""),
         "prompt_text": getattr(model_run, "prompt_text", None),
     }
-    lines = [f"- Model run: {_sanitize_text(record['id'])}"]
+    lines = [f"- Model run: {_sanitize_text(model_run_id)}"]
     for key, value in record.items():
         if key == "id" or value in (None, "", []):
             continue
@@ -695,7 +704,7 @@ async def _read_required_object(
     storage: ObjectStorage,
     key: str,
     label: str,
-) -> object:
+) -> StoredObject:
     try:
         return await storage.get_object(key)
     except FileNotFoundError as error:
@@ -753,6 +762,13 @@ def _screenshot_warning_ids(screenshot_artifacts: Sequence[object]) -> list[str]
 def _model_run_id(model_run: object) -> str:
     value = getattr(model_run, "id", None)
     return str(value) if value is not None else "unknown"
+
+
+def _required_uuid_attr(value: object, attr: str) -> UUID:
+    raw = getattr(value, attr, None)
+    if raw is None:
+        raise HandoffPackageBuildError(f"{attr} is required")
+    return UUID(str(raw))
 
 
 def _prompt_summary(model_runs: Sequence[object]) -> str | None:

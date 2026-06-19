@@ -55,11 +55,13 @@ Completion evidence: `.planning/phases/12-lightweight-3d-preview-mvp/12-VERIFICA
 
 ### Concept Handoff Package
 
-- [ ] **V2-HANDOFF-01**: User can export a concept handoff package for a selected version.
-- [ ] **V2-HANDOFF-02**: Package includes concept image, optional 3D screenshots, safe-zone overlay image, warning report, prompt/provider trace summary, template metadata, reference asset manifest, and concept-only disclaimer.
-- [ ] **V2-HANDOFF-03**: Package exports as a ZIP with stable manifest JSON and human-readable Markdown or HTML notes.
-- [ ] **V2-HANDOFF-04**: Export record is durable, linked to the selected version, immutable, and does not overwrite prior exports.
-- [ ] **V2-HANDOFF-05**: System blocks or warns when required rights or source metadata is incomplete.
+- [x] **V2-HANDOFF-01**: User can export a concept handoff package for a selected version.
+- [x] **V2-HANDOFF-02**: Package includes concept image, optional 3D screenshots, safe-zone overlay image, warning report, prompt/provider trace summary, template metadata, reference asset manifest, and concept-only disclaimer.
+- [x] **V2-HANDOFF-03**: Package exports as a ZIP with stable manifest JSON and human-readable Markdown or HTML notes.
+- [x] **V2-HANDOFF-04**: Export record is durable, linked to the selected version, immutable, and does not overwrite prior exports.
+- [x] **V2-HANDOFF-05**: System blocks or warns when required rights or source metadata is incomplete.
+
+Completion evidence: `.planning/phases/13-enhanced-concept-handoff-package-mvp/13-VERIFICATION.md`, `.planning/phases/13-enhanced-concept-handoff-package-mvp/13-HUMAN-UAT.md`, and `.planning/phases/13-enhanced-concept-handoff-package-mvp/13-MILESTONE-NOTES.md`. The enhanced handoff ZIP is explicitly concept-only and not print-ready; rights/source guardrails block incomplete included-reference evidence.
 
 ### V2 Release
 
@@ -126,11 +128,11 @@ Completion evidence: `.planning/phases/12-lightweight-3d-preview-mvp/12-VERIFICA
 | V2-3D-03 | Phase 12 | Completed |
 | V2-3D-04 | Phase 12 | Completed |
 | V2-3D-05 | Phase 12 | Completed |
-| V2-HANDOFF-01 | Phase 13 | Pending |
-| V2-HANDOFF-02 | Phase 13 | Pending |
-| V2-HANDOFF-03 | Phase 13 | Pending |
-| V2-HANDOFF-04 | Phase 13 | Pending |
-| V2-HANDOFF-05 | Phase 13 | Pending |
+| V2-HANDOFF-01 | Phase 13 | Completed |
+| V2-HANDOFF-02 | Phase 13 | Completed |
+| V2-HANDOFF-03 | Phase 13 | Completed |
+| V2-HANDOFF-04 | Phase 13 | Completed |
+| V2-HANDOFF-05 | Phase 13 | Completed |
 | V2-REL-01 | Phase 14 | Pending |
 | V2-REL-02 | Phase 14 | Pending |
 | V2-REL-03 | Phase 14 | Pending |
@@ -145,4 +147,4 @@ Completion evidence: `.planning/phases/12-lightweight-3d-preview-mvp/12-VERIFICA
 
 ---
 *Requirements defined: 2026-06-18*
-*Last updated: 2026-06-19 after Phase 12 closure*
+*Last updated: 2026-06-19 after Phase 13 closure*
