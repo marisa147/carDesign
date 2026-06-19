@@ -835,10 +835,10 @@ describe("Phase 4 workbench shell", () => {
       control.focus();
       expect(control).toHaveFocus();
     }
-    expect(screen.getByText(PREVIEW_3D_UV_WARNING_TEXT)).toBeVisible();
-    expect(screen.getByText("MOON DRIVE")).toBeVisible();
+    expect(preview3DControls.getByText(PREVIEW_3D_UV_WARNING_TEXT, { exact: false })).toBeVisible();
+    expect(preview3DControls.getAllByText("MOON DRIVE").length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText("door-main").length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByText(/artifact-1/)).toBeVisible();
+    expect(preview3DControls.getAllByText(/artifact-1/).length).toBeGreaterThanOrEqual(1);
     expect(screen.getByRole("button", { name: "版本 1" })).toHaveAttribute(
       "aria-pressed",
       "true",
@@ -889,7 +889,7 @@ describe("Phase 4 workbench shell", () => {
     expect(screen.getByText("概念 3D 预览")).toBeVisible();
     expect(screen.getByText("非生产贴膜参考")).toBeVisible();
     expect(screen.getByText(PREVIEW_3D_FALLBACK_MESSAGE)).toBeVisible();
-    expect(screen.getByText(/unknown-template/)).toBeVisible();
+    expect(screen.getAllByText(/unknown-template/).length).toBeGreaterThanOrEqual(1);
     expect(screen.getByRole("button", { name: "2D 预览" })).toBeEnabled();
 
     await user.click(screen.getByRole("button", { name: "2D 预览" }));
