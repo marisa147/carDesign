@@ -2,7 +2,10 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import json
+import zipfile
 from decimal import Decimal
+from io import BytesIO
 from pathlib import Path
 from typing import Any
 from uuid import UUID
@@ -24,6 +27,7 @@ from caragent_core.preview3d import (
     required_preview_3d_warning_ids,
 )
 from caragent_core.services import jobs
+from caragent_core.storage import InMemoryObjectStorage
 from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker
 
@@ -336,6 +340,89 @@ async def create_preview_3d_source_records(
     }
 
 
+async def create_handoff_export_records(
+    session_factory: async_sessionmaker[Any],
+    storage: InMemoryObjectStorage,
+    workspace_id: UUID,
+    job_id: UUID,
+) -> dict[str, str]:
+    trace = reference_trace_metadata()
+    async with session_scope(session_factory) as session:
+        version = await jobs.create_design_version(
+            session,
+            workspace_id,
+            job_id=job_id,
+            parameters={
+                "preview_3d": preview_3d_spec().model_dump(mode="json"),
+                "preview_spec": {
+                    **parent_preview_spec(),
+                    "template": {
+                        "id": "generic-side-coupe",
+                        "label": "Generic side-view coupe",
+                        "view": "side",
+                    },
+                },
+                **trace,
+            },
+            status=DesignVersionStatus.GENERATED.value,
+            title="Enhanced handoff source",
+        )
+        concept = await jobs.create_artifact(
+            session,
+            workspace_id,
+            byte_size=len(PNG_BYTES),
+            checksum_sha256="a" * 64,
+            content_type="image/png",
+            height=768,
+            job_id=job_id,
+            kind=ArtifactKind.GENERATED_IMAGE.value,
+            object_key=f"workspaces/{workspace_id}/generated/{version.id}/concept.png",
+            version_id=version.id,
+            width=1536,
+        )
+        screenshot = await jobs.create_artifact(
+            session,
+            workspace_id,
+            byte_size=len(PNG_BYTES),
+            checksum_sha256="b" * 64,
+            content_type="image/png",
+            height=720,
+            job_id=job_id,
+            kind=ArtifactKind.PREVIEW_3D_SCREENSHOT.value,
+            metadata=preview_3d_screenshot_metadata().model_dump(mode="json"),
+            object_key=f"workspaces/{workspace_id}/preview_3d_screenshot/{version.id}/capture.png",
+            version_id=version.id,
+            width=1280,
+        )
+        model_run = await jobs.create_model_run(
+            session,
+            job_id,
+            input_artifact_ids=trace["included_reference_asset_ids"],
+            model="local-concept-v1",
+            output_artifact_id=concept.id,
+            prompt_text="Enhanced handoff prompt api_key=secret image_base64 C:\\tmp\\concept.png",
+            provider="local-simulation",
+            status=ModelRunStatus.SUCCEEDED.value,
+        )
+        await jobs.record_feedback(
+            session,
+            workspace_id,
+            version.id,
+            approval_state=FeedbackApprovalState.APPROVED.value,
+            comment="Approved for concept discussion.",
+            rating=5,
+        )
+
+    await storage.put_object(concept.object_key, PNG_BYTES, "image/png")
+    await storage.put_object(screenshot.object_key, PNG_BYTES, "image/png")
+    return {
+        "concept_artifact_id": str(concept.id),
+        "model_run_id": str(model_run.id),
+        "screenshot_artifact_id": str(screenshot.id),
+        "version_id": str(version.id),
+    }
+
+
 def test_create_job_requires_idempotency_and_reuses_duplicate_key(tmp_path: Path) -> None:
     client, _app = create_job_client(tmp_path)
     workspace_id = client.post("/workspaces", json={"title": "Jobs"}).json()["id"]
@@ -575,6 +662,90 @@ def test_feedback_and_concept_export_can_be_created_through_api(tmp_path: Path) 
     assert export_payload["manifest"]["source_artifact_id"] == records["artifact_id"]
     assert export_payload["manifest"]["format"] == "png"
     assert "not print-ready" in export_payload["manifest"]["disclaimer"]
+
+
+def test_enhanced_handoff_export_can_be_created_through_api(tmp_path: Path) -> None:
+    client, app = create_job_client(
+        tmp_path,
+        settings_overrides={"v2_enhanced_handoff_package_enabled": True},
+    )
+    storage = InMemoryObjectStorage()
+    app.state.object_storage = storage
+    workspace_id = client.post("/workspaces", json={"title": "Enhanced handoff"}).json()["id"]
+    job_id = client.post(
+        f"/workspaces/{workspace_id}/jobs",
+        json={"idempotency_key": "enhanced-handoff-001", "operation": "generate_concept"},
+    ).json()["id"]
+    records = asyncio.run(
+        create_handoff_export_records(
+            app.state.session_factory,
+            storage,
+            UUID(workspace_id),
+            UUID(job_id),
+        ),
+    )
+
+    created = client.post(
+        f"/workspaces/{workspace_id}/versions/{records['version_id']}/exports",
+        json={"format": "enhanced_concept_handoff_zip"},
+    )
+
+    assert created.status_code == 201
+    payload = created.json()
+    assert payload["format"] == "enhanced_concept_handoff_zip"
+    assert payload["status"] == "succeeded"
+    assert payload["artifact_id"] is not None
+    assert payload["artifact_id"] not in {
+        records["concept_artifact_id"],
+        records["screenshot_artifact_id"],
+    }
+    assert payload["manifest"]["schema_version"] == 1
+    assert payload["manifest"]["format"] == "enhanced_concept_handoff_zip"
+    assert payload["manifest"]["package_artifact"]["content_type"] == "application/zip"
+    package_object_key = payload["manifest"]["package_artifact"]["object_key"]
+    assert package_object_key.endswith(".zip")
+
+    stored = storage.objects[package_object_key]
+    assert stored.content_type == "application/zip"
+    with zipfile.ZipFile(BytesIO(stored.content)) as archive:
+        assert {"manifest.json", "handoff-notes.md"} <= set(archive.namelist())
+        manifest = json.loads(archive.read("manifest.json"))
+        assert manifest["schema_version"] == 1
+        assert manifest["source_artifact"]["id"] == records["concept_artifact_id"]
+
+    artifacts = client.get(f"/workspaces/{workspace_id}/artifacts").json()
+    package_artifacts = [artifact for artifact in artifacts if artifact["kind"] == "export"]
+    assert [artifact["id"] for artifact in package_artifacts] == [payload["artifact_id"]]
+    assert package_artifacts[0]["content_type"] == "application/zip"
+
+
+def test_enhanced_handoff_export_is_feature_gated(tmp_path: Path) -> None:
+    client, app = create_job_client(tmp_path)
+    storage = InMemoryObjectStorage()
+    app.state.object_storage = storage
+    workspace_id = client.post("/workspaces", json={"title": "Enhanced handoff off"}).json()["id"]
+    job_id = client.post(
+        f"/workspaces/{workspace_id}/jobs",
+        json={"idempotency_key": "enhanced-handoff-off", "operation": "generate_concept"},
+    ).json()["id"]
+    records = asyncio.run(
+        create_handoff_export_records(
+            app.state.session_factory,
+            storage,
+            UUID(workspace_id),
+            UUID(job_id),
+        ),
+    )
+    storage_objects_before = set(storage.objects)
+
+    response = client.post(
+        f"/workspaces/{workspace_id}/versions/{records['version_id']}/exports",
+        json={"format": "enhanced_concept_handoff_zip"},
+    )
+
+    assert response.status_code == 403
+    assert "V2_ENHANCED_HANDOFF_PACKAGE_ENABLED is disabled" in response.json()["detail"]
+    assert set(storage.objects) == storage_objects_before
 
 
 def test_concept_export_manifest_includes_reference_trace_source(
