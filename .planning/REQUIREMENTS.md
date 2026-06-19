@@ -65,11 +65,13 @@ Completion evidence: `.planning/phases/13-enhanced-concept-handoff-package-mvp/1
 
 ### V2 Release
 
-- [ ] **V2-REL-01**: Developer can run full aggregate validation from a clean checkout.
-- [ ] **V2-REL-02**: Operator can run Docker-backed smoke for local deterministic provider, hosted-provider-disabled mode, and failure/fallback paths.
-- [ ] **V2-REL-03**: Operator can run hosted-provider smoke manually with explicit credentials and quota guardrails.
-- [ ] **V2-REL-04**: Browser UAT covers desktop and mobile workbench paths for hosted generation, targeted edits, references, 3D preview, and enhanced export.
-- [ ] **V2-REL-05**: Documentation and release notes clearly explain V2 feature flags, provider configuration, quota behavior, reference usage, 3D preview limitations, and concept-only handoff boundaries.
+- [x] **V2-REL-01**: Developer can run full aggregate validation from a clean checkout.
+- [x] **V2-REL-02**: Operator can run Docker-backed smoke for local deterministic provider, hosted-provider-disabled mode, and failure/fallback paths.
+- [x] **V2-REL-03**: Operator can run hosted-provider smoke manually with explicit credentials and quota guardrails.
+- [x] **V2-REL-04**: Browser UAT covers desktop and mobile workbench paths for hosted generation, targeted edits, references, 3D preview, and enhanced export.
+- [x] **V2-REL-05**: Documentation and release notes clearly explain V2 feature flags, provider configuration, quota behavior, reference usage, 3D preview limitations, and concept-only handoff boundaries.
+
+Completion evidence: `.planning/phases/14-v2-mvp-hardening-docs-smoke-and-uat/14-VERIFICATION.md`, `.planning/phases/14-v2-mvp-hardening-docs-smoke-and-uat/14-DOCKER-SMOKE.md`, `.planning/phases/14-v2-mvp-hardening-docs-smoke-and-uat/14-HOSTED-SMOKE-RUNBOOK.md`, `.planning/phases/14-v2-mvp-hardening-docs-smoke-and-uat/14-HUMAN-UAT.md`, `.planning/phases/14-v2-mvp-hardening-docs-smoke-and-uat/14-FEATURE-FLAGS.md`, and `.planning/phases/14-v2-mvp-hardening-docs-smoke-and-uat/14-RELEASE-NOTES.md`. Hosted provider smoke remains manual-only and no live hosted success is claimed without real credentials and cost approval.
 
 ## Future Requirements
 
@@ -133,11 +135,11 @@ Completion evidence: `.planning/phases/13-enhanced-concept-handoff-package-mvp/1
 | V2-HANDOFF-03 | Phase 13 | Completed |
 | V2-HANDOFF-04 | Phase 13 | Completed |
 | V2-HANDOFF-05 | Phase 13 | Completed |
-| V2-REL-01 | Phase 14 | Pending |
-| V2-REL-02 | Phase 14 | Pending |
-| V2-REL-03 | Phase 14 | Pending |
-| V2-REL-04 | Phase 14 | Pending |
-| V2-REL-05 | Phase 14 | Pending |
+| V2-REL-01 | Phase 14 | Completed |
+| V2-REL-02 | Phase 14 | Completed |
+| V2-REL-03 | Phase 14 | Completed |
+| V2-REL-04 | Phase 14 | Completed |
+| V2-REL-05 | Phase 14 | Completed |
 
 **Coverage:**
 
@@ -147,4 +149,4 @@ Completion evidence: `.planning/phases/13-enhanced-concept-handoff-package-mvp/1
 
 ---
 *Requirements defined: 2026-06-18*
-*Last updated: 2026-06-19 after Phase 13 closure*
+*Last updated: 2026-06-19 after Phase 14 closure*

@@ -16,7 +16,7 @@ v2.0 MVP 仍然不是完整 print-shop handoff system、marketplace、payment/or
 ## Milestones
 
 - ✅ **v1.0 MVP** — Phases 1-7 shipped on 2026-06-18. Archive: `.planning/milestones/v1.0-ROADMAP.md`.
-- ◆ **v2.0 V2 MVP** — Phases 8-14 planned from `C:/Users/25858/Downloads/V2_MVP_ROADMAP (1).md`.
+- ✅ **v2.0 V2 MVP** — Phases 8-14 completed on 2026-06-19. Evidence: `.planning/phases/14-v2-mvp-hardening-docs-smoke-and-uat/14-VERIFICATION.md`.
 
 ## V2 MVP Goals
 
@@ -55,7 +55,7 @@ v2.0 MVP is successful when:
 - [x] **Phase 11: Reference-Guided Generation MVP** — Improve character/style/vehicle consistency using uploaded reference assets, rights gates, and provider-specific capability checks.
 - [x] **Phase 12: Lightweight 3D Preview MVP** — Add a simple interactive 3D or pseudo-3D preview that consumes existing PreviewSpec and remains clearly labeled non-production.
 - [x] **Phase 13: Enhanced Concept Handoff Package MVP** — Export a richer concept package with overlays, manifest, prompt trace, warnings, and review notes.
-- [ ] **Phase 14: V2 MVP Hardening, Docs, Smoke, And UAT** — Close validation, documentation, regression checks, browser UAT, and release evidence.
+- [x] **Phase 14: V2 MVP Hardening, Docs, Smoke, And UAT** — Close validation, documentation, regression checks, browser UAT, and release evidence.
 
 ## Phase Details
 
@@ -246,12 +246,12 @@ v2.0 MVP is successful when:
 
 **Plans:** 6 plans
 
-- [ ] 14-01-PLAN.md — Root aggregate validation, contract drift, and regression closure.
-- [ ] 14-02-PLAN.md — Docker smoke for local-only, hosted-disabled, and failure/fallback paths.
-- [ ] 14-03-PLAN.md — Manual hosted-provider smoke checklist and cost-safety runbook.
-- [ ] 14-04-PLAN.md — Browser UAT for V2 workbench flows on desktop and mobile.
-- [ ] 14-05-PLAN.md — User/operator/developer docs and feature-flag reference.
-- [ ] 14-06-PLAN.md — V2 MVP verification report, release notes, and completion evidence.
+- [x] 14-01-PLAN.md — Root aggregate validation, contract drift, and regression closure.
+- [x] 14-02-PLAN.md — Docker smoke for local-only, hosted-disabled, and failure/fallback paths.
+- [x] 14-03-PLAN.md — Manual hosted-provider smoke checklist and cost-safety runbook.
+- [x] 14-04-PLAN.md — Browser UAT for V2 workbench flows on desktop and mobile.
+- [x] 14-05-PLAN.md — User/operator/developer docs and feature-flag reference.
+- [x] 14-06-PLAN.md — V2 MVP verification report, release notes, and completion evidence.
 
 **UI hint:** yes
 
@@ -334,8 +334,8 @@ A single end-to-end V2 MVP UAT should prove:
 | 10. Targeted Regeneration And Masked Editing MVP | 8/8 | Complete | 2026-06-18 |
 | 11. Reference-Guided Generation MVP | 7/7 | Complete | 2026-06-18 |
 | 12. Lightweight 3D Preview MVP | 8/8 | Complete | 2026-06-19 |
-| 13. Enhanced Concept Handoff Package MVP | 6/7 | In Progress | - |
-| 14. V2 MVP Hardening, Docs, Smoke, And UAT | 0/6 | Not started | - |
+| 13. Enhanced Concept Handoff Package MVP | 7/7 | Complete | 2026-06-19 |
+| 14. V2 MVP Hardening, Docs, Smoke, And UAT | 6/6 | Complete | 2026-06-19 |
 
 **Coverage:**
 
