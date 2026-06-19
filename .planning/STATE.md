@@ -1,37 +1,37 @@
 ---
 gsd_state_version: 1.0
-milestone: v2.0
-milestone_name: V2 MVP
-status: milestone-archived
-stopped_at: Archived v2.0 V2 MVP; ready for next milestone definition
-last_updated: "2026-06-19T12:45:00Z"
-last_activity: "2026-06-19 -- Archived v2.0 V2 MVP roadmap and requirements"
+milestone: v3.0
+milestone_name: Template Library And Production Readiness
+status: milestone-planned
+stopped_at: Planned v3.0 from MVP_FINAL.md; ready for Phase 15 planning
+last_updated: "2026-06-19T13:24:00Z"
+last_activity: "2026-06-19 -- Started v3.0 milestone from MVP_FINAL.md"
 progress:
-  total_phases: 7
-  completed_phases: 7
-  total_plans: 48
-  completed_plans: 48
-  percent: 100
+  total_phases: 6
+  completed_phases: 0
+  total_plans: 33
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-06-18)
+See: .planning/PROJECT.md (updated 2026-06-19)
 
 **Core value:** 用户能用自然语言快速得到一套可预览、可迭代、可导出的高质量痛车设计方案。
-**Current focus:** Planning next milestone
+**Current focus:** v3.0 Phase 15 planning
 
 ## Current Position
 
-Milestone: v2.0 V2 MVP — ARCHIVED
-Phase: none active
+Milestone: v3.0 Template Library And Production Readiness — PLANNED
+Phase: Phase 15 — Template Source Governance And Compatibility
 Plan: none active
-Status: Ready to define the next milestone
-Last activity: 2026-06-19 -- Archived v2.0 V2 MVP roadmap and requirements
+Status: Ready to discuss or plan Phase 15
+Last activity: 2026-06-19 -- Started v3.0 milestone from `C:/Users/25858/Downloads/MVP_FINAL.md`
 
-Progress: [##########] 100%
+Progress: [----------] 0%
 
 ## Milestone Archives
 
@@ -46,17 +46,16 @@ Progress: [##########] 100%
 
 ## Current Milestone Scope
 
-v2.0 MVP is scoped to the following phase sequence:
+v3.0 Template Library And Production Readiness is scoped to the following phase sequence:
 
 | Phase | Focus | Plans | Requirements |
 |-------|-------|-------|--------------|
-| Phase 8 | V1 Closure And V2 Readiness Gate | 5/5 | V2-READY-01..04 |
-| Phase 9 | Hosted Provider Rollout MVP | 7/7 | V2-PROVIDER-01..05 |
-| Phase 10 | Targeted Regeneration And Masked Editing MVP | 8/8 | V2-EDIT-01..05 |
-| Phase 11 | Reference-Guided Generation MVP | 7/7 complete | V2-REF-01..05 |
-| Phase 12 | Lightweight 3D Preview MVP | 8/8 complete | V2-3D-01..05 |
-| Phase 13 | Enhanced Concept Handoff Package MVP | 7/7 complete | V2-HANDOFF-01..05 |
-| Phase 14 | V2 MVP Hardening, Docs, Smoke, And UAT | 6/6 complete | V2-REL-01..05 |
+| Phase 15 | Template Source Governance And Compatibility | 0/5 | V3-TEMPLATE-01..05 |
+| Phase 16 | MVP Generic Template Pack | 0/6 | V3-PACK-01..06 |
+| Phase 17 | Template Catalog API And Workbench Selection | 0/6 | V3-CATALOG-01..05 |
+| Phase 18 | Template-Aware Generation, Preview, And Editing | 0/6 | V3-INTEGRATION-01..06 |
+| Phase 19 | Concept Handoff And Production Readiness Preflight | 0/5 | V3-PREFLIGHT-01..04 |
+| Phase 20 | V3 Hardening, Docs, Smoke, And UAT | 0/5 | V3-REL-01..05 |
 
 ## Prior Milestone Metrics
 
@@ -79,13 +78,32 @@ v2.0 MVP is scoped to the following phase sequence:
 | Phase 6 | 5/5 | Complete |
 | Phase 7 | 7/7 | Complete |
 
+**v2.0 Velocity:**
+
+- Total plans completed: 48
+- Total phases completed: 7
+- v2 requirements completed: 34/34
+- Source-plus-test scale at close: about 30,301 LOC across `apps/`, `packages/`, `services/`, `scripts/`, and `infra/`, excluding generated contracts and dependency folders.
+
+**v2.0 By Phase:**
+
+| Phase | Plans | Status |
+|-------|-------|--------|
+| Phase 8 | 5/5 | Complete |
+| Phase 9 | 7/7 | Complete |
+| Phase 10 | 8/8 | Complete |
+| Phase 11 | 7/7 | Complete |
+| Phase 12 | 8/8 | Complete |
+| Phase 13 | 7/7 | Complete |
+| Phase 14 | 6/6 | Complete |
+
 ## Accumulated Context
 
 ### Decisions
 
 Decisions are logged in PROJECT.md Key Decisions table.
 
-Recent decisions affecting v2.0:
+Recent decisions affecting v2.0 and v3.0:
 
 - [Milestone v1.0]: Deliver an end-to-end concept-generation MVP before broad templates, production handoff, true 3D, or marketplace flows.
 - [Milestone v1.0]: Keep provider/model selection config-driven and re-verify hosted provider production readiness before non-local rollout.
@@ -133,6 +151,10 @@ Recent decisions affecting v2.0:
 - [Phase 14 Plan 04]: Desktop/mobile browser UAT passed with no-secret provider-off fixture evidence for hosted guard visibility, targeted edit controls/comparison, reference warnings, lightweight 3D labels, enhanced ZIP handoff preview/history, and no horizontal overflow.
 - [Phase 14 Plan 05]: V2 release docs now map service/browser feature flags, hosted provider config, quota/rate/cost guards, manual smoke overrides, rollback, Docker smoke, Browser UAT evidence, and concept-only/not print-ready boundaries.
 - [Phase 14 Plan 06]: V2 MVP final validation passed, release notes/milestone notes/verification were created, V2-REL-01..05 were marked complete, and the milestone is ready for archive.
+- [Milestone v3.0]: Use `C:/Users/25858/Downloads/MVP_FINAL.md` as the source for the next milestone after v2.0 archive.
+- [Milestone v3.0]: Prioritize template source governance, internal generic template pack, catalog selection, and concept-only production readiness before print-ready handoff, verified UV, marketplace, or ordering flows.
+- [Milestone v3.0]: Continue phase numbering from v2.0, so V3 work starts at Phase 15.
+- [Milestone v3.0]: Keep old v2 phase directories intact for evidence; new v3 planning starts with living `.planning/REQUIREMENTS.md` and `.planning/ROADMAP.md`.
 
 ### Pending Todos
 
@@ -148,6 +170,9 @@ None.
 - Frontend Vitest remains blocked in the Codex sandbox by esbuild `spawn EPERM`; targeted runs pass when rerun with approved elevation.
 - Hosted reference-image input remains manual-only until provider/model support, credentials, cost approval, and quota guards are verified.
 - Contract drift must be checked in each phase because v2.0 extends the v1.0 schema surface.
+- V3 template assets must be `internal_original`, licensed, or user-provided-with-rights; web-crawled or third-party reference-only material must not enter reusable template assets, masks, thumbnails, or catalog entries.
+- Current code only supports the narrow `generic-side-coupe` template path; Phase 15/16 must preserve compatibility while introducing the new template registry and MVP pack.
+- Concept handoff and preflight must keep non-production labels and avoid implying print-ready PSD/AI/PDF, verified scale/bleed/color/DPI, production UV, or installer readiness.
 
 ## Deferred Items
 
@@ -176,15 +201,18 @@ Items acknowledged by `audit-open` at v2.0 milestone close on 2026-06-19:
 
 ## Session Continuity
 
-Last session: 2026-06-19T12:45:00Z
-Stopped at: Archived v2.0 V2 MVP; ready for next milestone definition
+Last session: 2026-06-19T13:24:00Z
+Stopped at: Planned v3.0 from MVP_FINAL.md; ready for Phase 15 planning
 Resume files:
 
 - `.planning/PROJECT.md`
+- `.planning/REQUIREMENTS.md`
 - `.planning/ROADMAP.md`
 - `.planning/STATE.md`
+- `.planning/research/V3-MVP-FINAL-ANALYSIS.md`
 - `.planning/MILESTONES.md`
 - `.planning/RETROSPECTIVE.md`
+- `C:/Users/25858/Downloads/MVP_FINAL.md`
 - `.planning/milestones/v2.0-ROADMAP.md`
 - `.planning/milestones/v2.0-REQUIREMENTS.md`
 - `.planning/phases/09-hosted-provider-rollout-mvp/09-MILESTONE-NOTES.md`
@@ -306,5 +334,5 @@ Resume files:
 - `.planning/phases/14-v2-mvp-hardening-docs-smoke-and-uat/14-06-SUMMARY.md`
 - `.planning/phases/14-v2-mvp-hardening-docs-smoke-and-uat/evidence/phase14-browser-metrics.json`
 
-Next recommended command: `$gsd-new-milestone`
-Alternative: `$gsd-progress --next`
+Next recommended command: `$gsd-discuss-phase 15`
+Alternative: `$gsd-plan-phase 15`

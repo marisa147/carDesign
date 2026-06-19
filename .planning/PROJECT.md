@@ -4,17 +4,32 @@
 
 痛车设计生成 Agent 是一个面向痛车设计需求的 AI Web 工作台。v2.0 已经交付一个可本地运行、可验证的概念设计与审阅工作流：用户可以通过 GPT 风格对话描述车型、角色、风格、颜色、文案和参考素材，系统将需求解析为结构化参数，经异步 worker 生成 2D 概念图，并在 Web 工作台中展示、局部编辑、参考引导、轻量 3D 预览、反馈、导出增强概念交付包和查看运营状态。
 
-v2.0 的边界仍然是概念设计与审阅工作流，不承诺生产级印刷交付、verified UV mapping、商业订单流、托管模型生产可用性、auth/billing 或 marketplace。后续里程碑应从已验证的工作台、任务账本、PreviewSpec、provider adapter、reference trace、targeted edit 和 handoff package 边界上继续扩展。
+v3.0 从 `MVP_FINAL.md` 继续推进模板来源、授权、通用模板包、模板目录和生产交付前置检查。产品边界仍然是概念设计与审阅工作流，不承诺生产级印刷交付、verified UV mapping、商业订单流、托管模型生产可用性、auth/billing 或 marketplace。
 
 ## Core Value
 
 用户能用自然语言快速得到一套可预览、可迭代、可导出的高质量痛车设计方案。
 
+## Current Milestone: v3.0 Template Library And Production Readiness
+
+**Source:** `C:/Users/25858/Downloads/MVP_FINAL.md`
+
+**Goal:** Make templates trustworthy and selectable before the product moves toward true production handoff, verified UV, real licensed vehicle templates, or commercial ordering workflows.
+
+**Target features:**
+
+- Template source governance, license metadata, readiness audit, and prohibited-source blocking.
+- Internal-original MVP side-view template pack: coupe, sedan, hatchback, SUV, and van.
+- Template catalog API and Workbench selection with visible source/license/readiness warnings.
+- Template-aware generation, PreviewSpec, targeted edit, reference trace, lightweight 3D fallback, and export metadata.
+- Concept-only production readiness preflight that explains why a design is not print-ready yet.
+- V3 validation, docs, Docker/local smoke, Browser UAT, and milestone audit.
+
 ## Current State After v2.0
 
 **Shipped:** v1.0 MVP on 2026-06-18 and v2.0 V2 MVP on 2026-06-19.
 
-**Next milestone:** not yet defined. Use `$gsd-new-milestone` to create fresh requirements and a roadmap before further implementation.
+**Next milestone:** v3.0 Template Library And Production Readiness is planned from `C:/Users/25858/Downloads/MVP_FINAL.md`. Start implementation planning with Phase 15.
 
 ## Current State
 
@@ -52,12 +67,17 @@ v2.0 的边界仍然是概念设计与审阅工作流，不承诺生产级印刷
 
 ### Active
 
-- [ ] Define the next milestone requirements with `$gsd-new-milestone`.
+- [ ] Build template source governance and compatibility for reusable template assets.
+- [ ] Create the internal-original MVP generic side-view template pack.
+- [ ] Add template catalog API and Workbench selection.
+- [ ] Carry selected template context through generation, preview, edits, references, 3D fallback, and exports.
+- [ ] Add concept-only production readiness preflight and keep print-ready export blocked.
+- [ ] Validate, document, smoke-test, UAT, and audit v3.0.
 
 ### Out of Scope
 
 - 完整报价、下单和支付系统 -- v1.0 已验证设计生成闭环，商业交易能力继续后置。
-- 多车型全量模板库 -- v1.0 以有限模板和 PreviewSpec 合同验证方向，广泛模板覆盖需要后续 QA 预算。
+- 真实车型全量模板库和模板商城 -- v3.0 只创建内部原创 generic side-view MVP 模板包；真实授权车型覆盖和商业分发需要后续授权与 QA 预算。
 - 生产级 LoRA 训练平台 -- v1.0 使用本地 deterministic provider 与 hosted adapter 边界；训练流程仍后置。
 - 移动原生 App -- v1.0 Web 优先，移动端采用响应式工作台验证。
 - 完整 3D 模型自动生成 -- v1.0 保存 PreviewSpec 与 future gates；真实 UV/材质/3D 导出仍是后续里程碑。
@@ -78,7 +98,7 @@ Shipped v1.0 experience:
 - 顶部/局部状态能力显示 provider、worker、queue、hosted guard、失败分类、取消状态和 future gates。
 - 导出能力保持 concept preview 定位，不伪装成印刷级交付。
 
-## Future Candidate Promotions After v2.0
+## Future Candidate Promotions After v3.0
 
 - Full print-ready PSD/AI/PDF-style handoff with verified scale, bleed, color profile, DPI, and installer notes.
 - Verified vehicle-specific UV mapping and broad template library coverage.
@@ -89,7 +109,7 @@ Shipped v1.0 experience:
 
 ## Constraints
 
-- **MVP scope discipline**: v1.0 proved the end-to-end concept loop. Later milestones should keep production handoff, true 3D, marketplace, and broad template libraries as explicit promotions instead of quiet scope creep.
+- **V3 scope discipline**: v3.0 follows `MVP_FINAL.md` by strengthening template governance and production-readiness visibility, while keeping print-ready export, verified UV, real vehicle template commercialization, and ordering workflows out of scope.
 - **Frontend stack**: Continue with Next.js, React, TypeScript, Tailwind CSS, shadcn/ui patterns, TanStack Query, Zustand, and lucide-react unless a future plan justifies a change.
 - **Backend stack**: Continue with Python, FastAPI, Pydantic, SQLAlchemy/Alembic, Celery, Redis, PostgreSQL, and object storage boundaries.
 - **Provider boundary**: Workers call provider adapters. Hosted provider names, model names, pricing, and safety behavior must remain config-driven and re-verified before production use.
@@ -112,6 +132,8 @@ Shipped v1.0 experience:
 | Hosted provider rollout remains opt-in | Provider model availability, costs, moderation, and rights constraints change quickly | ✓ Good — v2.0 shipped guarded hosted path and manual-only smoke posture |
 | V2 MVP follows the external roadmap file | User supplied `C:/Users/25858/Downloads/V2_MVP_ROADMAP (1).md` as the milestone source of truth | ✓ Good — v2.0 requirements and roadmap completed from that source |
 | V2 features stay concept-only until production validation exists | Targeted edits, references, 3D preview, and handoff ZIPs can be mistaken for production wrap proof | ✓ Good — Phase 14 release notes and docs preserve not-print-ready boundaries |
+| V3 follows the final MVP delivery note | User supplied `C:/Users/25858/Downloads/MVP_FINAL.md` as the source for the next milestone after v2.0 archive | — Pending — v3.0 requirements and roadmap initialized |
+| Template governance before production handoff | Production handoff, true 3D, licensed templates, marketplace, and ordering all depend on trustworthy template provenance | — Pending — v3.0 starts with source/license registry and MVP template pack |
 
 ## Evolution
 
@@ -133,4 +155,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state.
 
 ---
-*Last updated: 2026-06-19 after v2.0 milestone archive*
+*Last updated: 2026-06-19 after `$gsd-new-milestone` from MVP_FINAL.md*
