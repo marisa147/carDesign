@@ -52,6 +52,7 @@ class LocalDeterministicImageProvider:
             "warning_count": len(_json_list(preview_spec.get("warnings"))),
             "width": self._width,
         }
+        metadata.update(_vehicle_template_trace_metadata(request.prompt_payload, preview_spec))
         if request.reference_usage is not None:
             metadata["reference_usage"] = dict(request.reference_usage)
 
@@ -185,6 +186,40 @@ def _preview_spec_from_payload(prompt_payload: JsonObject) -> JsonObject:
     return dict(preview_spec) if isinstance(preview_spec, dict) else {}
 
 
+def _vehicle_template_trace_metadata(
+    prompt_payload: JsonObject,
+    preview_spec: JsonObject,
+) -> JsonObject:
+    template = prompt_payload.get("vehicle_template")
+    if not isinstance(template, dict):
+        preview_template = preview_spec.get("template")
+        template = preview_template if isinstance(preview_template, dict) else {}
+    template_id = _text(template.get("id"))
+    if template_id is None:
+        return {}
+
+    canvas = preview_spec.get("canvas")
+    canvas_value = canvas if isinstance(canvas, dict) else {}
+    source = template.get("source")
+    source_value = source if isinstance(source, dict) else {}
+    readiness = template.get("readiness")
+    readiness_value = readiness if isinstance(readiness, dict) else {}
+    return {
+        "vehicle_template": {
+            "canvas": {
+                "height": _integer_from_payload(canvas_value.get("height"), fallback=0),
+                "width": _integer_from_payload(canvas_value.get("width"), fallback=0),
+            },
+            "catalog_eligible": bool(readiness_value.get("catalog_eligible", False)),
+            "id": template_id,
+            "label": _text(template.get("label")) or template_id,
+            "license_status": _text(source_value.get("license_status")) or "unknown",
+            "source_type": _text(source_value.get("source_type")) or "unknown",
+            "view": _text(template.get("view")) or "unknown",
+        },
+    }
+
+
 def _draw_preview_overlays(
     draw: ImageDraw.ImageDraw,
     width: int,
@@ -300,6 +335,10 @@ def _integer_from_payload(value: object, *, fallback: int) -> int:
     if isinstance(value, int):
         return value
     return fallback
+
+
+def _text(value: object) -> str | None:
+    return value.strip() if isinstance(value, str) and value.strip() else None
 
 
 def _labels_from_payload(prompt_payload: JsonObject) -> list[str]:

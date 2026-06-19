@@ -1,4 +1,5 @@
 export const GENERIC_SIDE_COUPE_TEMPLATE_ID = "generic-side-coupe";
+export const GENERIC_COUPE_SIDE_V1_TEMPLATE_ID = "generic_coupe_side_v1";
 export const GENERIC_SIDE_COUPE_VIEW = "side";
 export const GENERIC_SIDE_COUPE_LIGHTWEIGHT_SHELL_ID =
   "generic-side-coupe-lightweight-v1";
@@ -25,6 +26,11 @@ export const GENERIC_SIDE_COUPE_LIGHTWEIGHT_SHELL: LightweightPreview3DShell = {
   templateId: GENERIC_SIDE_COUPE_TEMPLATE_ID,
 };
 
+export const GENERIC_COUPE_SIDE_V1_LIGHTWEIGHT_SHELL: LightweightPreview3DShell = {
+  ...GENERIC_SIDE_COUPE_LIGHTWEIGHT_SHELL,
+  templateId: GENERIC_COUPE_SIDE_V1_TEMPLATE_ID,
+};
+
 const shellRegistry = new Map<string, LightweightPreview3DShell>([
   [
     shellRegistryKey({
@@ -32,6 +38,13 @@ const shellRegistry = new Map<string, LightweightPreview3DShell>([
       view: GENERIC_SIDE_COUPE_VIEW,
     }),
     GENERIC_SIDE_COUPE_LIGHTWEIGHT_SHELL,
+  ],
+  [
+    shellRegistryKey({
+      templateId: GENERIC_COUPE_SIDE_V1_TEMPLATE_ID,
+      view: GENERIC_SIDE_COUPE_VIEW,
+    }),
+    GENERIC_COUPE_SIDE_V1_LIGHTWEIGHT_SHELL,
   ],
 ]);
 

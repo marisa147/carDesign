@@ -202,22 +202,58 @@ def _build_preview_spec(
 
 def _build_overlay_layers(brief: GenerationBriefPayload) -> list[JsonObject]:
     layers: list[JsonObject] = []
+    text_zone_id = _preferred_safe_zone_id(
+        brief.safe_zones,
+        preferred_ids=("door-main",),
+        preferred_kind="body",
+    )
+    logo_zone_id = _preferred_safe_zone_id(
+        brief.safe_zones,
+        preferred_ids=("rear-quarter",),
+        preferred_kind="body",
+        skip_ids={text_zone_id} if text_zone_id else set(),
+    )
     for index, text in enumerate(brief.text, start=1):
-        layers.append(
-            {
-                "id": f"text-{index}",
-                "kind": "text",
-                "text": text,
-                "zone_id": "door-main",
-            },
-        )
+        layer = {
+            "id": f"text-{index}",
+            "kind": "text",
+            "text": text,
+        }
+        if text_zone_id is not None:
+            layer["zone_id"] = text_zone_id
+        layers.append(layer)
     for index, asset_id in enumerate(brief.overlay_logo_asset_ids, start=1):
-        layers.append(
-            {
-                "asset_id": asset_id,
-                "id": f"logo-{index}",
-                "kind": "logo",
-                "zone_id": "rear-quarter",
-            },
-        )
+        layer = {
+            "asset_id": asset_id,
+            "id": f"logo-{index}",
+            "kind": "logo",
+        }
+        if logo_zone_id is not None:
+            layer["zone_id"] = logo_zone_id
+        layers.append(layer)
     return layers
+
+
+def _preferred_safe_zone_id(
+    safe_zones: list[JsonObject],
+    *,
+    preferred_ids: tuple[str, ...],
+    preferred_kind: str,
+    skip_ids: set[str] | None = None,
+) -> str | None:
+    blocked_ids = skip_ids or set()
+    zones = [zone for zone in safe_zones if isinstance(zone.get("id"), str)]
+    for preferred_id in preferred_ids:
+        if preferred_id in blocked_ids:
+            continue
+        if any(zone.get("id") == preferred_id for zone in zones):
+            return preferred_id
+    for zone in zones:
+        zone_id = str(zone["id"])
+        if zone_id not in blocked_ids and zone.get("kind") == preferred_kind:
+            return zone_id
+    for zone in zones:
+        zone_id = str(zone["id"])
+        if zone_id not in blocked_ids:
+            return zone_id
+    return None

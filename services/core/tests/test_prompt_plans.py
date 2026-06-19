@@ -4,6 +4,7 @@ from uuid import uuid4
 
 from caragent_core.generation import (
     MVP_COUPE_TEMPLATE_ID,
+    MVP_TEMPLATE_IDS,
     PromptProviderSettings,
     build_prompt_plan,
     create_generation_brief,
@@ -133,6 +134,28 @@ def test_prompt_plan_is_deterministic_and_json_serializable() -> None:
     assert first.model == "local-concept-v1"
     assert first.parameters == {"size": "1536x768", "quality": "concept"}
     assert first.model_dump(mode="json")["estimated_cost"] is None
+
+
+def test_prompt_plan_uses_existing_overlay_zones_for_every_mvp_template() -> None:
+    logo_id = str(uuid4())
+
+    for template_id in MVP_TEMPLATE_IDS:
+        brief = create_generation_brief(
+            original_request=f"White {template_id} with readable side text and logo.",
+            character_theme="template regression heroine",
+            overlay_logo_asset_ids=[logo_id],
+            text=["TEMPLATE RUN"],
+            vehicle_template_id=template_id,
+        )
+
+        preview_spec = build_prompt_plan(brief).prompt_payload["preview_spec"]
+        zone_ids = {str(zone["id"]) for zone in preview_spec["safe_zones"]}
+
+        assert preview_spec["template"]["id"] == template_id
+        assert preview_spec["template"]["view"] == "side"
+        assert zone_ids
+        for layer in preview_spec["overlay_layers"]:
+            assert layer["zone_id"] in zone_ids
 
 
 def test_generation_brief_accepts_structured_reference_usage() -> None:

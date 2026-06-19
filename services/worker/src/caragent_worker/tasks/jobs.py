@@ -300,6 +300,9 @@ async def _run_generate_2d_concept_job(
             )
             edit_route_metadata = _edit_route_metadata(request)
             reference_metadata = _reference_usage_metadata(request)
+            template_trace_metadata = _vehicle_template_trace_metadata(
+                prompt_payload=request.prompt_payload,
+            )
             model_run = await jobs.create_model_run(
                 session,
                 job_id,
@@ -312,6 +315,7 @@ async def _run_generate_2d_concept_job(
                     **edit_route_metadata,
                     **reference_metadata,
                     **preview_spec_summary,
+                    **template_trace_metadata,
                     "provider_attempt": attempt_index,
                     "provider_route": request.provider,
                 },
@@ -447,6 +451,9 @@ async def _run_generate_2d_concept_job(
                     fallback_request,
                     rights_snapshots=reference_rights_snapshots,
                 )
+                fallback_template_trace_metadata = _vehicle_template_trace_metadata(
+                    prompt_payload=fallback_request.prompt_payload,
+                )
                 fallback_metadata = {
                     "fallback_from_provider": request.provider,
                     "fallback_reason": sanitized_attempt_error,
@@ -476,6 +483,7 @@ async def _run_generate_2d_concept_job(
                         **fallback_edit_route_metadata,
                         **fallback_reference_metadata,
                         **preview_spec_summary,
+                        **fallback_template_trace_metadata,
                         **fallback_metadata,
                         "provider_attempt": total_attempts,
                         "provider_route": fallback_request.provider,
@@ -699,6 +707,9 @@ async def _run_generate_2d_concept_job(
             )
         if request is not None:
             failure_metadata.update(_reference_usage_metadata(request))
+            failure_metadata.update(
+                _vehicle_template_trace_metadata(prompt_payload=request.prompt_payload),
+            )
         if model_run_id is not None:
             await jobs.fail_model_run(
                 session,
@@ -750,9 +761,13 @@ async def _run_deterministic_recomposition(
             width=settings.ai_local_image_width,
         )
         preview_spec_summary = _preview_spec_summary(recomposition.preview_spec)
+        template_trace_metadata = _vehicle_template_trace_metadata(
+            preview_spec=recomposition.preview_spec,
+        )
         targeted_edit_metadata = _edit_intent_metadata(edit_intent)
         trace_metadata: dict[str, object] = {
             **preview_spec_summary,
+            **template_trace_metadata,
             **targeted_edit_metadata,
             "changed_fields": list(recomposition.metadata["changed_fields"]),
             "external_calls": False,
@@ -779,6 +794,7 @@ async def _run_deterministic_recomposition(
                 "mask_edit": targeted_edit_metadata,
                 "parent_preview_spec": parent_preview_spec,
                 "preview_spec": recomposition.preview_spec,
+                **template_trace_metadata,
             },
             prompt_text=edit_intent.prompt_delta.summary,
             provider=RECOMPOSITION_PROVIDER,
@@ -1606,6 +1622,7 @@ def _provider_trace_metadata(
     }
     metadata.update(_edit_route_metadata(request))
     metadata.update(_reference_usage_metadata(request, rights_snapshots=rights_snapshots))
+    metadata.update(_vehicle_template_trace_metadata(prompt_payload=request.prompt_payload))
     return metadata
 
 
@@ -1735,6 +1752,53 @@ def _preview_spec_summary(preview_spec: dict[str, object]) -> dict[str, object]:
         "overlay_layer_count": len(_json_list(preview_spec.get("overlay_layers"))),
         "safe_zone_count": len(_json_list(preview_spec.get("safe_zones"))),
         "warning_count": len(_json_list(preview_spec.get("warnings"))),
+    }
+
+
+def _vehicle_template_trace_metadata(
+    *,
+    prompt_payload: dict[str, object] | None = None,
+    preview_spec: dict[str, object] | None = None,
+) -> dict[str, object]:
+    active_preview_spec = (
+        preview_spec
+        if isinstance(preview_spec, dict)
+        else _preview_spec_from_prompt_payload(prompt_payload or {})
+    )
+    raw_template: object = None
+    if isinstance(prompt_payload, dict):
+        raw_template = prompt_payload.get("vehicle_template")
+    if not isinstance(raw_template, dict):
+        raw_template = active_preview_spec.get("template")
+    if not isinstance(raw_template, dict):
+        return {}
+
+    template_id = _optional_text(raw_template.get("id"))
+    if template_id is None:
+        return {}
+
+    raw_canvas = active_preview_spec.get("canvas")
+    canvas = raw_canvas if isinstance(raw_canvas, dict) else {}
+    raw_source = raw_template.get("source")
+    source = raw_source if isinstance(raw_source, dict) else {}
+    raw_readiness = raw_template.get("readiness")
+    readiness = raw_readiness if isinstance(raw_readiness, dict) else {}
+
+    return {
+        "vehicle_template": {
+            "canvas": {
+                "height": _int_value(canvas.get("height"))
+                or _int_value(raw_template.get("canvas_height")),
+                "width": _int_value(canvas.get("width"))
+                or _int_value(raw_template.get("canvas_width")),
+            },
+            "catalog_eligible": bool(readiness.get("catalog_eligible", False)),
+            "id": template_id,
+            "label": _optional_text(raw_template.get("label")) or template_id,
+            "license_status": _optional_text(source.get("license_status")) or "unknown",
+            "source_type": _optional_text(source.get("source_type")) or "unknown",
+            "view": _optional_text(raw_template.get("view")) or "unknown",
+        },
     }
 
 

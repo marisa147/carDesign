@@ -169,6 +169,49 @@ const previewSpecFixture = {
   warnings: [{ id: "warning-1", message: "Text may be hard to read." }],
 };
 
+const canonicalCoupePreviewSpecFixture = {
+  ...previewSpecFixture,
+  template: {
+    ...previewSpecFixture.template,
+    id: "generic_coupe_side_v1",
+    label: "Generic coupe side-view",
+  },
+};
+
+const vanPreviewSpecFixture = {
+  ...previewSpecFixture,
+  overlay_layers: [
+    { id: "text-1", kind: "text", text: "VAN MODE", zone_id: "door-main" },
+    { asset_id: "logo-1", id: "logo-1", kind: "logo", zone_id: "rear-quarter" },
+  ],
+  safe_zones: [
+    {
+      height: 0.29,
+      id: "door-main",
+      kind: "body",
+      label: "Large van side panel",
+      width: 0.43,
+      x: 0.3,
+      y: 0.42,
+    },
+    {
+      height: 0.24,
+      id: "rear-quarter",
+      kind: "body",
+      label: "Rear cargo quarter panel",
+      width: 0.18,
+      x: 0.67,
+      y: 0.44,
+    },
+  ],
+  template: {
+    ...previewSpecFixture.template,
+    id: "generic_van_side_v1",
+    label: "Generic van side-view",
+  },
+  warnings: [{ id: "warning-van", message: "Van rear quarter requires installer review." }],
+};
+
 const briefFixture: GenerationBriefResponse = {
   created_at: createdAt,
   id: "brief-1",
@@ -253,6 +296,11 @@ const vanTemplateBriefFixture: GenerationBriefResponse = {
     view: "side",
   },
   updated_at: "2026-06-17T00:09:00Z",
+};
+
+const vanDesignBriefFixture: DesignBriefResponse = {
+  ...vanTemplateBriefFixture,
+  payload: { ...vanTemplateBriefFixture.payload },
 };
 
 const missingRightsAssetFixture: AssetResponse = {
@@ -570,6 +618,13 @@ const artifactFixture: ArtifactResponse = {
   workspace_id: "workspace-1",
 };
 
+const vanArtifactFixture: ArtifactResponse = {
+  ...artifactFixture,
+  id: "artifact-van",
+  object_key: "workspaces/workspace-1/generated_image/artifact-van/concept-van.png",
+  version_id: "version-van",
+};
+
 const secondArtifactFixture: ArtifactResponse = {
   ...artifactFixture,
   id: "artifact-2",
@@ -660,6 +715,28 @@ const versionFixture: DesignVersionResponse = {
   title: "版本 1",
   updated_at: createdAt,
   workspace_id: "workspace-1",
+};
+
+const canonicalCoupeVersionFixture: DesignVersionResponse = {
+  ...versionFixture,
+  parameters: {
+    ...versionFixture.parameters,
+    preview_spec: canonicalCoupePreviewSpecFixture,
+  },
+};
+
+const vanVersionFixture: DesignVersionResponse = {
+  ...versionFixture,
+  id: "version-van",
+  parameters: {
+    ...versionFixture.parameters,
+    overlay_layer_count: 2,
+    preview_spec: vanPreviewSpecFixture,
+    safe_zone_count: 2,
+    warning_count: 1,
+  },
+  summary: "Generated van 2D concept preview.",
+  title: "Van 版本",
 };
 
 const secondVersionFixture: DesignVersionResponse = {
@@ -954,6 +1031,36 @@ describe("Phase 4 workbench shell", () => {
     expect(compatibility.safeZoneOverlays[0]?.id).toBe("door-main");
   });
 
+  it("resolves lightweight 3D compatibility for the canonical MVP coupe template", () => {
+    const compatibility = buildPreview3DCompatibility({
+      artifact: artifactFixture,
+      version: canonicalCoupeVersionFixture,
+    });
+
+    expect(compatibility.status).toBe("compatible");
+    expect(compatibility.shell?.id).toBe(GENERIC_SIDE_COUPE_LIGHTWEIGHT_SHELL_ID);
+    expect(compatibility.shell?.templateId).toBe("generic_coupe_side_v1");
+    expect(compatibility.fallbackMessage).toBeNull();
+    expect(compatibility.source.previewSpecTemplateId).toBe("generic_coupe_side_v1");
+    expect((compatibility.preview3dSpec.warnings ?? []).map((warning) => warning.id)).toEqual(
+      expect.arrayContaining(["non_production_preview", "uv_not_verified"]),
+    );
+  });
+
+  it("returns a template-specific 2D fallback for unsupported MVP templates", () => {
+    const compatibility = buildPreview3DCompatibility({
+      artifact: artifactFixture,
+      version: vanVersionFixture,
+    });
+
+    expect(compatibility.status).toBe("incompatible");
+    expect(compatibility.shell).toBeNull();
+    expect(compatibility.reason).toContain("generic_van_side_v1");
+    expect(compatibility.fallbackMessage).toBe(PREVIEW_3D_FALLBACK_MESSAGE);
+    expect(compatibility.source.previewSpecTemplateId).toBe("generic_van_side_v1");
+    expect(compatibility.safeZoneOverlays[0]?.id).toBe("door-main");
+  });
+
   it("returns a stable 2D fallback for unsupported PreviewSpec templates", () => {
     const unsupportedVersion: DesignVersionResponse = {
       ...versionFixture,
@@ -1138,6 +1245,144 @@ describe("Phase 4 workbench shell", () => {
 
     expect(screen.getByText("2D 概念预览")).toBeVisible();
     expect(screen.getAllByText("PreviewSpec 摘要").length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("renders selected template PreviewSpec warnings and safe-zone labels in 2D", async () => {
+    localStorage.setItem("caragent.workbench.workspaceId", "workspace-1");
+    localStorage.setItem("caragent.workbench.briefId", "brief-1");
+    const fetchMock = mockResumeWithGenerationState({
+      artifacts: [vanArtifactFixture],
+      brief: vanDesignBriefFixture,
+      job: { ...generationJobFixture, status: "succeeded" },
+      versions: [vanVersionFixture],
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<Home />);
+
+    expect(await screen.findByText("2D 概念预览")).toBeVisible();
+    expect(screen.getAllByText("Generic van side-view").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText("generic_van_side_v1 · side")).toBeVisible();
+    expect(screen.getByText("Van rear quarter requires installer review.")).toBeVisible();
+    expect(screen.getByText("VAN MODE")).toBeVisible();
+    expect(screen.getAllByText("安全区 2").length).toBeGreaterThanOrEqual(1);
+    await userEvent.click(screen.getByRole("button", { name: "安全区" }));
+    expect(screen.getAllByText("rear-quarter").length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("submits targeted edit intent from selected template safe-zone coordinates", async () => {
+    const user = userEvent.setup();
+    localStorage.setItem("caragent.workbench.workspaceId", "workspace-1");
+    localStorage.setItem("caragent.workbench.briefId", "brief-1");
+    const succeededJob = {
+      ...generationJobFixture,
+      status: "succeeded",
+      updated_at: "2026-06-17T00:25:00Z",
+    } satisfies GenerationJobResponse;
+    const iterationJob = {
+      ...generationJobFixture,
+      id: "job-targeted-van",
+      idempotency_key: "iteration-version-van-123",
+      status: "queued",
+      updated_at: "2026-06-17T00:36:00Z",
+    } satisfies GenerationJobResponse;
+    const iterationResult: GenerationJobSubmissionResponse = {
+      idempotent_reused: false,
+      job: iterationJob,
+      queued: {
+        job_id: "job-targeted-van",
+        task_id: null,
+        task_name: "caragent_worker.generate_2d_concept_job",
+      },
+    };
+    const fetchMock = mockResumeWithGenerationState({
+      artifacts: [vanArtifactFixture],
+      events: [
+        {
+          ...jobEventFixture,
+          event_type: "completed",
+          message: "Artifact ready.",
+          progress: "100",
+          status: "succeeded",
+        },
+      ],
+      job: succeededJob,
+      versions: [vanVersionFixture],
+    })
+      .mockResolvedValueOnce(jsonResponse(iterationResult, 201))
+      .mockResolvedValueOnce(jsonResponse([iterationJob, succeededJob]))
+      .mockResolvedValueOnce(jsonResponse(iterationJob))
+      .mockResolvedValueOnce(
+        jsonResponse([{ ...jobEventFixture, job_id: "job-targeted-van" }]),
+      )
+      .mockResolvedValueOnce(jsonResponse([vanArtifactFixture]))
+      .mockResolvedValueOnce(jsonResponse([vanVersionFixture]))
+      .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse([]));
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<Home />);
+
+    expect(await screen.findByText("2D 概念预览")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "局部编辑" }));
+    await user.click(screen.getByRole("button", { name: "安全区" }));
+    await user.click(screen.getByRole("button", { name: "选择安全区 door-main" }));
+    await user.click(screen.getByRole("button", { name: "显示编辑遮罩" }));
+    expect(screen.getByText("已选 safe_zone: door-main")).toBeVisible();
+    expect(screen.getByText("编辑遮罩预览")).toBeVisible();
+
+    await user.type(screen.getByRole("textbox", { name: "迭代需求" }), "加大侧面角色");
+    await user.click(screen.getByRole("button", { name: "生成子迭代" }));
+
+    expect(await screen.findByText("子迭代已提交，父版本仍保留。")).toBeVisible();
+    const iterationCall = fetchMock.mock.calls.find(([url]) =>
+      String(url).includes("/versions/version-van/iterations"),
+    );
+    const iterationBody = JSON.parse(String((iterationCall?.[1] as RequestInit).body));
+    expect(iterationBody.edit_intent).toMatchObject({
+      mask: {
+        artifact_id: "artifact-van",
+        content_type: "image/png",
+        height: 768,
+        width: 1536,
+      },
+      parent_version_id: "version-van",
+      region: {
+        height: 0.29,
+        type: "rectangle",
+        unit: "normalized",
+        width: 0.43,
+        x: 0.3,
+        y: 0.42,
+      },
+      target: {
+        id: "door-main",
+        type: "safe_zone",
+      },
+    });
+  });
+
+  it("clears a stale targeted edit target after switching versions", async () => {
+    const user = userEvent.setup();
+    localStorage.setItem("caragent.workbench.workspaceId", "workspace-1");
+    localStorage.setItem("caragent.workbench.briefId", "brief-1");
+    const fetchMock = mockResumeWithGenerationState({
+      artifacts: [artifactFixture, secondArtifactFixture],
+      job: { ...generationJobFixture, status: "succeeded" },
+      versions: [versionFixture, secondVersionFixture],
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<Home />);
+
+    expect(await screen.findByText("2D 概念预览")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "局部编辑" }));
+    await user.click(screen.getByRole("button", { name: "选择图层 text-1" }));
+    expect(screen.getByText("已选 overlay_layer: text-1")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "版本 2" }));
+
+    expect(screen.queryByText("已选 overlay_layer: text-1")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "显示编辑遮罩" })).not.toBeInTheDocument();
   });
 
   it("renders the integrated workbench regions as the first screen", () => {

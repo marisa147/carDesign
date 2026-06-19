@@ -35,12 +35,12 @@ v3.0 starts from the final MVP delivery note and focuses on the template/source/
 
 ### Template-Aware Generation And Preview
 
-- [ ] **V3-INTEGRATION-01**: User can generate a concept on any MVP template through the local deterministic provider path.
-- [ ] **V3-INTEGRATION-02**: Safe-zone overlays, risk warnings, text/logo layers, and PreviewSpec coordinates align with the selected template in 2D preview.
-- [ ] **V3-INTEGRATION-03**: Targeted edits use selected template safe zones and masks for region selection, mask preview, and recomposition metadata.
-- [ ] **V3-INTEGRATION-04**: Reference-guided generation records template context alongside reference roles and rights snapshots.
-- [ ] **V3-INTEGRATION-05**: Lightweight 3D preview links supported template shells when present and falls back with template-specific non-production labels when absent.
-- [ ] **V3-INTEGRATION-06**: Contracts and generated TypeScript types expose template catalog, selection, and readiness fields without breaking archived v1/v2 payloads.
+- [x] **V3-INTEGRATION-01**: User can generate a concept on any MVP template through the local deterministic provider path.
+- [x] **V3-INTEGRATION-02**: Safe-zone overlays, risk warnings, text/logo layers, and PreviewSpec coordinates align with the selected template in 2D preview.
+- [x] **V3-INTEGRATION-03**: Targeted edits use selected template safe zones and masks for region selection, mask preview, and recomposition metadata.
+- [x] **V3-INTEGRATION-04**: Reference-guided generation records template context alongside reference roles and rights snapshots.
+- [x] **V3-INTEGRATION-05**: Lightweight 3D preview links supported template shells when present and falls back with template-specific non-production labels when absent.
+- [x] **V3-INTEGRATION-06**: Contracts and generated TypeScript types expose template catalog, selection, and readiness fields without breaking archived v1/v2 payloads.
 
 ### Production Readiness Preflight
 
@@ -111,12 +111,12 @@ v3.0 starts from the final MVP delivery note and focuses on the template/source/
 | V3-CATALOG-03 | Phase 17 | Complete |
 | V3-CATALOG-04 | Phase 17 | Complete |
 | V3-CATALOG-05 | Phase 17 | Complete |
-| V3-INTEGRATION-01 | Phase 18 | Pending |
-| V3-INTEGRATION-02 | Phase 18 | Pending |
-| V3-INTEGRATION-03 | Phase 18 | Pending |
-| V3-INTEGRATION-04 | Phase 18 | Pending |
-| V3-INTEGRATION-05 | Phase 18 | Pending |
-| V3-INTEGRATION-06 | Phase 18 | Pending |
+| V3-INTEGRATION-01 | Phase 18 | Complete |
+| V3-INTEGRATION-02 | Phase 18 | Complete |
+| V3-INTEGRATION-03 | Phase 18 | Complete |
+| V3-INTEGRATION-04 | Phase 18 | Complete |
+| V3-INTEGRATION-05 | Phase 18 | Complete |
+| V3-INTEGRATION-06 | Phase 18 | Complete |
 | V3-PREFLIGHT-01 | Phase 19 | Pending |
 | V3-PREFLIGHT-02 | Phase 19 | Pending |
 | V3-PREFLIGHT-03 | Phase 19 | Pending |
@@ -129,10 +129,10 @@ v3.0 starts from the final MVP delivery note and focuses on the template/source/
 
 **Coverage:**
 
-- v3.0 requirements: 31 total; 16 complete
+- v3.0 requirements: 31 total; 22 complete
 - Mapped to phases: 31
 - Unmapped: 0
 
 ---
 *Requirements defined: 2026-06-19*
-*Last updated: 2026-06-19 after Phase 17 completion*
+*Last updated: 2026-06-19 after Phase 18 completion*

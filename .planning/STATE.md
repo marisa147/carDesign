@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Template Library And Production Readiness
 status: in-progress
-stopped_at: Completed Phase 17; ready for Phase 18 planning
-last_updated: "2026-06-19T15:05:00Z"
-last_activity: "2026-06-19 -- Completed Phase 17 template catalog API and Workbench selection"
+stopped_at: Completed Phase 18; ready for Phase 19 planning
+last_updated: "2026-06-19T23:25:00+08:00"
+last_activity: "2026-06-19 -- Completed Phase 18 template-aware generation, preview, and editing"
 progress:
   total_phases: 6
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 33
-  completed_plans: 17
-  percent: 52
+  completed_plans: 23
+  percent: 70
 ---
 
 # Project State
@@ -21,17 +21,17 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-19)
 
 **Core value:** 用户能用自然语言快速得到一套可预览、可迭代、可导出的高质量痛车设计方案。
-**Current focus:** v3.0 Phase 18 planning
+**Current focus:** v3.0 Phase 19 planning
 
 ## Current Position
 
 Milestone: v3.0 Template Library And Production Readiness — IN PROGRESS
-Phase: Phase 18 — Template-Aware Generation, Preview, And Editing
+Phase: Phase 19 — Concept Handoff And Production Readiness Preflight
 Plan: none active
-Status: Ready to plan Phase 18
-Last activity: 2026-06-19 -- Completed Phase 17 template catalog API and Workbench selection
+Status: Ready to plan Phase 19
+Last activity: 2026-06-19 -- Completed Phase 18 template-aware generation, preview, and editing
 
-Progress: [#####-----] 52%
+Progress: [#######---] 70%
 
 ## Milestone Archives
 
@@ -53,7 +53,7 @@ v3.0 Template Library And Production Readiness is scoped to the following phase 
 | Phase 15 | Template Source Governance And Compatibility | 5/5 complete | V3-TEMPLATE-01..05 complete |
 | Phase 16 | MVP Generic Template Pack | 6/6 complete | V3-PACK-01..06 complete |
 | Phase 17 | Template Catalog API And Workbench Selection | 6/6 complete | V3-CATALOG-01..05 complete |
-| Phase 18 | Template-Aware Generation, Preview, And Editing | 0/6 | V3-INTEGRATION-01..06 |
+| Phase 18 | Template-Aware Generation, Preview, And Editing | 6/6 complete | V3-INTEGRATION-01..06 complete |
 | Phase 19 | Concept Handoff And Production Readiness Preflight | 0/5 | V3-PREFLIGHT-01..04 |
 | Phase 20 | V3 Hardening, Docs, Smoke, And UAT | 0/5 | V3-REL-01..05 |
 
@@ -172,6 +172,13 @@ Recent decisions affecting v2.0 and v3.0:
 - [Phase 17 Plan 04]: Frontend contracts, template API helpers, query keys, Workbench selected-template state, and resume loading are in place.
 - [Phase 17 Plan 05]: Workbench parameter panel now has a filterable template selector with thumbnail, source/license, readiness, warning, and disabled states.
 - [Phase 17 Plan 06]: Phase 17 focused and aggregate validations passed; V3-CATALOG-01..05 are complete.
+- [Phase 18 Planning]: Template-aware generation is scoped around PreviewSpec as the selected-version contract; no print-ready, verified UV, or real vehicle shell claims are added.
+- [Phase 18 Plan 01]: Worker generation tests now run local deterministic jobs for every MVP template and assert selected-template trace on model runs, artifacts, versions, job operations, and final events.
+- [Phase 18 Plan 02]: Core prompt planning chooses overlay safe zones from the selected template, and Workbench PreviewSpec summary displays template id/view/warnings from the selected version.
+- [Phase 18 Plan 03]: Workbench targeted edits use selected-template safe-zone coordinates, clear stale targets on version changes, and worker recomposition preserves template trace.
+- [Phase 18 Plan 04]: Reference-guided generation records concise template context alongside reference roles, rights snapshots, provider/model metadata, and cost trace.
+- [Phase 18 Plan 05]: Lightweight 3D compatibility resolves both legacy `generic-side-coupe` and canonical `generic_coupe_side_v1`, while unsupported MVP templates fall back with selected-template reason text.
+- [Phase 18 Plan 06]: Phase 18 validations, elevated contracts check, web/core/worker typechecks, and archived PreviewSpec regression coverage passed; V3-INTEGRATION-01..06 are complete.
 
 ### Pending Todos
 
@@ -188,7 +195,7 @@ None.
 - Hosted reference-image input remains manual-only until provider/model support, credentials, cost approval, and quota guards are verified.
 - Contract drift must be checked in each phase because v2.0 extends the v1.0 schema surface.
 - V3 template assets must be `internal_original`, licensed, or user-provided-with-rights; web-crawled or third-party reference-only material must not enter reusable template assets, masks, thumbnails, or catalog entries.
-- Template catalog selection exists; Phase 18 must prove generation, PreviewSpec overlays, targeted edits, reference traces, and 3D fallback align across every MVP template.
+- Template-aware generation, PreviewSpec overlays, targeted edits, reference traces, and 3D fallback are complete; Phase 19 must add concept-only production readiness preflight and richer handoff evidence without implying print readiness.
 - Concept handoff and preflight must keep non-production labels and avoid implying print-ready PSD/AI/PDF, verified scale/bleed/color/DPI, production UV, or installer readiness.
 
 ## Deferred Items
@@ -218,8 +225,8 @@ Items acknowledged by `audit-open` at v2.0 milestone close on 2026-06-19:
 
 ## Session Continuity
 
-Last session: 2026-06-19T15:05:00Z
-Stopped at: Completed Phase 17; ready for Phase 18 planning
+Last session: 2026-06-19T23:25:00+08:00
+Stopped at: Completed Phase 18; ready for Phase 19 planning
 Resume files:
 
 - `.planning/PROJECT.md`
@@ -234,6 +241,10 @@ Resume files:
 - `.planning/phases/17-template-catalog-api-and-workbench-selection/17-CONTEXT.md`
 - `.planning/phases/17-template-catalog-api-and-workbench-selection/17-VERIFICATION.md`
 - `.planning/phases/17-template-catalog-api-and-workbench-selection/17-REVIEW.md`
+- `.planning/phases/18-template-aware-generation-preview-and-editing/18-CONTEXT.md`
+- `.planning/phases/18-template-aware-generation-preview-and-editing/18-UI-SPEC.md`
+- `.planning/phases/18-template-aware-generation-preview-and-editing/18-VERIFICATION.md`
+- `.planning/phases/18-template-aware-generation-preview-and-editing/18-REVIEW.md`
 - `.planning/MILESTONES.md`
 - `.planning/RETROSPECTIVE.md`
 - `C:/Users/25858/Downloads/MVP_FINAL.md`
@@ -358,5 +369,5 @@ Resume files:
 - `.planning/phases/14-v2-mvp-hardening-docs-smoke-and-uat/14-06-SUMMARY.md`
 - `.planning/phases/14-v2-mvp-hardening-docs-smoke-and-uat/evidence/phase14-browser-metrics.json`
 
-Next recommended command: `$gsd-plan-phase 18`
-Alternative: `$gsd-discuss-phase 18 --auto`
+Next recommended command: `$gsd-plan-phase 19`
+Alternative: `$gsd-discuss-phase 19 --auto`

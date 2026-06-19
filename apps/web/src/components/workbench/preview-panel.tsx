@@ -84,6 +84,15 @@ export function PreviewPanel({ artifacts, isLoading, versions }: PreviewPanelPro
     }
   }, [clearVersionComparison, selectedComparisonChildId, versions]);
 
+  useEffect(() => {
+    if (!selectedEditTarget) {
+      return;
+    }
+    if (!previewSpec || !previewSpecContainsTarget(previewSpec, selectedEditTarget)) {
+      setSelectedEditTarget(null);
+    }
+  }, [previewSpec, selectedEditTarget, setSelectedEditTarget]);
+
   return (
     <div className="grid gap-4">
       <div className="flex min-h-[420px] items-center justify-center rounded-md border border-dashed border-border bg-muted">
@@ -329,6 +338,15 @@ function PreviewSpecSummary({ previewSpec }: { previewSpec: PreviewSpec }) {
   return (
     <div className="grid gap-2 rounded-md border border-border bg-background p-3">
       <p className="text-xs font-medium text-secondary-foreground">PreviewSpec 摘要</p>
+      <div className="grid gap-1 text-xs">
+        <div className="font-medium">
+          {previewSpec.template?.label ?? "Unknown template"}
+        </div>
+        <div className="break-all text-secondary-foreground">
+          {previewSpec.template?.id ?? "unknown-template"} ·{" "}
+          {previewSpec.template?.view ?? "unknown-view"}
+        </div>
+      </div>
       <div className="flex flex-wrap gap-2 text-xs">
         <span className="rounded-md border border-border bg-muted px-2 py-1">
           图层 {previewSpec.overlayLayers.length}
@@ -340,6 +358,13 @@ function PreviewSpecSummary({ previewSpec }: { previewSpec: PreviewSpec }) {
           警告 {previewSpec.warnings.length}
         </span>
       </div>
+      {previewSpec.warnings.length > 0 ? (
+        <div className="grid gap-1 text-xs text-secondary-foreground">
+          {previewSpec.warnings.map((warning) => (
+            <p key={warning.id}>{warning.message}</p>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -469,6 +494,7 @@ function TemplateLegend({
       <div className="font-medium">模板参考区</div>
       <div className="text-secondary-foreground">
         {previewSpec.template?.label ?? "Generic side-view coupe"} ·{" "}
+        {previewSpec.template?.id ?? "unknown-template"} ·{" "}
         {previewSpec.template?.view ?? "side"}
       </div>
       {showSafeZones ? (
@@ -656,6 +682,21 @@ function isSelectedEditTarget(
   id: string,
 ): boolean {
   return target?.type === type && target.id === id;
+}
+
+function previewSpecContainsTarget(
+  previewSpec: PreviewSpec,
+  target: TargetedEditTarget,
+): boolean {
+  if (target.type === "safe_zone") {
+    return previewSpec.safeZones.some((zone) => zone.id === target.id);
+  }
+
+  const layer = previewSpec.overlayLayers.find((candidate) => candidate.id === target.id);
+  if (!layer) {
+    return false;
+  }
+  return !layer.zoneId || previewSpec.safeZones.some((zone) => zone.id === layer.zoneId);
 }
 
 function readNumber(value: unknown): number {

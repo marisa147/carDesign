@@ -16,7 +16,12 @@ from caragent_core.enums import (
     JobStatus,
     ModelRunStatus,
 )
-from caragent_core.generation import MVP_COUPE_TEMPLATE_ID, create_generation_brief
+from caragent_core.generation import (
+    MVP_COUPE_TEMPLATE_ID,
+    MVP_TEMPLATE_IDS,
+    MVP_VAN_TEMPLATE_ID,
+    create_generation_brief,
+)
 from caragent_core.models import (
     Artifact,
     DesignVersion,
@@ -143,6 +148,49 @@ def test_generation_worker_persists_prompt_artifact_version_and_success(
     assert version.lineage_depth == 0
 
 
+def test_generation_worker_runs_local_provider_for_every_mvp_template(
+    tmp_path: Path,
+) -> None:
+    for template_id in MVP_TEMPLATE_IDS:
+        template_tmp_path = tmp_path / template_id
+        template_tmp_path.mkdir()
+        seeded = seed_generation_job(template_tmp_path, vehicle_template_id=template_id)
+        output_storage = InMemoryObjectStorage()
+
+        result = asyncio.run(
+            run_generate_2d_concept_job(
+                seeded.database_url,
+                seeded.job_id,
+                settings=WorkerSettings(),
+                storage=output_storage,
+            ),
+        )
+        state = asyncio.run(read_generation_state(seeded.session_factory, seeded.job_id))
+
+        assert result["status"] == "succeeded"
+        assert result["external_calls"] is False
+        assert len(state.model_runs) == 1
+        assert len(state.artifacts) == 1
+        assert len(state.versions) == 1
+
+        surfaces = [
+            state.model_runs[0].parameters,
+            state.artifacts[0].metadata_json,
+            state.versions[0].parameters,
+            state.job.metadata_json["operations"],
+            state.events[-1].metadata_json,
+        ]
+        for surface in surfaces:
+            assert_template_trace(surface, template_id=template_id)
+
+        preview_spec = state.versions[0].parameters["preview_spec"]
+        zone_ids = {str(zone["id"]) for zone in preview_spec["safe_zones"]}
+        assert preview_spec["template"]["id"] == template_id
+        assert zone_ids
+        for layer in preview_spec["overlay_layers"]:
+            assert layer["zone_id"] in zone_ids
+
+
 def test_generation_worker_creates_child_version_from_iteration_metadata(
     tmp_path: Path,
 ) -> None:
@@ -260,6 +308,7 @@ def test_generation_worker_persists_reference_trace_across_durable_records(
     ]
     for surface in surfaces:
         assert_reference_trace(surface, reference_id=reference_id)
+        assert_template_trace(surface, template_id=MVP_COUPE_TEMPLATE_ID)
 
 
 def test_generation_worker_recomposes_safe_targeted_edit_without_provider_call(
@@ -356,6 +405,53 @@ def test_generation_worker_recomposes_safe_targeted_edit_without_provider_call(
     )
     assert state.job.metadata_json["operations"]["edit_route"] == "deterministic_recomposition"
     assert state.job.metadata_json["operations"]["mask_artifact_id"] == str(state.artifacts[0].id)
+
+
+def test_generation_worker_recomposition_preserves_selected_template_trace(
+    tmp_path: Path,
+) -> None:
+    seeded = seed_generation_job(
+        tmp_path,
+        iteration_parent=True,
+        targeted_edit_instruction="text=VAN MODE",
+        vehicle_template_id=MVP_VAN_TEMPLATE_ID,
+    )
+    output_storage = InMemoryObjectStorage()
+
+    result = asyncio.run(
+        run_generate_2d_concept_job(
+            seeded.database_url,
+            seeded.job_id,
+            settings=WorkerSettings(v2_targeted_regeneration_enabled=True),
+            storage=output_storage,
+        ),
+    )
+    state = asyncio.run(read_generation_state(seeded.session_factory, seeded.job_id))
+
+    assert result["status"] == "succeeded"
+    assert len(state.model_runs) == 1
+    assert len(state.artifacts) == 2
+    assert len(state.versions) == 2
+
+    child = state.versions[1]
+    assert child.parameters["preview_spec"]["template"]["id"] == MVP_VAN_TEMPLATE_ID
+    assert child.parameters["region"] == {
+        "height": 0.29,
+        "type": "rectangle",
+        "unit": "normalized",
+        "width": 0.43,
+        "x": 0.3,
+        "y": 0.42,
+    }
+    for surface in [
+        state.model_runs[0].parameters,
+        state.model_runs[0].prompt_payload,
+        state.artifacts[1].metadata_json,
+        child.parameters,
+        state.job.metadata_json["operations"],
+        state.events[-1].metadata_json,
+    ]:
+        assert_template_trace(surface, template_id=MVP_VAN_TEMPLATE_ID)
 
 
 def test_generation_worker_rejects_invalid_recomposition_without_partial_child(
@@ -1658,6 +1754,25 @@ def assert_reference_trace(surface: dict[str, object], *, reference_id: str) -> 
     assert "secret" not in rendered.lower()
 
 
+def assert_template_trace(surface: dict[str, object], *, template_id: str) -> None:
+    template = surface["vehicle_template"]
+    assert isinstance(template, dict)
+    assert template["id"] == template_id
+    assert template["view"] == "side"
+    assert str(template["label"]).startswith("Generic ")
+    if "canvas" in template:
+        canvas = template["canvas"]
+        assert isinstance(canvas, dict)
+        assert canvas["height"] == 768
+        assert canvas["width"] == 1536
+    else:
+        assert template["canvas_height"] == 768
+        assert template["canvas_width"] == 1536
+    rendered = json.dumps(template, sort_keys=True)
+    assert "api_key" not in rendered.lower()
+    assert "secret" not in rendered.lower()
+
+
 def seed_generation_job(
     tmp_path: Path,
     *,
@@ -1673,6 +1788,7 @@ def seed_generation_job(
     targeted_edit_instruction: str | None = None,
     targeted_edit_route_preference: str = "deterministic_recomposition",
     targeted_edit_target_id: str = "text-1",
+    vehicle_template_id: str = MVP_COUPE_TEMPLATE_ID,
 ) -> SeededGenerationJob:
     database_url = f"sqlite+aiosqlite:///{(tmp_path / 'generation.db').as_posix()}"
     engine = create_engine(database_url)
@@ -1693,6 +1809,7 @@ def seed_generation_job(
             targeted_edit_instruction=targeted_edit_instruction,
             targeted_edit_route_preference=targeted_edit_route_preference,
             targeted_edit_target_id=targeted_edit_target_id,
+            vehicle_template_id=vehicle_template_id,
         ),
     )
     asyncio.run(engine.dispose())
@@ -1721,6 +1838,7 @@ async def seed_database(
     targeted_edit_instruction: str | None,
     targeted_edit_route_preference: str,
     targeted_edit_target_id: str,
+    vehicle_template_id: str,
 ) -> tuple[UUID, UUID | None, tuple[UUID, ...]]:
     async with engine.begin() as connection:
         await connection.run_sync(metadata.create_all)
@@ -1789,6 +1907,7 @@ async def seed_database(
             reference_asset_ids=reference_asset_ids,
             reference_usage=reference_usage,
             text=["MOON DRIVE"],
+            vehicle_template_id=vehicle_template_id,
         ).model_dump(mode="json")
         brief = await workspaces.create_design_brief(
             session,
@@ -1798,8 +1917,28 @@ async def seed_database(
         )
         parent_version_id: UUID | None = None
         parent_artifact_id: UUID | None = None
+        targeted_edit_region = {
+            "height": 0.24,
+            "type": "rectangle",
+            "unit": "normalized",
+            "width": 0.34,
+            "x": 0.32,
+            "y": 0.47,
+        }
         if iteration_parent:
-            parent_parameters = parent_version_parameters()
+            parent_parameters = parent_version_parameters(vehicle_template_id=vehicle_template_id)
+            safe_zones = parent_parameters["preview_spec"]["safe_zones"]
+            if isinstance(safe_zones, list) and safe_zones:
+                first_zone = safe_zones[0]
+                if isinstance(first_zone, dict):
+                    targeted_edit_region = {
+                        "height": first_zone["height"],
+                        "type": "rectangle",
+                        "unit": "normalized",
+                        "width": first_zone["width"],
+                        "x": first_zone["x"],
+                        "y": first_zone["y"],
+                    }
             parent = await jobs.create_design_version(
                 session,
                 workspace.id,
@@ -1844,6 +1983,7 @@ async def seed_database(
             job_metadata["edit_intent"] = targeted_edit_intent_metadata(
                 parent_artifact_id=parent_artifact_id,
                 parent_version_id=parent_version_id,
+                region=targeted_edit_region,
                 route_preference=targeted_edit_route_preference,
                 target_id=targeted_edit_target_id,
                 instruction=targeted_edit_instruction,
@@ -1871,6 +2011,7 @@ def targeted_edit_intent_metadata(
     *,
     parent_artifact_id: UUID,
     parent_version_id: UUID,
+    region: dict[str, object] | None = None,
     target_id: str,
     instruction: str,
     route_preference: str = "deterministic_recomposition",
@@ -1888,7 +2029,8 @@ def targeted_edit_intent_metadata(
             "instructions": [instruction],
             "summary": instruction,
         },
-        "region": {
+        "region": region
+        or {
             "height": 0.24,
             "type": "rectangle",
             "unit": "normalized",
@@ -1902,8 +2044,11 @@ def targeted_edit_intent_metadata(
     }
 
 
-def parent_version_parameters() -> dict[str, object]:
-    preview_spec = parent_preview_spec()
+def parent_version_parameters(
+    *,
+    vehicle_template_id: str = MVP_COUPE_TEMPLATE_ID,
+) -> dict[str, object]:
+    preview_spec = parent_preview_spec(vehicle_template_id=vehicle_template_id)
     return {
         "concept_label": "parent_preview",
         "model": "local-concept-v1",
@@ -1915,14 +2060,34 @@ def parent_version_parameters() -> dict[str, object]:
     }
 
 
-def parent_preview_spec() -> dict[str, object]:
-    return {
-        "canvas": {"height": 768, "width": 1536},
-        "overlay_layers": [
-            {"id": "text-1", "kind": "text", "text": "MOON DRIVE", "zone_id": "door-main"},
-            {"asset_id": "logo-1", "id": "logo-1", "kind": "logo", "zone_id": "rear-quarter"},
-        ],
-        "safe_zones": [
+def parent_preview_spec(
+    *,
+    vehicle_template_id: str = MVP_COUPE_TEMPLATE_ID,
+) -> dict[str, object]:
+    if vehicle_template_id == MVP_VAN_TEMPLATE_ID:
+        safe_zones = [
+            {
+                "height": 0.29,
+                "id": "door-main",
+                "kind": "body",
+                "label": "Large van side panel",
+                "width": 0.43,
+                "x": 0.3,
+                "y": 0.42,
+            },
+            {
+                "height": 0.24,
+                "id": "rear-quarter",
+                "kind": "body",
+                "label": "Rear cargo quarter panel",
+                "width": 0.18,
+                "x": 0.67,
+                "y": 0.44,
+            },
+        ]
+        template_label = "Generic van side-view"
+    else:
+        safe_zones = [
             {
                 "height": 0.24,
                 "id": "door-main",
@@ -1941,10 +2106,20 @@ def parent_preview_spec() -> dict[str, object]:
                 "x": 0.64,
                 "y": 0.43,
             },
+        ]
+        template_label = "Generic coupe side-view"
+    return {
+        "canvas": {"height": 768, "width": 1536},
+        "overlay_layers": [
+            {"id": "text-1", "kind": "text", "text": "MOON DRIVE", "zone_id": "door-main"},
+            {"asset_id": "logo-1", "id": "logo-1", "kind": "logo", "zone_id": "rear-quarter"},
         ],
+        "safe_zones": safe_zones,
         "template": {
-            "id": "generic-side-coupe",
-            "label": "Generic side-view coupe",
+            "id": vehicle_template_id,
+            "label": template_label,
+            "readiness": {"catalog_eligible": True},
+            "source": {"license_status": "approved", "source_type": "internal_original"},
             "view": "side",
         },
         "warnings": [],

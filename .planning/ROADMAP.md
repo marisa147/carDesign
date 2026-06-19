@@ -10,7 +10,7 @@
 
 v3.0 is the active milestone. It follows the final MVP delivery note and focuses on template source governance, an internal generic MVP template pack, template catalog selection, template-aware generation/preview/editing, concept-only production readiness preflight, and release hardening.
 
-**Next up:** Phase 18 — Template-Aware Generation, Preview, And Editing.
+**Next up:** Phase 19 — Concept Handoff And Production Readiness Preflight.
 
 ## v3.0 Scope
 
@@ -33,7 +33,7 @@ Make templates trustworthy and selectable before the product moves toward true p
 | 15 | Template Source Governance And Compatibility | Establish source/license policy, template registry shape, prohibited-source blocking, and legacy template compatibility. | V3-TEMPLATE-01..05 | 5/5 |
 | 16 | MVP Generic Template Pack | Create and validate five internal-original generic side-view templates with required assets and metadata. | V3-PACK-01..06 | 6/6 |
 | 17 | Template Catalog API And Workbench Selection | Expose templates through API and Workbench selection with source/license/readiness warnings. | V3-CATALOG-01..05 | 6/6 |
-| 18 | Template-Aware Generation, Preview, And Editing | Carry selected template context through generation, PreviewSpec, targeted edits, references, contracts, and 3D fallback. | V3-INTEGRATION-01..06 | 6 |
+| 18 | Template-Aware Generation, Preview, And Editing | Carry selected template context through generation, PreviewSpec, targeted edits, references, contracts, and 3D fallback. | V3-INTEGRATION-01..06 | 6/6 |
 | 19 | Concept Handoff And Production Readiness Preflight | Add concept-only production readiness reporting and richer template evidence in handoff ZIPs. | V3-PREFLIGHT-01..04 | 5 |
 | 20 | V3 Hardening, Docs, Smoke, And UAT | Validate, document, smoke-test, UAT, and audit the v3.0 milestone. | V3-REL-01..05 | 5 |
 
@@ -128,6 +128,8 @@ Make templates trustworthy and selectable before the product moves toward true p
 3. Lightweight 3D never implies verified UV; unsupported templates fall back clearly.
 4. Existing v1/v2 payloads and generated TypeScript contracts remain compatible.
 
+**Status:** Complete. Selected-template context now flows through local deterministic generation, PreviewSpec overlays, targeted edit regions, reference/provider metadata, durable worker records, Workbench preview, canonical/legacy 3D compatibility, and contract regression checks.
+
 #### Phase 19: Concept Handoff And Production Readiness Preflight
 
 **Goal:** Explain what is still missing for production instead of pretending concept handoff is print-ready.
@@ -204,7 +206,7 @@ Make templates trustworthy and selectable before the product moves toward true p
 |-----------|--------|----------------|--------|-----------|
 | v1.0 MVP | 1-7 | 54/54 | Complete | 2026-06-18 |
 | v2.0 V2 MVP | 8-14 | 48/48 | Complete | 2026-06-19 |
-| v3.0 Template Library And Production Readiness | 15-20 | 17/33 | In Progress | — |
+| v3.0 Template Library And Production Readiness | 15-20 | 23/33 | In Progress | — |
 
 ## Deferred Future Directions
 
@@ -216,4 +218,4 @@ Make templates trustworthy and selectable before the product moves toward true p
 - Advanced multi-agent orchestration beyond the typed generation and worker pipeline.
 
 ---
-*Last updated: 2026-06-19 after Phase 17 completion*
+*Last updated: 2026-06-19 after Phase 18 completion*
