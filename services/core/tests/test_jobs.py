@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import json
+import zipfile
 from collections.abc import AsyncIterator
 from decimal import Decimal
+from io import BytesIO
 
 import pytest
 from sqlalchemy import func, select
@@ -442,3 +445,254 @@ async def test_export_rejects_unsupported_format(
                 version.id,
                 export_format="pdf",
             )
+
+
+async def test_phase_13_handoff_package_zip_contains_reports_and_assets(
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    from caragent_core.handoff import (
+        ENHANCED_HANDOFF_PACKAGE_FORMAT,
+        build_handoff_package_zip,
+    )
+    from caragent_core.storage import InMemoryObjectStorage
+
+    storage = InMemoryObjectStorage()
+    async with session_scope(session_factory) as session:
+        workspace = await workspaces.create_workspace(session, title="Handoff ZIP")
+        created = await jobs.create_job(
+            session,
+            workspace.id,
+            idempotency_key="handoff-zip-001",
+            operation="generate_concept",
+        )
+        version = await jobs.create_design_version(
+            session,
+            workspace.id,
+            job_id=created.job.id,
+            parameters=_handoff_parameters(),
+            title="Package source",
+        )
+        concept = await jobs.create_artifact(
+            session,
+            workspace.id,
+            byte_size=11,
+            checksum_sha256="a" * 64,
+            content_type="image/png",
+            height=768,
+            job_id=created.job.id,
+            kind=ArtifactKind.GENERATED_IMAGE.value,
+            object_key=f"workspaces/{workspace.id}/generated/{version.id}/concept.png",
+            version_id=version.id,
+            width=1536,
+        )
+        screenshot = await jobs.create_artifact(
+            session,
+            workspace.id,
+            byte_size=14,
+            checksum_sha256="b" * 64,
+            content_type="image/png",
+            height=720,
+            job_id=created.job.id,
+            kind=ArtifactKind.PREVIEW_3D_SCREENSHOT.value,
+            metadata={"preview_3d_screenshot": {"warning_ids": ["uv_not_verified"]}},
+            object_key=f"workspaces/{workspace.id}/preview_3d_screenshot/{version.id}/capture.png",
+            version_id=version.id,
+            width=1280,
+        )
+        model_run = await jobs.create_model_run(
+            session,
+            created.job.id,
+            input_artifact_ids=["66666666-6666-6666-6666-666666666666"],
+            model="local-concept-v1",
+            output_artifact_id=concept.id,
+            prompt_text="Review package prompt api_key=secret image_base64 C:\\tmp\\concept.png",
+            provider="local-simulation",
+            status=ModelRunStatus.SUCCEEDED.value,
+        )
+
+        await storage.put_object(concept.object_key, b"concept-png", "image/png")
+        await storage.put_object(screenshot.object_key, b"screenshot-png", "image/png")
+
+        result = await build_handoff_package_zip(
+            model_runs=[model_run],
+            package_object_key=f"workspaces/{workspace.id}/exports/{version.id}/concept-handoff.zip",
+            review_notes=["Approved for concept discussion."],
+            screenshot_artifacts=[screenshot],
+            source_artifact=concept,
+            storage=storage,
+            version=version,
+        )
+
+    assert result.content_type == "application/zip"
+    assert result.byte_size == len(result.content)
+    assert len(result.checksum_sha256) == 64
+
+    with zipfile.ZipFile(BytesIO(result.content)) as archive:
+        names = set(archive.namelist())
+        assert {
+            "manifest.json",
+            "handoff-notes.md",
+            "warnings.md",
+            "prompt-trace.md",
+            "references.json",
+            "images/concept.png",
+            f"screenshots/{screenshot.id}.png",
+        } <= names
+        assert archive.read("images/concept.png") == b"concept-png"
+        assert archive.read(f"screenshots/{screenshot.id}.png") == b"screenshot-png"
+
+        manifest = json.loads(archive.read("manifest.json"))
+        assert manifest["format"] == ENHANCED_HANDOFF_PACKAGE_FORMAT
+        assert manifest["schema_version"] == 1
+        assert manifest["source_artifact"]["id"] == str(concept.id)
+
+        rendered_text = "\n".join(
+            archive.read(name).decode("utf-8").lower()
+            for name in [
+                "manifest.json",
+                "handoff-notes.md",
+                "warnings.md",
+                "prompt-trace.md",
+                "references.json",
+            ]
+        )
+        assert "api_key" not in rendered_text
+        assert "secret" not in rendered_text
+        assert "image_base64" not in rendered_text
+        assert "c:\\" not in rendered_text
+
+
+async def test_phase_13_handoff_package_zip_requires_source_concept_bytes(
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    from caragent_core.handoff import HandoffPackageBuildError, build_handoff_package_zip
+    from caragent_core.storage import InMemoryObjectStorage
+
+    storage = InMemoryObjectStorage()
+    async with session_scope(session_factory) as session:
+        workspace = await workspaces.create_workspace(session, title="Missing concept")
+        version = await jobs.create_design_version(
+            session,
+            workspace.id,
+            parameters=_handoff_parameters(),
+            title="Missing source",
+        )
+        concept = await jobs.create_artifact(
+            session,
+            workspace.id,
+            byte_size=11,
+            content_type="image/png",
+            kind=ArtifactKind.GENERATED_IMAGE.value,
+            object_key=f"workspaces/{workspace.id}/generated/{version.id}/missing.png",
+            version_id=version.id,
+        )
+
+        with pytest.raises(HandoffPackageBuildError, match="source concept image"):
+            await build_handoff_package_zip(
+                package_object_key=f"workspaces/{workspace.id}/exports/{version.id}/missing.zip",
+                source_artifact=concept,
+                storage=storage,
+                version=version,
+            )
+
+
+async def test_phase_13_handoff_package_zip_warns_for_missing_optional_screenshot(
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    from caragent_core.handoff import build_handoff_package_zip
+    from caragent_core.storage import InMemoryObjectStorage
+
+    storage = InMemoryObjectStorage()
+    async with session_scope(session_factory) as session:
+        workspace = await workspaces.create_workspace(session, title="Missing screenshot")
+        version = await jobs.create_design_version(
+            session,
+            workspace.id,
+            parameters=_handoff_parameters(),
+            title="Missing screenshot source",
+        )
+        concept = await jobs.create_artifact(
+            session,
+            workspace.id,
+            byte_size=11,
+            content_type="image/png",
+            kind=ArtifactKind.GENERATED_IMAGE.value,
+            object_key=f"workspaces/{workspace.id}/generated/{version.id}/concept.png",
+            version_id=version.id,
+        )
+        screenshot = await jobs.create_artifact(
+            session,
+            workspace.id,
+            byte_size=14,
+            content_type="image/png",
+            kind=ArtifactKind.PREVIEW_3D_SCREENSHOT.value,
+            object_key=f"workspaces/{workspace.id}/preview_3d_screenshot/{version.id}/missing.png",
+            version_id=version.id,
+        )
+        await storage.put_object(concept.object_key, b"concept-png", "image/png")
+
+        result = await build_handoff_package_zip(
+            package_object_key=f"workspaces/{workspace.id}/exports/{version.id}/missing-screenshot.zip",
+            screenshot_artifacts=[screenshot],
+            source_artifact=concept,
+            storage=storage,
+            version=version,
+        )
+
+    with zipfile.ZipFile(BytesIO(result.content)) as archive:
+        assert f"screenshots/{screenshot.id}.png" not in archive.namelist()
+        manifest = json.loads(archive.read("manifest.json"))
+
+    assert any(
+        item["id"] == "preview_3d_screenshot_missing_object"
+        for item in manifest["warnings"]["items"]
+    )
+
+
+def _handoff_parameters() -> dict[str, object]:
+    reference_asset_id = "66666666-6666-6666-6666-666666666666"
+    return {
+        "included_reference_asset_ids": [reference_asset_id],
+        "omitted_reference_asset_ids": [],
+        "preview_3d": {
+            "warnings": [
+                {
+                    "id": "non_production_preview",
+                    "message": "Lightweight 3D preview is concept-only.",
+                    "severity": "warning",
+                },
+                {
+                    "id": "uv_not_verified",
+                    "message": "Vehicle-specific UV mapping has not been verified.",
+                    "severity": "warning",
+                },
+            ],
+        },
+        "preview_spec": {
+            "safe_zones": [
+                {
+                    "height": 0.24,
+                    "id": "door-main",
+                    "kind": "body",
+                    "label": "Door / main side panel",
+                    "width": 0.34,
+                    "x": 0.32,
+                    "y": 0.47,
+                },
+            ],
+            "template": {
+                "id": "generic-side-coupe",
+                "label": "Generic side-view coupe",
+                "view": "side",
+            },
+        },
+        "reference_roles": {"character": [reference_asset_id]},
+        "reference_warning_count": 0,
+        "rights_snapshot": {
+            reference_asset_id: {
+                "rights_status": "confirmed",
+                "source_label": "User upload",
+            },
+        },
+        "unsupported_reference_roles": [],
+    }
