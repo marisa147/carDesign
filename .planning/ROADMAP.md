@@ -4,177 +4,13 @@
 
 - ✅ **v1.0 MVP** — Phases 1-7 shipped on 2026-06-18. Archive: `.planning/milestones/v1.0-ROADMAP.md`.
 - ✅ **v2.0 V2 MVP** — Phases 8-14 shipped on 2026-06-19. Archive: `.planning/milestones/v2.0-ROADMAP.md`.
-- ✅ **v3.0 Template Library And Production Readiness** — Phases 15-20 complete on 2026-06-20; archive pending.
+- ✅ **v3.0 Template Library And Production Readiness** — Phases 15-20 shipped on 2026-06-20. Archive: `.planning/milestones/v3.0-ROADMAP.md`.
 
 ## Current Planning State
 
-v3.0 is complete and ready for milestone archive. It follows the final MVP delivery note and delivers template source governance, an internal generic MVP template pack, template catalog selection, template-aware generation/preview/editing, concept-only production readiness preflight, release hardening, Docker/local smoke evidence, Browser UAT, docs, and milestone audit.
+v3.0 is complete and archived. The next milestone has not been defined yet.
 
-**Next up:** `$gsd-complete-milestone` for v3.0 archive.
-
-## v3.0 Scope
-
-### Goal
-
-Make templates trustworthy and selectable before the product moves toward true production handoff, verified UV, real licensed vehicle templates, or commercial ordering workflows.
-
-### Non-Goals
-
-- No print-ready PSD/AI/PDF export.
-- No verified UV or real 3D wrap accuracy claims.
-- No marketplace, quote/order/payment, gallery, or installer network.
-- No automated legal-grade copyright verification.
-- No production hosted-provider rollout claims.
-
-### Phase Plan
-
-| Phase | Name | Goal | Requirements | Plans |
-|-------|------|------|--------------|-------|
-| 15 | Template Source Governance And Compatibility | Establish source/license policy, template registry shape, prohibited-source blocking, and legacy template compatibility. | V3-TEMPLATE-01..05 | 5/5 |
-| 16 | MVP Generic Template Pack | Create and validate five internal-original generic side-view templates with required assets and metadata. | V3-PACK-01..06 | 6/6 |
-| 17 | Template Catalog API And Workbench Selection | Expose templates through API and Workbench selection with source/license/readiness warnings. | V3-CATALOG-01..05 | 6/6 |
-| 18 | Template-Aware Generation, Preview, And Editing | Carry selected template context through generation, PreviewSpec, targeted edits, references, contracts, and 3D fallback. | V3-INTEGRATION-01..06 | 6/6 |
-| 19 | Concept Handoff And Production Readiness Preflight | Add concept-only production readiness reporting and richer template evidence in handoff ZIPs. | V3-PREFLIGHT-01..04 | 5/5 |
-| 20 | V3 Hardening, Docs, Smoke, And UAT | Validate, document, smoke-test, UAT, and audit the v3.0 milestone. | V3-REL-01..05 | 5/5 |
-
-### Phase Details
-
-#### Phase 15: Template Source Governance And Compatibility
-
-**Goal:** Make template provenance explicit before any reusable template assets enter the product.
-
-**Requirements:** V3-TEMPLATE-01, V3-TEMPLATE-02, V3-TEMPLATE-03, V3-TEMPLATE-04, V3-TEMPLATE-05
-
-**Planned plans:**
-
-- 15-01: Template source policy and readiness model.
-- 15-02: Template registry metadata, license fields, and audit timestamps.
-- 15-03: Prohibited-source guards for reusable template assets, masks, thumbnails, and catalog entries.
-- 15-04: Legacy `generic-side-coupe` compatibility bridge.
-- 15-05: Template governance validation and documentation.
-
-**Success criteria:**
-
-1. Source types and license states are represented in typed contracts and docs.
-2. Disallowed sources cannot become catalog templates or reusable masks.
-3. Existing v1/v2 `generic-side-coupe` payloads still resolve predictably.
-4. Operators can audit template readiness and blocking issues.
-
-#### Phase 16: MVP Generic Template Pack
-
-**Goal:** Add the five internal-original generic side-view templates named in `MVP_FINAL.md`.
-
-**Requirements:** V3-PACK-01, V3-PACK-02, V3-PACK-03, V3-PACK-04, V3-PACK-05, V3-PACK-06
-
-**Planned plans:**
-
-- 16-01: Template package file structure and schema validation.
-- 16-02: Internal generic coupe template asset set and legacy alias mapping.
-- 16-03: Internal generic sedan, hatchback, SUV, and van template asset sets.
-- 16-04: Mask, panel-line, thumbnail, and safe-zone validation command.
-- 16-05: Template resolver integration for briefs and prompt plans.
-- 16-06: Template-pack regression coverage and smoke fixtures.
-
-**Success criteria:**
-
-1. The five MVP template ids are present and internal-original.
-2. Every template includes required assets and metadata.
-3. One validation command catches missing files, invalid dimensions, and out-of-bounds safe zones.
-4. Generation brief resolution preserves selected template identity and warnings.
-
-#### Phase 17: Template Catalog API And Workbench Selection
-
-**Goal:** Let users choose templates deliberately, with source and readiness warnings visible before generation.
-
-**Requirements:** V3-CATALOG-01, V3-CATALOG-02, V3-CATALOG-03, V3-CATALOG-04, V3-CATALOG-05
-
-**Planned plans:**
-
-- 17-01: Template list/detail API and generated contracts.
-- 17-02: Thumbnail serving and readiness filtering.
-- 17-03: Workbench template browser and selector.
-- 17-04: Source/license warning states and blocked submission UX.
-- 17-05: Template selection persistence through parameters and job creation.
-- 17-06: Catalog regression tests and browser checks.
-
-**Success criteria:**
-
-1. API can list and describe selectable templates.
-2. Workbench users can select templates and see warnings before submitting generation.
-3. Selected template id/view survive refresh and job creation.
-4. Unavailable or disallowed templates produce stable, user-visible messages.
-
-**Status:** Complete. Catalog endpoints, thumbnail serving, Workbench selector, brief update persistence, job metadata, generated contracts, and regression tests are in place.
-
-#### Phase 18: Template-Aware Generation, Preview, And Editing
-
-**Goal:** Make the selected template a real part of the generation and review pipeline, not only UI state.
-
-**Requirements:** V3-INTEGRATION-01, V3-INTEGRATION-02, V3-INTEGRATION-03, V3-INTEGRATION-04, V3-INTEGRATION-05, V3-INTEGRATION-06
-
-**Planned plans:**
-
-- 18-01: Local deterministic generation on every MVP template.
-- 18-02: 2D PreviewSpec, safe-zone overlays, text/logo layers, and warnings per selected template.
-- 18-03: Targeted edit region/mask selection from template safe zones and masks.
-- 18-04: Reference trace and provider/model metadata with template context.
-- 18-05: Lightweight 3D shell compatibility and 2D fallback per template.
-- 18-06: Contract drift, compatibility, and archived payload regression validation.
-
-**Success criteria:**
-
-1. Users can generate against any MVP template through local deterministic provider flow.
-2. 2D overlays, targeted edits, references, and PreviewSpec metadata align to the selected template.
-3. Lightweight 3D never implies verified UV; unsupported templates fall back clearly.
-4. Existing v1/v2 payloads and generated TypeScript contracts remain compatible.
-
-**Status:** Complete. Selected-template context now flows through local deterministic generation, PreviewSpec overlays, targeted edit regions, reference/provider metadata, durable worker records, Workbench preview, canonical/legacy 3D compatibility, and contract regression checks.
-
-#### Phase 19: Concept Handoff And Production Readiness Preflight
-
-**Goal:** Explain what is still missing for production instead of pretending concept handoff is print-ready.
-
-**Requirements:** V3-PREFLIGHT-01, V3-PREFLIGHT-02, V3-PREFLIGHT-03, V3-PREFLIGHT-04
-
-**Planned plans:**
-
-- 19-01: Production readiness preflight contract and report schema.
-- 19-02: Version-scoped preflight API and durable report artifact.
-- 19-03: Workbench preflight panel with concept-only status.
-- 19-04: Enhanced handoff ZIP template evidence and validation report.
-- 19-05: Print-ready export block tests and docs.
-
-**Success criteria:**
-
-1. Users can run preflight on a selected version.
-2. The report names missing scale, bleed, color, DPI, UV, installer, and real-template evidence.
-3. Handoff ZIPs include template source/license and validation evidence.
-4. Print-ready exports remain blocked until a future production milestone supplies evidence.
-
-**Status:** Complete. Version-scoped preflight reports, durable JSON export artifacts, Workbench preflight UI, enhanced ZIP template/preflight evidence, and print-ready export block tests are in place.
-
-#### Phase 20: V3 Hardening, Docs, Smoke, And UAT
-
-**Goal:** Close v3.0 with evidence that template governance and selection are reliable.
-
-**Requirements:** V3-REL-01, V3-REL-02, V3-REL-03, V3-REL-04, V3-REL-05
-
-**Planned plans:**
-
-- 20-01: Focused backend, worker, frontend, contracts, and template-pack validation.
-- 20-02: Docker/local smoke for template selection, generation, export, and failure states.
-- 20-03: Desktop/mobile Browser UAT for catalog, warnings, generation, edit, 3D fallback, handoff, and preflight.
-- 20-04: V3 docs, feature flags, release notes, and future-promotion map.
-- 20-05: Milestone audit, requirement closure, and archive readiness.
-
-**Success criteria:**
-
-1. Clean-checkout validation covers the V3 template and preflight surfaces.
-2. Docker/local smoke works without hosted credentials.
-3. Browser UAT passes on desktop and mobile.
-4. All v3.0 requirements are traced, documented, and ready for archive.
-
-**Status:** Complete. Aggregate validation, template-pack validation, v1 compatibility, migration safety, Docker/local smoke, worker smoke dry run, desktop/mobile Browser UAT, docs, release notes, and milestone audit passed.
+**Next up:** `$gsd-new-milestone` with the next source document or product direction.
 
 ## Shipped Phase Groups
 
@@ -204,6 +40,18 @@ Make templates trustworthy and selectable before the product moves toward true p
 
 </details>
 
+<details>
+<summary>✅ v3.0 Template Library And Production Readiness (Phases 15-20) — shipped 2026-06-20</summary>
+
+- [x] Phase 15: Template Source Governance And Compatibility (5/5 plans)
+- [x] Phase 16: MVP Generic Template Pack (6/6 plans)
+- [x] Phase 17: Template Catalog API And Workbench Selection (6/6 plans)
+- [x] Phase 18: Template-Aware Generation, Preview, And Editing (6/6 plans)
+- [x] Phase 19: Concept Handoff And Production Readiness Preflight (5/5 plans)
+- [x] Phase 20: V3 Hardening, Docs, Smoke, And UAT (5/5 plans)
+
+</details>
+
 ## Progress
 
 | Milestone | Phases | Plans Complete | Status | Completed |
@@ -211,15 +59,17 @@ Make templates trustworthy and selectable before the product moves toward true p
 | v1.0 MVP | 1-7 | 54/54 | Complete | 2026-06-18 |
 | v2.0 V2 MVP | 8-14 | 48/48 | Complete | 2026-06-19 |
 | v3.0 Template Library And Production Readiness | 15-20 | 33/33 | Complete | 2026-06-20 |
+| Next milestone | TBD | 0/0 | Not started | — |
 
 ## Deferred Future Directions
 
 - Full print-ready PSD/AI/PDF handoff with verified scale, bleed, color profile, DPI, and installer notes.
-- Verified vehicle-specific UV mapping and broad template library coverage.
+- Verified vehicle-specific UV mapping and broad licensed template library coverage.
 - Marketplace, template store, public gallery, payment, quoting, ordering, installer network, and collaboration workflows.
 - Fully automated copyright/licensing verification.
 - Fully consistent multi-view generation across side/front/rear/hood with guaranteed physical alignment.
 - Advanced multi-agent orchestration beyond the typed generation and worker pipeline.
+- Hosted provider production rollout claims after current model quality, pricing, moderation, account status, quota behavior, and commercial terms are re-verified.
 
 ---
-*Last updated: 2026-06-20 after Phase 20 completion*
+*Last updated: 2026-06-20 after v3.0 milestone archive*

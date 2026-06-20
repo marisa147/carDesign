@@ -91,9 +91,55 @@ v2.0 upgraded the concept workflow with guarded Hosted Provider rollout, Targete
 - Validation cost grew mostly through browser UAT and aggregate test breadth, not provider usage.
 - Future milestones should budget explicit hosted-provider smoke if output quality, pricing, moderation, or commercial terms become release criteria.
 
+## Milestone: v3.0 — Template Library And Production Readiness
+
+**Shipped:** 2026-06-20
+**Phases:** 6
+**Plans:** 33
+
+### What Was Built
+
+v3.0 made templates trustworthy and selectable before any production handoff claim: source/license governance, five internal-original generic side-view templates, catalog selection, template-aware generation/preview/editing, concept-only production readiness preflight, enhanced handoff evidence, and a release-hardening package with validation, Docker/local smoke, Browser UAT, docs, and audit.
+
+### What Worked
+
+- Treating template provenance as a first-class model before UI work kept catalog and generation behavior honest.
+- Keeping the five MVP templates internal-original avoided unauthorized vehicle imagery while still allowing realistic catalog and safe-zone flows.
+- Reusing PreviewSpec as the selected-template contract let generation, overlays, targeted edits, references, 3D fallback, exports, and UAT align around one evidence surface.
+- Production readiness preflight was useful precisely because it reports missing evidence instead of pretending concept assets are print-ready.
+- Phase 20 fixture-backed Browser UAT gave strong desktop/mobile proof for the dense Workbench without hosted calls.
+
+### What Was Inefficient
+
+- Windows elevated shells exposed a `pnpm` shim mismatch in `smoke:local --with-compose-if-docker`; the equivalent explicit `infra:up`, `smoke:local`, `infra:down` sequence passed.
+- GSD `audit-open` still treats historical UAT metadata statuses as close-time decision items, even when later release UAT evidence passed.
+- Evidence scripts needed a couple of local fixes to track current template resolver and CDP initialization behavior.
+
+### Patterns Established
+
+- Template records must carry source type, license status, usage scope, audit timestamp, readiness, and blocking reasons.
+- Web-crawled and third-party-reference-only material cannot enter reusable template assets, masks, thumbnails, or catalog entries.
+- MVP template packs need a one-command validator before catalog or generation use.
+- Preflight reports are immutable concept evidence and should be exported as JSON alongside handoff package metadata.
+- Release hardening should stay provider-off by default unless hosted output quality, pricing, moderation, account access, and commercial terms are explicitly in scope.
+
+### Key Lessons
+
+- Template trust is not a polish task; it is a prerequisite for production handoff, UV work, marketplace flows, and commercial claims.
+- A useful readiness check should identify exactly which production evidence is missing.
+- 3D fallback copy matters: unsupported templates should preserve the selected template id and remain usable in 2D.
+- Milestone archive works best when the living roadmap is compressed after a full archive snapshot is created.
+
+### Cost Observations
+
+- No hosted model spend was incurred; V3 validation used local deterministic generation and fixture-backed Browser UAT.
+- Validation cost came from breadth: aggregate validation, template-pack validation, Docker/local smoke, and browser screenshots.
+- Future production-handoff milestones should budget time and possibly external review for real template licensing, installer feedback, and verified print evidence.
+
 ## Cross-Milestone Trends
 
 | Milestone | Strong Pattern | Revisit |
 |-----------|----------------|---------|
 | v1.0 | Durable state + deterministic provider + contract checks gave stable E2E progress | Nyquist artifact consistency and hosted provider readiness |
 | v2.0 | Feature-flagged V2 slices + local deterministic validation + browser UAT kept scope controlled | Sandbox/elevated validation ergonomics, stale UAT metadata, live worker smoke orchestration |
+| v3.0 | Template provenance + internal-original pack + preflight evidence kept production claims honest | Production handoff evidence, real licensed templates, UV validation, and historical UAT metadata cleanup |

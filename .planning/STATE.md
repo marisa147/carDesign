@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Template Library And Production Readiness
-status: ready-for-archive
-stopped_at: Completed Phase 20; ready for v3.0 milestone archive
-last_updated: "2026-06-20T09:25:00+08:00"
-last_activity: "2026-06-20 -- Completed Phase 20 V3 hardening, docs, smoke, UAT, and milestone audit"
+status: archived
+stopped_at: Archived v3.0; ready for next milestone planning
+last_updated: "2026-06-20T09:35:00+08:00"
+last_activity: "2026-06-20 -- Archived v3.0 Template Library And Production Readiness milestone"
 progress:
   total_phases: 6
   completed_phases: 6
@@ -21,15 +21,15 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-20)
 
 **Core value:** 用户能用自然语言快速得到一套可预览、可迭代、可导出的高质量痛车设计方案。
-**Current focus:** v3.0 milestone archive
+**Current focus:** Planning the next milestone
 
 ## Current Position
 
-Milestone: v3.0 Template Library And Production Readiness — COMPLETE, READY TO ARCHIVE
-Phase: Phase 20 — V3 Hardening, Docs, Smoke, And UAT
+Milestone: v3.0 Template Library And Production Readiness — ARCHIVED
+Phase: none active
 Plan: none active
-Status: Ready to run `$gsd-complete-milestone`
-Last activity: 2026-06-20 -- Completed Phase 20 V3 hardening, docs, smoke, UAT, and milestone audit
+Status: Ready to run `$gsd-new-milestone`
+Last activity: 2026-06-20 -- Archived v3.0 Template Library And Production Readiness milestone
 
 Progress: [##########] 100%
 
@@ -41,6 +41,9 @@ Progress: [##########] 100%
 - `.planning/milestones/v1.0-phases/`
 - `.planning/milestones/v2.0-ROADMAP.md`
 - `.planning/milestones/v2.0-REQUIREMENTS.md`
+- `.planning/milestones/v3.0-ROADMAP.md`
+- `.planning/milestones/v3.0-REQUIREMENTS.md`
+- `.planning/milestones/v3.0-MILESTONE-AUDIT.md`
 - `.planning/MILESTONES.md`
 - `.planning/RETROSPECTIVE.md`
 
@@ -234,10 +237,23 @@ Items acknowledged by `audit-open` at v2.0 milestone close on 2026-06-19:
 | UAT metadata | Phase 13 `13-HUMAN-UAT.md` | passed; 0 pending scenarios |
 | UAT metadata | Phase 14 `14-HUMAN-UAT.md` | passed; 0 pending scenarios |
 
+Items acknowledged by `audit-open` at v3.0 milestone close on 2026-06-20:
+
+| Category | Item | Status |
+|----------|------|--------|
+| UAT metadata | Phase 08 `08-HUMAN-UAT.md` | partial; 2 pending scenarios |
+| UAT metadata | Phase 09 `09-HUMAN-UAT.md` | partial; 0 pending scenarios |
+| UAT metadata | Phase 10 `10-HUMAN-UAT.md` | checklist-ready; 0 pending scenarios |
+| UAT metadata | Phase 11 `11-HUMAN-UAT.md` | checklist-ready; 0 pending scenarios |
+| UAT metadata | Phase 12 `12-HUMAN-UAT.md` | passed; 0 pending scenarios |
+| UAT metadata | Phase 13 `13-HUMAN-UAT.md` | passed; 0 pending scenarios |
+| UAT metadata | Phase 14 `14-HUMAN-UAT.md` | passed; 0 pending scenarios |
+| UAT metadata | Phase 20 `20-HUMAN-UAT.md` | passed; 0 pending scenarios |
+
 ## Session Continuity
 
-Last session: 2026-06-20T09:25:00+08:00
-Stopped at: Completed Phase 20; ready for v3.0 milestone archive
+Last session: 2026-06-20T09:35:00+08:00
+Stopped at: Archived v3.0; ready for next milestone planning
 Resume files:
 
 - `.planning/PROJECT.md`
@@ -384,5 +400,5 @@ Resume files:
 - `.planning/phases/14-v2-mvp-hardening-docs-smoke-and-uat/14-06-SUMMARY.md`
 - `.planning/phases/14-v2-mvp-hardening-docs-smoke-and-uat/evidence/phase14-browser-metrics.json`
 
-Next recommended command: `$gsd-complete-milestone`
-Alternative: `$gsd-new-milestone` after archive
+Next recommended command: `$gsd-new-milestone`
+Alternative: `$gsd-review-backlog`

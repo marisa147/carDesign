@@ -1,5 +1,46 @@
 # Project Milestones: 痛车设计生成 Agent
 
+## v3.0 Template Library And Production Readiness (Shipped: 2026-06-20)
+
+**Delivered:** A trustworthy template foundation and concept-only production readiness layer: source/license governance, five internal-original MVP templates, catalog selection, template-aware generation/preview/editing, production-readiness preflight, enhanced handoff evidence, and release validation.
+
+**Phases completed:** 15-20 (33 plans total)
+
+**Key accomplishments:**
+
+- Established template source governance with source/license/readiness metadata, prohibited-source blocking, audit output, and legacy `generic-side-coupe` compatibility.
+- Added five internal-original generic side-view templates for coupe, sedan, hatchback, SUV, and van with required assets, thumbnails, safe zones, masks, metadata, and a validation command.
+- Exposed template catalog list/detail APIs, thumbnail serving, and Workbench selection with source/license/readiness warnings and selected-template persistence.
+- Carried selected-template context through local generation, PreviewSpec overlays, targeted edits, reference/provider trace, durable worker records, 3D compatibility/fallback, artifacts, versions, and exports.
+- Added concept-only production readiness preflight plus enhanced handoff ZIP evidence for `production-readiness-preflight.json` and `template-validation.json`.
+- Closed the release with aggregate validation, template-pack validation, V1 compatibility, migration safety, Docker/local smoke, worker dry-run, desktop/mobile Browser UAT, docs, release notes, and milestone audit.
+
+**Stats:**
+
+- 6 phases, 33 plans, 31/31 v3 requirements complete.
+- 7 commits after `v2.0` through the Phase 20 closure commit.
+- Milestone diff from `v2.0` to closure: 201 files changed, 10,648 insertions, 199 deletions.
+- Current source-plus-test-and-doc scale snapshot: about 35,525 lines across `apps/`, `packages/`, `services/`, `scripts/`, `infra/`, `docs/`, and `README.md`, excluding generated contracts and dependency folders.
+- Known deferred items at close: 8 UAT metadata/status items from `audit-open`; Phase 20 UAT passed with 0 pending scenarios (see `.planning/STATE.md` Deferred Items).
+
+**Verification:**
+
+- Final Phase 20 verification passed: aggregate validation, template-pack validation, V1 compatibility, migration safety, worker dry-run, Docker/local smoke, docs, release notes, whitespace check, and milestone audit.
+- Browser UAT passed on desktop and mobile for template catalog selection, selected van PreviewSpec evidence, targeted edit controls, 3D fallback, enhanced handoff files, production preflight, concept-only labels, and no horizontal overflow.
+- Production readiness preflight remains an evidence-gap report. It does not unlock print-ready PSD/AI/PDF output, verified UV, installer readiness, or real licensed-template production claims.
+
+**Git range:** `v2.0` through `97ac11a chore(20): harden v3 release`.
+
+**Archives:**
+
+- `.planning/milestones/v3.0-ROADMAP.md`
+- `.planning/milestones/v3.0-REQUIREMENTS.md`
+- `.planning/milestones/v3.0-MILESTONE-AUDIT.md`
+
+**What's next:** start the next milestone with `$gsd-new-milestone` from the next source document or product direction.
+
+---
+
 ## v1.0 MVP (Shipped: 2026-06-18)
 
 **Delivered:** End-to-end itasha concept-generation workbench from natural-language brief to structured parameters, asynchronous 2D concept render, preview, iteration, feedback, export, and operations visibility.

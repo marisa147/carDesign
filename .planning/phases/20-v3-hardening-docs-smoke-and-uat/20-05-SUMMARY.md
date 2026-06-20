@@ -7,10 +7,9 @@ Completed the V3 milestone audit and archive readiness pass. All 31 v3.0 require
 
 Evidence:
 
-- `.planning/v3.0-MILESTONE-AUDIT.md`
+- `.planning/milestones/v3.0-MILESTONE-AUDIT.md`
 - `20-MILESTONE-AUDIT.md`
 - `20-MILESTONE-NOTES.md`
 - `20-VERIFICATION.md`
 
 Key outcome: v3.0 is ready for `$gsd-complete-milestone` archive.
-

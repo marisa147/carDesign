@@ -29,7 +29,7 @@ v3.0 从 `MVP_FINAL.md` 完成模板来源、授权、通用模板包、模板�
 
 **Shipped:** v1.0 MVP on 2026-06-18, v2.0 V2 MVP on 2026-06-19, and v3.0 Template Library And Production Readiness on 2026-06-20.
 
-**Next milestone:** ready to archive v3.0 and then plan the next milestone cycle.
+**Next milestone:** ready to plan the next milestone cycle.
 
 ## Current State
 
@@ -162,4 +162,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state.
 
 ---
-*Last updated: 2026-06-20 after Phase 20 completion*
+*Last updated: 2026-06-20 after v3.0 milestone archive*
