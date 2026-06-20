@@ -257,9 +257,11 @@ Stopped at: Archived v3.0; ready for next milestone planning
 Resume files:
 
 - `.planning/PROJECT.md`
-- `.planning/REQUIREMENTS.md`
 - `.planning/ROADMAP.md`
 - `.planning/STATE.md`
+- `.planning/milestones/v3.0-REQUIREMENTS.md`
+- `.planning/milestones/v3.0-ROADMAP.md`
+- `.planning/milestones/v3.0-MILESTONE-AUDIT.md`
 - `.planning/research/V3-MVP-FINAL-ANALYSIS.md`
 - `.planning/phases/15-template-source-governance-and-compatibility/15-VERIFICATION.md`
 - `.planning/phases/15-template-source-governance-and-compatibility/15-REVIEW.md`
