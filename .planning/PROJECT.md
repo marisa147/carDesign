@@ -2,21 +2,21 @@
 
 ## What This Is
 
-痛车设计生成 Agent 是一个面向痛车设计需求的 AI Web 工作台。v2.0 已经交付一个可本地运行、可验证的概念设计与审阅工作流：用户可以通过 GPT 风格对话描述车型、角色、风格、颜色、文案和参考素材，系统将需求解析为结构化参数，经异步 worker 生成 2D 概念图，并在 Web 工作台中展示、局部编辑、参考引导、轻量 3D 预览、反馈、导出增强概念交付包和查看运营状态。
+痛车设计生成 Agent 是一个面向痛车设计需求的 AI Web 工作台。v3.0 已经交付一个可本地运行、可验证的概念设计与审阅工作流：用户可以通过 GPT 风格对话描述车型、角色、风格、颜色、文案和参考素材，系统将需求解析为结构化参数，经异步 worker 生成 2D 概念图，并在 Web 工作台中展示、局部编辑、参考引导、轻量 3D 预览、反馈、导出增强概念交付包、运行概念级生产 readiness preflight、选择可信模板并查看运营状态。
 
-v3.0 从 `MVP_FINAL.md` 继续推进模板来源、授权、通用模板包、模板目录和生产交付前置检查。产品边界仍然是概念设计与审阅工作流，不承诺生产级印刷交付、verified UV mapping、商业订单流、托管模型生产可用性、auth/billing 或 marketplace。
+v3.0 从 `MVP_FINAL.md` 完成模板来源、授权、通用模板包、模板目录和生产交付前置检查。产品边界仍然是概念设计与审阅工作流，不承诺生产级印刷交付、verified UV mapping、商业订单流、托管模型生产可用性、auth/billing 或 marketplace。
 
 ## Core Value
 
 用户能用自然语言快速得到一套可预览、可迭代、可导出的高质量痛车设计方案。
 
-## Current Milestone: v3.0 Template Library And Production Readiness
+## Completed Milestone: v3.0 Template Library And Production Readiness
 
 **Source:** `C:/Users/25858/Downloads/MVP_FINAL.md`
 
 **Goal:** Make templates trustworthy and selectable before the product moves toward true production handoff, verified UV, real licensed vehicle templates, or commercial ordering workflows.
 
-**Target features:**
+**Delivered features:**
 
 - Template source governance, license metadata, readiness audit, and prohibited-source blocking.
 - Internal-original MVP side-view template pack: coupe, sedan, hatchback, SUV, and van.
@@ -25,11 +25,11 @@ v3.0 从 `MVP_FINAL.md` 继续推进模板来源、授权、通用模板包、�
 - Concept-only production readiness preflight that explains why a design is not print-ready yet.
 - V3 validation, docs, Docker/local smoke, Browser UAT, and milestone audit.
 
-## Current State After v2.0
+## Current State After v3.0
 
-**Shipped:** v1.0 MVP on 2026-06-18 and v2.0 V2 MVP on 2026-06-19.
+**Shipped:** v1.0 MVP on 2026-06-18, v2.0 V2 MVP on 2026-06-19, and v3.0 Template Library And Production Readiness on 2026-06-20.
 
-**Next milestone:** v3.0 Template Library And Production Readiness is planned from `C:/Users/25858/Downloads/MVP_FINAL.md`. Phase 20 is next.
+**Next milestone:** ready to archive v3.0 and then plan the next milestone cycle.
 
 ## Current State
 
@@ -41,9 +41,9 @@ v3.0 从 `MVP_FINAL.md` 继续推进模板来源、授权、通用模板包、�
 - PostgreSQL/object-storage-oriented data model for workspaces, messages, briefs, jobs, events, artifacts, versions, model runs, feedback, exports, and cost records.
 - Local Docker smoke path for PostgreSQL, Redis, MinIO, API, worker, web, and worker queue generation.
 - V2 evidence for hosted-provider runbooks, targeted edit lineage, reference rights/source snapshots, lightweight 3D screenshots, enhanced handoff packages, release docs, and Browser UAT.
-- V3 template governance, internal-original MVP template pack, template catalog API, thumbnail serving, Workbench template selection with source/license/readiness visibility, template-aware generation/preview/editing traceability, and concept-only production readiness preflight with enhanced handoff template evidence.
+- V3 template governance, internal-original MVP template pack, template catalog API, thumbnail serving, Workbench template selection with source/license/readiness visibility, template-aware generation/preview/editing traceability, concept-only production readiness preflight with enhanced handoff template evidence, V3 release validation, Docker/local smoke, Browser UAT, docs, release notes, and milestone audit.
 
-**Codebase scale at v2.0 close:** about 30,301 source-plus-test lines across `apps/`, `packages/`, `services/`, `scripts/`, and `infra/`, excluding generated contracts and dependency folders.
+**Codebase scale at v3.0 close:** about 35,525 source-plus-test-and-doc lines across `apps/`, `packages/`, `services/`, `scripts/`, `infra/`, `docs/`, and `README.md`, excluding generated contracts and dependency folders.
 
 ## Requirements
 
@@ -70,10 +70,11 @@ v3.0 从 `MVP_FINAL.md` 继续推进模板来源、授权、通用模板包、�
 - ✓ Template catalog API and Workbench selection expose filterable templates, thumbnails, source/license/readiness states, selected-template brief persistence, and job/export metadata trace — v3.0 Phase 17 (V3-CATALOG)
 - ✓ Selected templates flow through local deterministic generation, PreviewSpec overlays, targeted edit regions, reference/provider trace, durable records, Workbench preview, and 3D compatibility/fallback — v3.0 Phase 18 (V3-INTEGRATION)
 - ✓ Concept-only production readiness preflight identifies missing production evidence, persists report artifacts, enriches handoff ZIP evidence, and keeps print-ready export blocked — v3.0 Phase 19 (V3-PREFLIGHT)
+- ✓ V3 template and preflight surfaces can be validated through aggregate tests, template-pack validation, Docker/local smoke, worker dry-run smoke, desktop/mobile Browser UAT, docs, release notes, and milestone audit — v3.0 Phase 20 (V3-REL)
 
 ### Active
 
-- [ ] Validate, document, smoke-test, UAT, and audit v3.0.
+(None — v3.0 is complete and ready to archive.)
 
 ### Out of Scope
 
@@ -133,12 +134,13 @@ Shipped v1.0 experience:
 | Hosted provider rollout remains opt-in | Provider model availability, costs, moderation, and rights constraints change quickly | ✓ Good — v2.0 shipped guarded hosted path and manual-only smoke posture |
 | V2 MVP follows the external roadmap file | User supplied `C:/Users/25858/Downloads/V2_MVP_ROADMAP (1).md` as the milestone source of truth | ✓ Good — v2.0 requirements and roadmap completed from that source |
 | V2 features stay concept-only until production validation exists | Targeted edits, references, 3D preview, and handoff ZIPs can be mistaken for production wrap proof | ✓ Good — Phase 14 release notes and docs preserve not-print-ready boundaries |
-| V3 follows the final MVP delivery note | User supplied `C:/Users/25858/Downloads/MVP_FINAL.md` as the source for the next milestone after v2.0 archive | — Pending — v3.0 in progress |
+| V3 follows the final MVP delivery note | User supplied `C:/Users/25858/Downloads/MVP_FINAL.md` as the source for the next milestone after v2.0 archive | ✓ Good — v3.0 shipped template governance, MVP template pack, catalog selection, preflight, and release evidence |
 | Template governance before production handoff | Production handoff, true 3D, licensed templates, marketplace, and ordering all depend on trustworthy template provenance | ✓ Good — Phase 15 established source/license registry, readiness audit, and compatibility bridge |
 | Internal generic templates before catalog UI | The Workbench selector needs trustworthy, local, reusable template records and thumbnails before API/UI exposure | ✓ Good — Phase 16 added five internal-original templates and a package validator |
 | Catalog selection through brief contract | Template choice should survive refresh and job creation instead of living only in frontend state | ✓ Good — Phase 17 persists selected template id/view through brief create/update, job metadata, and export template trace |
 | PreviewSpec remains the template-aware review contract | Generation, 2D overlays, targeted edits, reference traces, and 3D fallback need one durable selected-version source of truth | ✓ Good — Phase 18 carries selected-template context through local provider, worker records, Workbench preview, and canonical/legacy 3D compatibility |
 | Preflight explains missing production evidence | Concept handoff should tell users what is absent before production instead of pretending generic concepts are print-ready | ✓ Good — Phase 19 adds durable concept-only preflight and template validation evidence while keeping PSD/AI/PDF exports blocked |
+| Release evidence stays provider-off by default | V3 release hardening should prove local template/preflight behavior without accidental cost or hosted-provider claims | ✓ Good — Phase 20 passed aggregate validation, Docker/local smoke, Browser UAT, docs, and audit without hosted calls |
 
 ## Evolution
 
@@ -160,4 +162,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state.
 
 ---
-*Last updated: 2026-06-20 after Phase 19 completion*
+*Last updated: 2026-06-20 after Phase 20 completion*

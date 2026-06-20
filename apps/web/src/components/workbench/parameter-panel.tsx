@@ -440,6 +440,7 @@ function TemplateCatalogSelector({
               }}
               type="button"
             >
+              {/* eslint-disable-next-line @next/next/no-img-element -- Template thumbnails are API catalog assets. */}
               <img
                 alt=""
                 className="h-12 w-24 rounded-sm border border-border bg-muted object-contain"

@@ -81,6 +81,7 @@ import {
 } from "@/lib/api/workspaces";
 import { workbenchQueryKeys } from "@/lib/workbench/query-keys";
 import {
+  DEFAULT_WORKBENCH_TEMPLATE_ID,
   useWorkbenchStore,
   type TargetedEditTarget,
 } from "@/lib/workbench/store";
@@ -199,7 +200,9 @@ export function WorkbenchApp() {
         setJobs(nextJobs);
         setGenerationState(nextGenerationState);
         setReferenceAssignments(readBriefReferenceAssignments(nextBrief));
-        setSelectedTemplateId(readBriefTemplateId(nextBrief) ?? selectedTemplateId);
+        setSelectedTemplateId(
+          readBriefTemplateId(nextBrief) ?? DEFAULT_WORKBENCH_TEMPLATE_ID,
+        );
         queryClient.setQueryData(
           workbenchQueryKeys.workspace(nextWorkspace.id),
           nextWorkspace,
@@ -240,7 +243,7 @@ export function WorkbenchApp() {
     return () => {
       isCancelled = true;
     };
-  }, [queryClient]);
+  }, [queryClient, setSelectedTemplateId]);
 
   useEffect(() => {
     let isCancelled = false;

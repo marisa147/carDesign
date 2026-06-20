@@ -2,36 +2,36 @@
 gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Template Library And Production Readiness
-status: in-progress
-stopped_at: Completed Phase 19; ready for Phase 20 hardening
-last_updated: "2026-06-20T08:50:00+08:00"
-last_activity: "2026-06-20 -- Completed Phase 19 concept handoff and production readiness preflight"
+status: ready-for-archive
+stopped_at: Completed Phase 20; ready for v3.0 milestone archive
+last_updated: "2026-06-20T09:25:00+08:00"
+last_activity: "2026-06-20 -- Completed Phase 20 V3 hardening, docs, smoke, UAT, and milestone audit"
 progress:
   total_phases: 6
-  completed_phases: 5
+  completed_phases: 6
   total_plans: 33
-  completed_plans: 28
-  percent: 85
+  completed_plans: 33
+  percent: 100
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-06-19)
+See: .planning/PROJECT.md (updated 2026-06-20)
 
 **Core value:** 用户能用自然语言快速得到一套可预览、可迭代、可导出的高质量痛车设计方案。
-**Current focus:** v3.0 Phase 20 hardening
+**Current focus:** v3.0 milestone archive
 
 ## Current Position
 
-Milestone: v3.0 Template Library And Production Readiness — IN PROGRESS
+Milestone: v3.0 Template Library And Production Readiness — COMPLETE, READY TO ARCHIVE
 Phase: Phase 20 — V3 Hardening, Docs, Smoke, And UAT
 Plan: none active
-Status: Ready to execute Phase 20
-Last activity: 2026-06-20 -- Completed Phase 19 concept handoff and production readiness preflight
+Status: Ready to run `$gsd-complete-milestone`
+Last activity: 2026-06-20 -- Completed Phase 20 V3 hardening, docs, smoke, UAT, and milestone audit
 
-Progress: [#########-] 85%
+Progress: [##########] 100%
 
 ## Milestone Archives
 
@@ -55,7 +55,7 @@ v3.0 Template Library And Production Readiness is scoped to the following phase 
 | Phase 17 | Template Catalog API And Workbench Selection | 6/6 complete | V3-CATALOG-01..05 complete |
 | Phase 18 | Template-Aware Generation, Preview, And Editing | 6/6 complete | V3-INTEGRATION-01..06 complete |
 | Phase 19 | Concept Handoff And Production Readiness Preflight | 5/5 complete | V3-PREFLIGHT-01..04 complete |
-| Phase 20 | V3 Hardening, Docs, Smoke, And UAT | 0/5 | V3-REL-01..05 |
+| Phase 20 | V3 Hardening, Docs, Smoke, And UAT | 5/5 complete | V3-REL-01..05 complete |
 
 ## Prior Milestone Metrics
 
@@ -185,6 +185,11 @@ Recent decisions affecting v2.0 and v3.0:
 - [Phase 19 Plan 03]: Workbench export panel now runs preflight, shows concept-only status, and renders missing evidence labels for the selected version.
 - [Phase 19 Plan 04]: Enhanced handoff ZIPs now include `production-readiness-preflight.json`, `template-validation.json`, and matching manifest evidence.
 - [Phase 19 Plan 05]: Phase 19 validations passed; V3-PREFLIGHT-01..04 are complete and print-ready PSD/AI/PDF exports remain blocked.
+- [Phase 20 Plan 01]: V3 aggregate validation, template-pack validation, v1 compatibility, migration safety, and worker smoke dry-run passed without hosted credentials.
+- [Phase 20 Plan 02]: Docker/local smoke passed through explicit `infra:up`, `smoke:local`, and `infra:down`; the `--with-compose-if-docker` wrapper issue was limited to a Windows elevated pnpm shim lookup.
+- [Phase 20 Plan 03]: Desktop/mobile Browser UAT passed with fixture-backed template catalog, selected van PreviewSpec, targeted edit controls, 3D fallback, enhanced handoff, preflight, concept-only labels, and no horizontal overflow.
+- [Phase 20 Plan 04]: V3 release notes and docs now explain template governance, MVP template pack, validation commands, concept-only boundaries, and future production promotions.
+- [Phase 20 Plan 05]: V3 milestone audit passed with all 31 v3.0 requirements complete and archive-ready.
 
 ### Pending Todos
 
@@ -202,7 +207,7 @@ None.
 - Contract drift must be checked in each phase because v2.0 extends the v1.0 schema surface.
 - V3 template assets must be `internal_original`, licensed, or user-provided-with-rights; web-crawled or third-party reference-only material must not enter reusable template assets, masks, thumbnails, or catalog entries.
 - Concept handoff and preflight keep non-production labels and avoid implying print-ready PSD/AI/PDF, verified scale/bleed/color/DPI, production UV, or installer readiness.
-- Phase 20 must run V3-wide hardening, local/Docker smoke where available, Browser UAT, docs, milestone audit, and archive readiness.
+- v3.0 is complete and ready to archive; future milestones must keep production handoff, verified UV, marketplace/order flows, hosted-provider production claims, and automated licensing outside scope until their evidence is explicitly added.
 
 ## Deferred Items
 
@@ -231,8 +236,8 @@ Items acknowledged by `audit-open` at v2.0 milestone close on 2026-06-19:
 
 ## Session Continuity
 
-Last session: 2026-06-20T08:50:00+08:00
-Stopped at: Completed Phase 19; ready for Phase 20 hardening
+Last session: 2026-06-20T09:25:00+08:00
+Stopped at: Completed Phase 20; ready for v3.0 milestone archive
 Resume files:
 
 - `.planning/PROJECT.md`
@@ -379,5 +384,5 @@ Resume files:
 - `.planning/phases/14-v2-mvp-hardening-docs-smoke-and-uat/14-06-SUMMARY.md`
 - `.planning/phases/14-v2-mvp-hardening-docs-smoke-and-uat/evidence/phase14-browser-metrics.json`
 
-Next recommended command: `$gsd-execute-phase 20`
-Alternative: `$gsd-plan-phase 20`
+Next recommended command: `$gsd-complete-milestone`
+Alternative: `$gsd-new-milestone` after archive

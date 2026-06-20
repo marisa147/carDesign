@@ -51,11 +51,11 @@ v3.0 starts from the final MVP delivery note and focuses on the template/source/
 
 ### V3 Release
 
-- [ ] **V3-REL-01**: Developer can run focused backend, worker, frontend, contract, and template-pack validation for V3 from a clean checkout.
-- [ ] **V3-REL-02**: Operator can run Docker/local smoke that exercises generation, template selection, export, and failure states without hosted credentials.
-- [ ] **V3-REL-03**: Browser UAT covers desktop and mobile flows for catalog selection, source/license warnings, generation, targeted edit, 3D fallback, handoff, and preflight.
-- [ ] **V3-REL-04**: Documentation and release notes explain V3 template governance, MVP template pack contents, concept-only boundaries, and next V3+ promotions.
-- [ ] **V3-REL-05**: V3 milestone audit proves all v3.0 requirements are mapped, tested, documented, and safe to archive.
+- [x] **V3-REL-01**: Developer can run focused backend, worker, frontend, contract, and template-pack validation for V3 from a clean checkout.
+- [x] **V3-REL-02**: Operator can run Docker/local smoke that exercises generation, template selection, export, and failure states without hosted credentials.
+- [x] **V3-REL-03**: Browser UAT covers desktop and mobile flows for catalog selection, source/license warnings, generation, targeted edit, 3D fallback, handoff, and preflight.
+- [x] **V3-REL-04**: Documentation and release notes explain V3 template governance, MVP template pack contents, concept-only boundaries, and next V3+ promotions.
+- [x] **V3-REL-05**: V3 milestone audit proves all v3.0 requirements are mapped, tested, documented, and safe to archive.
 
 ## Future Requirements
 
@@ -121,18 +121,18 @@ v3.0 starts from the final MVP delivery note and focuses on the template/source/
 | V3-PREFLIGHT-02 | Phase 19 | Complete |
 | V3-PREFLIGHT-03 | Phase 19 | Complete |
 | V3-PREFLIGHT-04 | Phase 19 | Complete |
-| V3-REL-01 | Phase 20 | Pending |
-| V3-REL-02 | Phase 20 | Pending |
-| V3-REL-03 | Phase 20 | Pending |
-| V3-REL-04 | Phase 20 | Pending |
-| V3-REL-05 | Phase 20 | Pending |
+| V3-REL-01 | Phase 20 | Complete |
+| V3-REL-02 | Phase 20 | Complete |
+| V3-REL-03 | Phase 20 | Complete |
+| V3-REL-04 | Phase 20 | Complete |
+| V3-REL-05 | Phase 20 | Complete |
 
 **Coverage:**
 
-- v3.0 requirements: 31 total; 26 complete
+- v3.0 requirements: 31 total; 31 complete
 - Mapped to phases: 31
 - Unmapped: 0
 
 ---
 *Requirements defined: 2026-06-19*
-*Last updated: 2026-06-20 after Phase 19 completion*
+*Last updated: 2026-06-20 after Phase 20 completion*
