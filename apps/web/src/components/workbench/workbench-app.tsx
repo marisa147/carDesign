@@ -57,9 +57,11 @@ import {
 } from "@/lib/api/generation";
 import {
   createConceptExport,
+  createProductionReadinessPreflight,
   createVersionFeedback,
   buildIterationSubmissionPayload,
   submitChildIteration,
+  type ProductionReadinessPreflightReport,
 } from "@/lib/api/iteration";
 import { cancelGenerationJob, listWorkspaceJobs } from "@/lib/api/jobs";
 import { listTemplates } from "@/lib/api/templates";
@@ -129,7 +131,12 @@ export function WorkbenchApp() {
   const [exportError, setExportError] = useState<string | null>(null);
   const [exportFormat, setExportFormat] = useState<ConceptExportFormat>("png");
   const [exportNotice, setExportNotice] = useState<string | null>(null);
+  const [preflightError, setPreflightError] = useState<string | null>(null);
+  const [preflightNotice, setPreflightNotice] = useState<string | null>(null);
+  const [preflightReport, setPreflightReport] =
+    useState<ProductionReadinessPreflightReport | null>(null);
   const [isSubmittingExport, setIsSubmittingExport] = useState(false);
+  const [isSubmittingPreflight, setIsSubmittingPreflight] = useState(false);
 
   const versions = generationState?.versions ?? [];
   const feedback = generationState?.feedback ?? [];
@@ -588,6 +595,40 @@ export function WorkbenchApp() {
     }
   };
 
+  const runProductionPreflight = async () => {
+    if (!workspace || !selectedVersion) {
+      return;
+    }
+
+    setIsSubmittingPreflight(true);
+    setPreflightError(null);
+    setPreflightNotice(null);
+    try {
+      const result = await createProductionReadinessPreflight(
+        workspace.id,
+        selectedVersion.id,
+      );
+      setPreflightReport(result.report);
+      setGenerationState((existing) =>
+        existing
+          ? {
+              ...existing,
+              exports: upsertExport(existing.exports, result.export),
+            }
+          : existing,
+      );
+      queryClient.setQueryData<ExportResponse[]>(
+        workbenchQueryKeys.exports(workspace.id),
+        (existing = []) => upsertExport(existing, result.export),
+      );
+      setPreflightNotice("生产预检已记录。");
+    } catch {
+      setPreflightError("生产预检失败，请稍后重试。");
+    } finally {
+      setIsSubmittingPreflight(false);
+    }
+  };
+
   const handleAssetRightsUpdate = async (
     assetId: string,
     payload: AssetRightsUpdateRequest,
@@ -706,15 +747,22 @@ export function WorkbenchApp() {
             exports={exports}
             format={exportFormat}
             isSubmitting={isSubmittingExport}
+            isSubmittingPreflight={isSubmittingPreflight}
             notice={exportNotice}
             onFormatChange={(value) => {
               setExportFormat(value);
               setExportNotice(null);
               setExportError(null);
             }}
+            onRunPreflight={() => {
+              void runProductionPreflight();
+            }}
             onSubmit={() => {
               void submitSelectedExport();
             }}
+            preflightError={preflightError}
+            preflightNotice={preflightNotice}
+            preflightReport={preflightReport}
             selectedVersion={selectedVersion}
           />
         </div>
@@ -1023,6 +1071,8 @@ function handoffPackageRequestManifest({
       "manifest.json",
       "handoff-notes.md",
       "warnings.md",
+      "production-readiness-preflight.json",
+      "template-validation.json",
       "prompt-trace.md",
       "references.json",
       "images/concept.png",

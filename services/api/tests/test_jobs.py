@@ -27,6 +27,7 @@ from caragent_core.preview3d import (
     build_preview_3d_spec,
     required_preview_3d_warning_ids,
 )
+from caragent_core.production_preflight import REQUIRED_PRODUCTION_EVIDENCE_IDS
 from caragent_core.services import jobs
 from caragent_core.storage import InMemoryObjectStorage
 from fastapi.testclient import TestClient
@@ -362,6 +363,11 @@ async def create_handoff_export_records(
                     "template": {
                         "id": "generic-side-coupe",
                         "label": "Generic side-view coupe",
+                        "readiness": {"catalog_eligible": True},
+                        "source": {
+                            "license_status": "approved",
+                            "source_type": "internal_original",
+                        },
                         "view": "side",
                     },
                 },
@@ -424,6 +430,37 @@ async def create_handoff_export_records(
         "screenshot_artifact_id": str(screenshot.id),
         "version_id": str(version.id),
     }
+
+
+async def create_preflight_version_without_concept(
+    session_factory: async_sessionmaker[Any],
+    workspace_id: UUID,
+    job_id: UUID,
+) -> dict[str, str]:
+    async with session_scope(session_factory) as session:
+        version = await jobs.create_design_version(
+            session,
+            workspace_id,
+            job_id=job_id,
+            parameters={
+                "preview_spec": {
+                    **parent_preview_spec(),
+                    "template": {
+                        "id": "generic-side-coupe",
+                        "label": "Generic side-view coupe",
+                        "readiness": {"catalog_eligible": True},
+                        "source": {
+                            "license_status": "approved",
+                            "source_type": "internal_original",
+                        },
+                        "view": "side",
+                    },
+                },
+            },
+            status=DesignVersionStatus.GENERATED.value,
+            title="Preflight source without concept image",
+        )
+    return {"version_id": str(version.id)}
 
 
 def test_create_job_requires_idempotency_and_reuses_duplicate_key(tmp_path: Path) -> None:
@@ -715,11 +752,96 @@ def test_enhanced_handoff_export_can_be_created_through_api(tmp_path: Path) -> N
         manifest = json.loads(archive.read("manifest.json"))
         assert manifest["schema_version"] == 1
         assert manifest["source_artifact"]["id"] == records["concept_artifact_id"]
+        assert manifest["production_readiness_preflight"]["status"] == "concept_only"
+        assert manifest["template_validation"]["license_status"] == "approved"
+        assert "production-readiness-preflight.json" in archive.namelist()
+        assert "template-validation.json" in archive.namelist()
 
     artifacts = client.get(f"/workspaces/{workspace_id}/artifacts").json()
     package_artifacts = [artifact for artifact in artifacts if artifact["kind"] == "export"]
     assert [artifact["id"] for artifact in package_artifacts] == [payload["artifact_id"]]
     assert package_artifacts[0]["content_type"] == "application/zip"
+
+
+def test_production_readiness_preflight_can_be_created_through_api(tmp_path: Path) -> None:
+    client, app = create_job_client(
+        tmp_path,
+        settings_overrides={"v2_enhanced_handoff_package_enabled": True},
+    )
+    storage = InMemoryObjectStorage()
+    app.state.object_storage = storage
+    workspace_id = client.post("/workspaces", json={"title": "Preflight"}).json()["id"]
+    job_id = client.post(
+        f"/workspaces/{workspace_id}/jobs",
+        json={"idempotency_key": "preflight-001", "operation": "generate_concept"},
+    ).json()["id"]
+    records = asyncio.run(
+        create_handoff_export_records(
+            app.state.session_factory,
+            storage,
+            UUID(workspace_id),
+            UUID(job_id),
+        ),
+    )
+
+    created = client.post(
+        f"/workspaces/{workspace_id}/versions/{records['version_id']}/production-readiness-preflight",
+    )
+
+    assert created.status_code == 201
+    payload = created.json()
+    report = payload["report"]
+    export = payload["export"]
+    assert report["status"] == "concept_only"
+    assert report["print_ready_allowed"] is False
+    assert set(REQUIRED_PRODUCTION_EVIDENCE_IDS) <= set(report["missing_evidence"])
+    assert export["format"] == "production_readiness_preflight"
+    assert export["status"] == "succeeded"
+    assert export["artifact_id"] is not None
+    assert export["manifest"]["production_readiness_preflight"]["status"] == "concept_only"
+
+    object_key = export["manifest"]["source_artifact_object_key"]
+    stored_report = json.loads(storage.objects[object_key].content.decode("utf-8"))
+    assert stored_report["missing_evidence"] == report["missing_evidence"]
+    artifacts = client.get(f"/workspaces/{workspace_id}/artifacts").json()
+    report_artifacts = [
+        artifact
+        for artifact in artifacts
+        if artifact["kind"] == "export" and artifact["content_type"] == "application/json"
+    ]
+    assert [artifact["id"] for artifact in report_artifacts] == [export["artifact_id"]]
+
+
+def test_production_readiness_preflight_reports_missing_concept_image(
+    tmp_path: Path,
+) -> None:
+    client, app = create_job_client(tmp_path)
+    storage = InMemoryObjectStorage()
+    app.state.object_storage = storage
+    workspace_id = client.post("/workspaces", json={"title": "Preflight no image"}).json()[
+        "id"
+    ]
+    job_id = client.post(
+        f"/workspaces/{workspace_id}/jobs",
+        json={"idempotency_key": "preflight-no-image-001", "operation": "generate_concept"},
+    ).json()["id"]
+    records = asyncio.run(
+        create_preflight_version_without_concept(
+            app.state.session_factory,
+            UUID(workspace_id),
+            UUID(job_id),
+        ),
+    )
+
+    created = client.post(
+        f"/workspaces/{workspace_id}/versions/{records['version_id']}/production-readiness-preflight",
+    )
+
+    assert created.status_code == 201
+    report = created.json()["report"]
+    assert "concept_image" in report["blockers"]
+    assert "concept_image" in report["missing_evidence"]
+    assert set(REQUIRED_PRODUCTION_EVIDENCE_IDS) <= set(report["missing_evidence"])
 
 
 def test_enhanced_handoff_export_is_feature_gated(tmp_path: Path) -> None:
@@ -1076,14 +1198,17 @@ def test_feedback_and_export_creation_validate_inputs(tmp_path: Path) -> None:
         f"/workspaces/{other_workspace_id}/versions/{records['version_id']}/feedback",
         json={"approval_state": "approved", "rating": 4},
     )
-    bad_export_format = client.post(
-        f"/workspaces/{workspace_id}/versions/{records['version_id']}/exports",
-        json={"artifact_id": records["artifact_id"], "format": "pdf"},
-    )
+    bad_export_formats = [
+        client.post(
+            f"/workspaces/{workspace_id}/versions/{records['version_id']}/exports",
+            json={"artifact_id": records["artifact_id"], "format": export_format},
+        )
+        for export_format in ("pdf", "psd", "ai")
+    ]
 
     assert bad_rating.status_code == 422
     assert wrong_workspace.status_code == 422
-    assert bad_export_format.status_code == 422
+    assert [response.status_code for response in bad_export_formats] == [422, 422, 422]
 
 
 def parent_preview_spec() -> dict[str, object]:

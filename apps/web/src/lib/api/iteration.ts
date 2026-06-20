@@ -29,6 +29,28 @@ export interface IterationApiOptions {
   signal?: AbortSignal;
 }
 
+export interface ProductionReadinessPreflightReport {
+  blockers: string[];
+  checks: Array<{
+    id: string;
+    label: string;
+    message: string;
+    severity: "blocker" | "info" | "warning";
+    status: "blocked" | "missing" | "ready" | "warning";
+  }>;
+  disclaimer: string;
+  missing_evidence: string[];
+  print_ready_allowed: boolean;
+  status: "concept_only";
+  version_id: string;
+  workspace_id: string;
+}
+
+export interface ProductionReadinessPreflightResponse {
+  export: ExportResponse;
+  report: ProductionReadinessPreflightReport;
+}
+
 export async function submitChildIteration(
   workspaceId: string,
   versionId: string,
@@ -98,6 +120,19 @@ export async function createConceptExport(
     getCreateExportWorkspacesWorkspaceIdVersionsVersionIdExportsPostUrl(workspaceId, versionId),
     "POST",
     payload,
+    options,
+  );
+}
+
+export async function createProductionReadinessPreflight(
+  workspaceId: string,
+  versionId: string,
+  options: IterationApiOptions = {},
+): Promise<ProductionReadinessPreflightResponse> {
+  return requestIterationJson<ProductionReadinessPreflightResponse>(
+    `/workspaces/${workspaceId}/versions/${versionId}/production-readiness-preflight`,
+    "POST",
+    undefined,
     options,
   );
 }

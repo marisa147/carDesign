@@ -10,7 +10,7 @@
 
 v3.0 is the active milestone. It follows the final MVP delivery note and focuses on template source governance, an internal generic MVP template pack, template catalog selection, template-aware generation/preview/editing, concept-only production readiness preflight, and release hardening.
 
-**Next up:** Phase 19 — Concept Handoff And Production Readiness Preflight.
+**Next up:** Phase 20 — V3 Hardening, Docs, Smoke, And UAT.
 
 ## v3.0 Scope
 
@@ -34,7 +34,7 @@ Make templates trustworthy and selectable before the product moves toward true p
 | 16 | MVP Generic Template Pack | Create and validate five internal-original generic side-view templates with required assets and metadata. | V3-PACK-01..06 | 6/6 |
 | 17 | Template Catalog API And Workbench Selection | Expose templates through API and Workbench selection with source/license/readiness warnings. | V3-CATALOG-01..05 | 6/6 |
 | 18 | Template-Aware Generation, Preview, And Editing | Carry selected template context through generation, PreviewSpec, targeted edits, references, contracts, and 3D fallback. | V3-INTEGRATION-01..06 | 6/6 |
-| 19 | Concept Handoff And Production Readiness Preflight | Add concept-only production readiness reporting and richer template evidence in handoff ZIPs. | V3-PREFLIGHT-01..04 | 5 |
+| 19 | Concept Handoff And Production Readiness Preflight | Add concept-only production readiness reporting and richer template evidence in handoff ZIPs. | V3-PREFLIGHT-01..04 | 5/5 |
 | 20 | V3 Hardening, Docs, Smoke, And UAT | Validate, document, smoke-test, UAT, and audit the v3.0 milestone. | V3-REL-01..05 | 5 |
 
 ### Phase Details
@@ -151,6 +151,8 @@ Make templates trustworthy and selectable before the product moves toward true p
 3. Handoff ZIPs include template source/license and validation evidence.
 4. Print-ready exports remain blocked until a future production milestone supplies evidence.
 
+**Status:** Complete. Version-scoped preflight reports, durable JSON export artifacts, Workbench preflight UI, enhanced ZIP template/preflight evidence, and print-ready export block tests are in place.
+
 #### Phase 20: V3 Hardening, Docs, Smoke, And UAT
 
 **Goal:** Close v3.0 with evidence that template governance and selection are reliable.
@@ -206,7 +208,7 @@ Make templates trustworthy and selectable before the product moves toward true p
 |-----------|--------|----------------|--------|-----------|
 | v1.0 MVP | 1-7 | 54/54 | Complete | 2026-06-18 |
 | v2.0 V2 MVP | 8-14 | 48/48 | Complete | 2026-06-19 |
-| v3.0 Template Library And Production Readiness | 15-20 | 23/33 | In Progress | — |
+| v3.0 Template Library And Production Readiness | 15-20 | 28/33 | In Progress | — |
 
 ## Deferred Future Directions
 
@@ -218,4 +220,4 @@ Make templates trustworthy and selectable before the product moves toward true p
 - Advanced multi-agent orchestration beyond the typed generation and worker pipeline.
 
 ---
-*Last updated: 2026-06-19 after Phase 18 completion*
+*Last updated: 2026-06-20 after Phase 19 completion*

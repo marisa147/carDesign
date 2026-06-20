@@ -867,6 +867,88 @@ export interface Preview3DScreenshotCreateRequest {
   width: number;
 }
 
+export type ProductionReadinessCheckEvidence = { [key: string]: unknown };
+
+export type ProductionReadinessCheckSeverity = typeof ProductionReadinessCheckSeverity[keyof typeof ProductionReadinessCheckSeverity];
+
+
+export const ProductionReadinessCheckSeverity = {
+  info: 'info',
+  warning: 'warning',
+  blocker: 'blocker',
+} as const;
+
+export type ProductionReadinessCheckStatus = typeof ProductionReadinessCheckStatus[keyof typeof ProductionReadinessCheckStatus];
+
+
+export const ProductionReadinessCheckStatus = {
+  ready: 'ready',
+  warning: 'warning',
+  missing: 'missing',
+  blocked: 'blocked',
+} as const;
+
+export interface ProductionReadinessCheck {
+  evidence?: ProductionReadinessCheckEvidence;
+  /** @minLength 1 */
+  id: string;
+  /** @minLength 1 */
+  label: string;
+  /** @minLength 1 */
+  message: string;
+  severity?: ProductionReadinessCheckSeverity;
+  status: ProductionReadinessCheckStatus;
+}
+
+export type TemplateValidationReportValidationStatus = typeof TemplateValidationReportValidationStatus[keyof typeof TemplateValidationReportValidationStatus];
+
+
+export const TemplateValidationReportValidationStatus = {
+  concept_valid: 'concept_valid',
+  missing_template: 'missing_template',
+} as const;
+
+export type TemplateValidationReportTemplate = { [key: string]: unknown };
+
+export interface TemplateValidationReport {
+  catalog_eligible?: boolean;
+  license_status?: string;
+  /** @minimum 0 */
+  safe_zone_count?: number;
+  /**
+     * @minimum 1
+     * @maximum 1
+     */
+  schema_version?: number;
+  source_type?: string;
+  template?: TemplateValidationReportTemplate;
+  validation_status?: TemplateValidationReportValidationStatus;
+  /** @minimum 0 */
+  warning_count?: number;
+}
+
+export interface ProductionReadinessPreflightReport {
+  blockers?: string[];
+  checks?: ProductionReadinessCheck[];
+  disclaimer?: string;
+  missing_evidence?: string[];
+  print_ready_allowed?: boolean;
+  /**
+     * @minimum 1
+     * @maximum 1
+     */
+  schema_version?: number;
+  status?: 'concept_only';
+  template_validation: TemplateValidationReport;
+  version_id: string;
+  workspace_id: string;
+}
+
+export interface ProductionReadinessPreflightResponse {
+  export: ExportResponse;
+  report: ProductionReadinessPreflightReport;
+}
+
 export interface TemplateSafeZoneSummaryResponse {
   height: number;
   id: string;
@@ -4656,4 +4738,101 @@ export const useCreatePreview3dScreenshotWorkspacesWorkspaceIdVersionsVersionIdP
         TContext
       > => {
       return useMutation(getCreatePreview3dScreenshotWorkspacesWorkspaceIdVersionsVersionIdPreview3dScreenshotsPostMutationOptions(options), queryClient);
+    }
+
+/**
+ * @summary Create Production Readiness Preflight
+ */
+export type createProductionReadinessPreflightWorkspacesWorkspaceIdVersionsVersionIdProductionReadinessPreflightPostResponse201 = {
+  data: ProductionReadinessPreflightResponse
+  status: 201
+}
+
+export type createProductionReadinessPreflightWorkspacesWorkspaceIdVersionsVersionIdProductionReadinessPreflightPostResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+
+export type createProductionReadinessPreflightWorkspacesWorkspaceIdVersionsVersionIdProductionReadinessPreflightPostResponseSuccess = (createProductionReadinessPreflightWorkspacesWorkspaceIdVersionsVersionIdProductionReadinessPreflightPostResponse201) & {
+  headers: Headers;
+};
+export type createProductionReadinessPreflightWorkspacesWorkspaceIdVersionsVersionIdProductionReadinessPreflightPostResponseError = (createProductionReadinessPreflightWorkspacesWorkspaceIdVersionsVersionIdProductionReadinessPreflightPostResponse422) & {
+  headers: Headers;
+};
+
+export type createProductionReadinessPreflightWorkspacesWorkspaceIdVersionsVersionIdProductionReadinessPreflightPostResponse = (createProductionReadinessPreflightWorkspacesWorkspaceIdVersionsVersionIdProductionReadinessPreflightPostResponseSuccess | createProductionReadinessPreflightWorkspacesWorkspaceIdVersionsVersionIdProductionReadinessPreflightPostResponseError)
+
+export const getCreateProductionReadinessPreflightWorkspacesWorkspaceIdVersionsVersionIdProductionReadinessPreflightPostUrl = (workspaceId: string,
+    versionId: string,) => {
+
+
+
+
+  return `/workspaces/${workspaceId}/versions/${versionId}/production-readiness-preflight`
+}
+
+export const createProductionReadinessPreflightWorkspacesWorkspaceIdVersionsVersionIdProductionReadinessPreflightPost = async (workspaceId: string,
+    versionId: string, options?: RequestInit): Promise<createProductionReadinessPreflightWorkspacesWorkspaceIdVersionsVersionIdProductionReadinessPreflightPostResponse> => {
+
+  const res = await fetch(getCreateProductionReadinessPreflightWorkspacesWorkspaceIdVersionsVersionIdProductionReadinessPreflightPostUrl(workspaceId,versionId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+)
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: createProductionReadinessPreflightWorkspacesWorkspaceIdVersionsVersionIdProductionReadinessPreflightPostResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as createProductionReadinessPreflightWorkspacesWorkspaceIdVersionsVersionIdProductionReadinessPreflightPostResponse
+}
+
+
+
+
+export const getCreateProductionReadinessPreflightWorkspacesWorkspaceIdVersionsVersionIdProductionReadinessPreflightPostMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createProductionReadinessPreflightWorkspacesWorkspaceIdVersionsVersionIdProductionReadinessPreflightPost>>, TError,{workspaceId: string;versionId: string}, TContext>, fetch?: RequestInit}
+): UseMutationOptions<Awaited<ReturnType<typeof createProductionReadinessPreflightWorkspacesWorkspaceIdVersionsVersionIdProductionReadinessPreflightPost>>, TError,{workspaceId: string;versionId: string}, TContext> => {
+
+const mutationKey = ['createProductionReadinessPreflightWorkspacesWorkspaceIdVersionsVersionIdProductionReadinessPreflightPost'];
+const {mutation: mutationOptions, fetch: fetchOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, fetch: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createProductionReadinessPreflightWorkspacesWorkspaceIdVersionsVersionIdProductionReadinessPreflightPost>>, {workspaceId: string;versionId: string}> = (props) => {
+          const {workspaceId,versionId} = props ?? {};
+
+          return  createProductionReadinessPreflightWorkspacesWorkspaceIdVersionsVersionIdProductionReadinessPreflightPost(workspaceId,versionId,fetchOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateProductionReadinessPreflightWorkspacesWorkspaceIdVersionsVersionIdProductionReadinessPreflightPostMutationResult = NonNullable<Awaited<ReturnType<typeof createProductionReadinessPreflightWorkspacesWorkspaceIdVersionsVersionIdProductionReadinessPreflightPost>>>
+
+    export type CreateProductionReadinessPreflightWorkspacesWorkspaceIdVersionsVersionIdProductionReadinessPreflightPostMutationError = HTTPValidationError
+
+    /**
+ * @summary Create Production Readiness Preflight
+ */
+export const useCreateProductionReadinessPreflightWorkspacesWorkspaceIdVersionsVersionIdProductionReadinessPreflightPost = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createProductionReadinessPreflightWorkspacesWorkspaceIdVersionsVersionIdProductionReadinessPreflightPost>>, TError,{workspaceId: string;versionId: string}, TContext>, fetch?: RequestInit}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof createProductionReadinessPreflightWorkspacesWorkspaceIdVersionsVersionIdProductionReadinessPreflightPost>>,
+        TError,
+        {workspaceId: string;versionId: string},
+        TContext
+      > => {
+      return useMutation(getCreateProductionReadinessPreflightWorkspacesWorkspaceIdVersionsVersionIdProductionReadinessPreflightPostMutationOptions(options), queryClient);
     }

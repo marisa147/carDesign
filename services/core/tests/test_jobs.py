@@ -5,6 +5,8 @@ import zipfile
 from collections.abc import AsyncIterator
 from decimal import Decimal
 from io import BytesIO
+from types import SimpleNamespace
+from uuid import uuid4
 
 import pytest
 from sqlalchemy import func, select
@@ -21,6 +23,7 @@ from caragent_core.enums import (
     ModelRunStatus,
 )
 from caragent_core.models import GenerationJob, metadata
+from caragent_core.production_preflight import REQUIRED_PRODUCTION_EVIDENCE_IDS
 from caragent_core.services import jobs, workspaces
 
 
@@ -533,6 +536,8 @@ async def test_phase_13_handoff_package_zip_contains_reports_and_assets(
             "manifest.json",
             "handoff-notes.md",
             "warnings.md",
+            "production-readiness-preflight.json",
+            "template-validation.json",
             "prompt-trace.md",
             "references.json",
             "images/concept.png",
@@ -545,6 +550,13 @@ async def test_phase_13_handoff_package_zip_contains_reports_and_assets(
         assert manifest["format"] == ENHANCED_HANDOFF_PACKAGE_FORMAT
         assert manifest["schema_version"] == 1
         assert manifest["source_artifact"]["id"] == str(concept.id)
+        assert manifest["production_readiness_preflight"]["status"] == "concept_only"
+        assert manifest["production_readiness_preflight"]["print_ready_allowed"] is False
+        assert manifest["template_validation"]["source_type"] == "internal_original"
+        preflight = json.loads(archive.read("production-readiness-preflight.json"))
+        template_validation = json.loads(archive.read("template-validation.json"))
+        assert set(REQUIRED_PRODUCTION_EVIDENCE_IDS) <= set(preflight["missing_evidence"])
+        assert template_validation["license_status"] == "approved"
 
         rendered_text = "\n".join(
             archive.read(name).decode("utf-8").lower()
@@ -552,6 +564,8 @@ async def test_phase_13_handoff_package_zip_contains_reports_and_assets(
                 "manifest.json",
                 "handoff-notes.md",
                 "warnings.md",
+                "production-readiness-preflight.json",
+                "template-validation.json",
                 "prompt-trace.md",
                 "references.json",
             ]
@@ -649,6 +663,32 @@ async def test_phase_13_handoff_package_zip_warns_for_missing_optional_screensho
     )
 
 
+def test_phase_19_production_preflight_report_names_missing_evidence() -> None:
+    from caragent_core.production_preflight import (
+        build_production_readiness_preflight_report,
+    )
+
+    source_artifact = SimpleNamespace(id=uuid4())
+    version = SimpleNamespace(
+        id=uuid4(),
+        parameters=_handoff_parameters(),
+        workspace_id=uuid4(),
+    )
+
+    report = build_production_readiness_preflight_report(
+        source_artifact=source_artifact,
+        version=version,
+    )
+
+    assert report.status == "concept_only"
+    assert report.print_ready_allowed is False
+    assert set(REQUIRED_PRODUCTION_EVIDENCE_IDS) <= set(report.missing_evidence)
+    assert "print_ready_export_blocked" in report.blockers
+    assert report.template_validation.source_type == "internal_original"
+    assert report.template_validation.license_status == "approved"
+    assert "not print-ready" in report.disclaimer
+
+
 @pytest.mark.parametrize(
     "rights_variant",
     ["missing_snapshot", "rejected", "missing_source"],
@@ -723,6 +763,11 @@ def _handoff_parameters() -> dict[str, object]:
             "template": {
                 "id": "generic-side-coupe",
                 "label": "Generic side-view coupe",
+                "readiness": {"catalog_eligible": True},
+                "source": {
+                    "license_status": "approved",
+                    "source_type": "internal_original",
+                },
                 "view": "side",
             },
         },

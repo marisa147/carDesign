@@ -13,6 +13,10 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from caragent_core.production_preflight import (
+    build_production_readiness_preflight_report,
+    build_template_validation_report,
+)
 from caragent_core.storage import ObjectStorage, StoredObject
 
 HANDOFF_PACKAGE_SCHEMA_VERSION = 1
@@ -126,6 +130,7 @@ class HandoffPackageManifest(HandoffBaseModel):
     parent_version_id: UUID | None = None
     preview_3d: JsonObject = Field(default_factory=dict)
     preview_spec: JsonObject = Field(default_factory=dict)
+    production_readiness_preflight: JsonObject = Field(default_factory=dict)
     prompt_trace: HandoffPromptTrace
     provider_trace: HandoffProviderTrace
     references: HandoffReferenceManifest
@@ -133,6 +138,7 @@ class HandoffPackageManifest(HandoffBaseModel):
     schema_version: int = Field(default=HANDOFF_PACKAGE_SCHEMA_VERSION, ge=1, le=1)
     source_artifact: HandoffSourceArtifact
     template: JsonObject = Field(default_factory=dict)
+    template_validation: JsonObject = Field(default_factory=dict)
     version_id: UUID
     warnings: HandoffWarningReport
     workspace_id: UUID
@@ -416,6 +422,11 @@ async def build_handoff_package_zip(
         HandoffPackageFile(kind="manifest", path="manifest.json"),
         HandoffPackageFile(kind="notes", path="handoff-notes.md"),
         HandoffPackageFile(kind="warnings", path="warnings.md"),
+        HandoffPackageFile(
+            kind="production_readiness_preflight",
+            path="production-readiness-preflight.json",
+        ),
+        HandoffPackageFile(kind="template_validation", path="template-validation.json"),
         HandoffPackageFile(kind="prompt_trace", path="prompt-trace.md"),
         HandoffPackageFile(kind="references", path="references.json"),
         HandoffPackageFile(kind="concept_image", path=concept_path),
@@ -426,6 +437,11 @@ async def build_handoff_package_zip(
         ],
     ]
     safe_zone_report = build_handoff_safe_zone_report(preview_spec)
+    template_validation_report = build_template_validation_report(parameters)
+    production_preflight = build_production_readiness_preflight_report(
+        source_artifact=source_artifact,
+        version=version,
+    )
     prompt_trace = HandoffPromptTrace(
         model_run_ids=[_model_run_id(model_run) for model_run in model_runs],
         summary=_prompt_summary(model_runs),
@@ -443,6 +459,7 @@ async def build_handoff_package_zip(
         parent_version_id=getattr(version, "parent_version_id", None),
         preview_3d=_json_object(preview_3d),
         preview_spec=_json_object(preview_spec),
+        production_readiness_preflight=production_preflight.model_dump(mode="json"),
         prompt_trace=prompt_trace,
         provider_trace=provider_trace,
         references=references,
@@ -460,6 +477,7 @@ async def build_handoff_package_zip(
             width=getattr(source_artifact, "width", None),
         ),
         template=safe_zone_report.template,
+        template_validation=template_validation_report.model_dump(mode="json"),
         version_id=_required_uuid_attr(version, "id"),
         warnings=warning_report,
         workspace_id=_required_uuid_attr(version, "workspace_id"),
@@ -479,6 +497,16 @@ async def build_handoff_package_zip(
             warnings=warning_report,
         ),
         "warnings.md": render_handoff_warnings_markdown(warning_report),
+        "production-readiness-preflight.json": json.dumps(
+            production_preflight.model_dump(mode="json"),
+            indent=2,
+            sort_keys=True,
+        ),
+        "template-validation.json": json.dumps(
+            template_validation_report.model_dump(mode="json"),
+            indent=2,
+            sort_keys=True,
+        ),
         "prompt-trace.md": render_handoff_prompt_trace_markdown(
             model_runs=model_runs,
             prompt_trace=prompt_trace,
@@ -805,6 +833,8 @@ def _write_zip_members(
             "manifest.json",
             "handoff-notes.md",
             "warnings.md",
+            "production-readiness-preflight.json",
+            "template-validation.json",
             "prompt-trace.md",
             "references.json",
         ]:

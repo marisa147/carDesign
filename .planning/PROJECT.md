@@ -29,7 +29,7 @@ v3.0 从 `MVP_FINAL.md` 继续推进模板来源、授权、通用模板包、�
 
 **Shipped:** v1.0 MVP on 2026-06-18 and v2.0 V2 MVP on 2026-06-19.
 
-**Next milestone:** v3.0 Template Library And Production Readiness is planned from `C:/Users/25858/Downloads/MVP_FINAL.md`. Phase 19 is next.
+**Next milestone:** v3.0 Template Library And Production Readiness is planned from `C:/Users/25858/Downloads/MVP_FINAL.md`. Phase 20 is next.
 
 ## Current State
 
@@ -41,7 +41,7 @@ v3.0 从 `MVP_FINAL.md` 继续推进模板来源、授权、通用模板包、�
 - PostgreSQL/object-storage-oriented data model for workspaces, messages, briefs, jobs, events, artifacts, versions, model runs, feedback, exports, and cost records.
 - Local Docker smoke path for PostgreSQL, Redis, MinIO, API, worker, web, and worker queue generation.
 - V2 evidence for hosted-provider runbooks, targeted edit lineage, reference rights/source snapshots, lightweight 3D screenshots, enhanced handoff packages, release docs, and Browser UAT.
-- V3 template governance, internal-original MVP template pack, template catalog API, thumbnail serving, Workbench template selection with source/license/readiness visibility, and template-aware generation/preview/editing traceability.
+- V3 template governance, internal-original MVP template pack, template catalog API, thumbnail serving, Workbench template selection with source/license/readiness visibility, template-aware generation/preview/editing traceability, and concept-only production readiness preflight with enhanced handoff template evidence.
 
 **Codebase scale at v2.0 close:** about 30,301 source-plus-test lines across `apps/`, `packages/`, `services/`, `scripts/`, and `infra/`, excluding generated contracts and dependency folders.
 
@@ -69,10 +69,10 @@ v3.0 从 `MVP_FINAL.md` 继续推进模板来源、授权、通用模板包、�
 - ✓ Internal-original generic side-view template pack exists for coupe, sedan, hatchback, SUV, and van with required assets, deterministic thumbnails, validation command, and selected-template brief resolution — v3.0 Phase 16 (V3-PACK)
 - ✓ Template catalog API and Workbench selection expose filterable templates, thumbnails, source/license/readiness states, selected-template brief persistence, and job/export metadata trace — v3.0 Phase 17 (V3-CATALOG)
 - ✓ Selected templates flow through local deterministic generation, PreviewSpec overlays, targeted edit regions, reference/provider trace, durable records, Workbench preview, and 3D compatibility/fallback — v3.0 Phase 18 (V3-INTEGRATION)
+- ✓ Concept-only production readiness preflight identifies missing production evidence, persists report artifacts, enriches handoff ZIP evidence, and keeps print-ready export blocked — v3.0 Phase 19 (V3-PREFLIGHT)
 
 ### Active
 
-- [ ] Add concept-only production readiness preflight and keep print-ready export blocked.
 - [ ] Validate, document, smoke-test, UAT, and audit v3.0.
 
 ### Out of Scope
@@ -138,6 +138,7 @@ Shipped v1.0 experience:
 | Internal generic templates before catalog UI | The Workbench selector needs trustworthy, local, reusable template records and thumbnails before API/UI exposure | ✓ Good — Phase 16 added five internal-original templates and a package validator |
 | Catalog selection through brief contract | Template choice should survive refresh and job creation instead of living only in frontend state | ✓ Good — Phase 17 persists selected template id/view through brief create/update, job metadata, and export template trace |
 | PreviewSpec remains the template-aware review contract | Generation, 2D overlays, targeted edits, reference traces, and 3D fallback need one durable selected-version source of truth | ✓ Good — Phase 18 carries selected-template context through local provider, worker records, Workbench preview, and canonical/legacy 3D compatibility |
+| Preflight explains missing production evidence | Concept handoff should tell users what is absent before production instead of pretending generic concepts are print-ready | ✓ Good — Phase 19 adds durable concept-only preflight and template validation evidence while keeping PSD/AI/PDF exports blocked |
 
 ## Evolution
 
@@ -159,4 +160,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state.
 
 ---
-*Last updated: 2026-06-19 after Phase 18 completion*
+*Last updated: 2026-06-20 after Phase 19 completion*

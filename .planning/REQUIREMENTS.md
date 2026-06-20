@@ -44,10 +44,10 @@ v3.0 starts from the final MVP delivery note and focuses on the template/source/
 
 ### Production Readiness Preflight
 
-- [ ] **V3-PREFLIGHT-01**: User can request a concept-only production readiness preflight for a selected version.
-- [ ] **V3-PREFLIGHT-02**: Preflight report identifies missing production evidence such as verified scale, bleed, color profile, DPI, UV mapping, installer notes, and licensed real-vehicle template.
-- [ ] **V3-PREFLIGHT-03**: Enhanced concept handoff ZIP includes template source/license summary, template validation report, and explicit non-production status.
-- [ ] **V3-PREFLIGHT-04**: System keeps print-ready PSD/AI/PDF export blocked unless a future production handoff milestone supplies required evidence.
+- [x] **V3-PREFLIGHT-01**: User can request a concept-only production readiness preflight for a selected version.
+- [x] **V3-PREFLIGHT-02**: Preflight report identifies missing production evidence such as verified scale, bleed, color profile, DPI, UV mapping, installer notes, and licensed real-vehicle template.
+- [x] **V3-PREFLIGHT-03**: Enhanced concept handoff ZIP includes template source/license summary, template validation report, and explicit non-production status.
+- [x] **V3-PREFLIGHT-04**: System keeps print-ready PSD/AI/PDF export blocked unless a future production handoff milestone supplies required evidence.
 
 ### V3 Release
 
@@ -117,10 +117,10 @@ v3.0 starts from the final MVP delivery note and focuses on the template/source/
 | V3-INTEGRATION-04 | Phase 18 | Complete |
 | V3-INTEGRATION-05 | Phase 18 | Complete |
 | V3-INTEGRATION-06 | Phase 18 | Complete |
-| V3-PREFLIGHT-01 | Phase 19 | Pending |
-| V3-PREFLIGHT-02 | Phase 19 | Pending |
-| V3-PREFLIGHT-03 | Phase 19 | Pending |
-| V3-PREFLIGHT-04 | Phase 19 | Pending |
+| V3-PREFLIGHT-01 | Phase 19 | Complete |
+| V3-PREFLIGHT-02 | Phase 19 | Complete |
+| V3-PREFLIGHT-03 | Phase 19 | Complete |
+| V3-PREFLIGHT-04 | Phase 19 | Complete |
 | V3-REL-01 | Phase 20 | Pending |
 | V3-REL-02 | Phase 20 | Pending |
 | V3-REL-03 | Phase 20 | Pending |
@@ -129,10 +129,10 @@ v3.0 starts from the final MVP delivery note and focuses on the template/source/
 
 **Coverage:**
 
-- v3.0 requirements: 31 total; 22 complete
+- v3.0 requirements: 31 total; 26 complete
 - Mapped to phases: 31
 - Unmapped: 0
 
 ---
 *Requirements defined: 2026-06-19*
-*Last updated: 2026-06-19 after Phase 18 completion*
+*Last updated: 2026-06-20 after Phase 19 completion*

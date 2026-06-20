@@ -29,12 +29,19 @@ from caragent_core.models import (
     ModelRun,
     utc_now,
 )
+from caragent_core.production_preflight import PRODUCTION_PREFLIGHT_FORMAT
 from caragent_core.references import REFERENCE_TRACE_METADATA_KEYS
 from caragent_core.repositories import jobs as job_repository
 from caragent_core.services import workspaces
 
 JsonObject = dict[str, object]
-SUPPORTED_CONCEPT_EXPORT_FORMATS = {"jpeg", "jpg", "png", ENHANCED_HANDOFF_PACKAGE_FORMAT}
+SUPPORTED_CONCEPT_EXPORT_FORMATS = {
+    "jpeg",
+    "jpg",
+    "png",
+    ENHANCED_HANDOFF_PACKAGE_FORMAT,
+    PRODUCTION_PREFLIGHT_FORMAT,
+}
 CONCEPT_EXPORT_DISCLAIMER = "Concept preview only, not print-ready."
 
 

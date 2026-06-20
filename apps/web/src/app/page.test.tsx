@@ -920,6 +920,62 @@ const exportFixture: ExportResponse = {
   workspace_id: "workspace-1",
 };
 
+const preflightReportFixture = {
+  blockers: ["print_ready_export_blocked"],
+  checks: [
+    {
+      id: "verified_scale",
+      label: "Verified scale",
+      message: "No installer-verified scale evidence is attached.",
+      severity: "warning",
+      status: "missing",
+    },
+    {
+      id: "bleed_spec",
+      label: "Bleed specification",
+      message: "No bleed specification is attached.",
+      severity: "warning",
+      status: "missing",
+    },
+    {
+      id: "print_ready_export_blocked",
+      label: "Print-ready export",
+      message: "Print-ready export remains blocked.",
+      severity: "blocker",
+      status: "blocked",
+    },
+  ],
+  disclaimer: "Concept preflight only; this is not print-ready production artwork.",
+  missing_evidence: [
+    "licensed_real_vehicle_template",
+    "verified_scale",
+    "bleed_spec",
+    "color_profile",
+    "dpi_target",
+    "verified_uv_mapping",
+    "installer_notes",
+  ],
+  print_ready_allowed: false,
+  status: "concept_only",
+  version_id: "version-2",
+  workspace_id: "workspace-1",
+} as const;
+
+const preflightExportFixture: ExportResponse = {
+  ...exportFixture,
+  artifact_id: "artifact-preflight",
+  concept_label: "production-readiness-preflight",
+  format: "production_readiness_preflight",
+  id: "export-preflight",
+  manifest: {
+    production_readiness_preflight: preflightReportFixture,
+    source_artifact_object_key:
+      "workspaces/workspace-1/export/export-preflight/production-readiness-preflight.json",
+    version_id: "version-2",
+  },
+  status: "succeeded",
+};
+
 const preview3dScreenshotArtifactFixture: ArtifactResponse = {
   ...artifactFixture,
   byte_size: 720,
@@ -947,6 +1003,12 @@ const enhancedExportFixture: ExportResponse = {
     files: [
       { kind: "manifest", path: "manifest.json", required: true },
       { kind: "notes", path: "handoff-notes.md", required: true },
+      {
+        kind: "production_readiness_preflight",
+        path: "production-readiness-preflight.json",
+        required: true,
+      },
+      { kind: "template_validation", path: "template-validation.json", required: true },
       { kind: "concept_image", path: "images/concept.png", required: true },
     ],
     format: "enhanced_concept_handoff_zip",
@@ -956,6 +1018,7 @@ const enhancedExportFixture: ExportResponse = {
       content_type: "application/zip",
       object_key: "workspaces/workspace-1/export/export-zip-1/enhanced-concept-handoff.zip",
     },
+    production_readiness_preflight: preflightReportFixture,
     schema_version: 1,
     source_artifact: { id: "artifact-2", object_key: secondArtifactFixture.object_key },
     version_id: "version-2",
@@ -2970,6 +3033,58 @@ describe("Phase 4 workbench shell", () => {
     ).toBe(false);
   });
 
+  it("runs production readiness preflight for the selected version", async () => {
+    const user = userEvent.setup();
+    localStorage.setItem("caragent.workbench.workspaceId", "workspace-1");
+    localStorage.setItem("caragent.workbench.briefId", "brief-1");
+    const succeededJob = {
+      ...generationJobFixture,
+      status: "succeeded",
+      updated_at: "2026-06-17T00:25:00Z",
+    } satisfies GenerationJobResponse;
+    const fetchMock = mockResumeWithGenerationState({
+      artifacts: [artifactFixture, secondArtifactFixture],
+      events: [
+        {
+          ...jobEventFixture,
+          event_type: "completed",
+          message: "Artifact ready.",
+          progress: "100",
+          status: "succeeded",
+        },
+      ],
+      job: succeededJob,
+      versions: [versionFixture, secondVersionFixture],
+    }).mockResolvedValueOnce(
+      jsonResponse(
+        {
+          export: preflightExportFixture,
+          report: preflightReportFixture,
+        },
+        201,
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<Home />);
+
+    expect(await screen.findByText("导出历史")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "版本 2" }));
+    expect(screen.getByText("生产预检")).toBeVisible();
+    expect(screen.getByText("尚未运行。")).toBeVisible();
+
+    await user.click(screen.getByRole("button", { name: "运行生产预检" }));
+
+    expect(await screen.findByText("生产预检已记录。")).toBeVisible();
+    expect(screen.getByText(/缺少生产证据 7/)).toBeVisible();
+    expect(screen.getByText("Verified scale")).toBeVisible();
+    const preflightCall = fetchMock.mock.calls.find(([url]) =>
+      String(url).includes("/versions/version-2/production-readiness-preflight"),
+    );
+    expect(preflightCall).toBeDefined();
+    expect(preflightCall?.[1]).toEqual(expect.objectContaining({ method: "POST" }));
+  });
+
   it("creates selected-version enhanced handoff ZIP exports with package preview", async () => {
     vi.stubEnv("NEXT_PUBLIC_V2_ENHANCED_HANDOFF_PACKAGE_ENABLED", "true");
     const user = userEvent.setup();
@@ -3065,6 +3180,8 @@ describe("Phase 4 workbench shell", () => {
     expect(JSON.stringify(exportBody)).not.toMatch(/[A-Z]:\\|api[_-]?key|secret|image_base64/i);
     expect(screen.getAllByText("ZIP").length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText("images/concept.png")).toBeVisible();
+    expect(screen.getByText("production-readiness-preflight.json")).toBeVisible();
+    expect(screen.getByText("template-validation.json")).toBeVisible();
     expect(
       fetchMock.mock.calls.some(([url]) => String(url).includes("/versions/version-1/exports")),
     ).toBe(false);

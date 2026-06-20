@@ -6,6 +6,7 @@ import type {
 import { AlertTriangle, CheckCircle2, Download, FileArchive, FileJson } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import type { ProductionReadinessPreflightReport } from "@/lib/api/iteration";
 
 type ConceptExportFormat = "png" | "jpg" | "enhanced_concept_handoff_zip";
 
@@ -17,9 +18,14 @@ interface ExportPanelProps {
   exports: ExportResponse[];
   format: ConceptExportFormat;
   isSubmitting: boolean;
+  isSubmittingPreflight: boolean;
   notice: string | null;
   onFormatChange: (value: ConceptExportFormat) => void;
+  onRunPreflight: () => void;
   onSubmit: () => void;
+  preflightError: string | null;
+  preflightNotice: string | null;
+  preflightReport: ProductionReadinessPreflightReport | null;
   selectedVersion: DesignVersionResponse | null;
 }
 
@@ -41,9 +47,14 @@ export function ExportPanel({
   exports,
   format,
   isSubmitting,
+  isSubmittingPreflight,
   notice,
   onFormatChange,
+  onRunPreflight,
   onSubmit,
+  preflightError,
+  preflightNotice,
+  preflightReport,
   selectedVersion,
 }: ExportPanelProps) {
   const selectedExports = selectedVersion
@@ -63,6 +74,10 @@ export function ExportPanel({
   const hasRightsSourceBlocker = packageReadiness.some(
     (row) => row.value === missingRightsSourceText,
   );
+  const activePreflightReport =
+    preflightReport?.version_id === selectedVersion?.id
+      ? preflightReport
+      : latestPreflightReport(selectedExports);
   const canSubmit =
     baseCanSubmit && (!isHandoffPackage || (enhancedHandoffEnabled && !hasPackageBlocker));
 
@@ -150,6 +165,15 @@ export function ExportPanel({
         ) : null}
       </div>
 
+      <PreflightStatus
+        canRun={selectedVersion !== null && artifact !== null && !isSubmittingPreflight}
+        error={preflightError}
+        isSubmitting={isSubmittingPreflight}
+        notice={preflightNotice}
+        onRun={onRunPreflight}
+        report={activePreflightReport}
+      />
+
       {isHandoffPackage && hasRightsSourceBlocker ? (
         <p className="text-xs font-medium text-destructive">{missingRightsSourceText}</p>
       ) : null}
@@ -235,6 +259,58 @@ function PackageReadinessRows({ rows }: { rows: PackageReadinessRow[] }) {
   );
 }
 
+function PreflightStatus({
+  canRun,
+  error,
+  isSubmitting,
+  notice,
+  onRun,
+  report,
+}: {
+  canRun: boolean;
+  error: string | null;
+  isSubmitting: boolean;
+  notice: string | null;
+  onRun: () => void;
+  report: ProductionReadinessPreflightReport | null;
+}) {
+  const missingRows =
+    report?.checks.filter((check) => check.status === "missing" || check.status === "blocked") ??
+    [];
+  return (
+    <div className="grid gap-2 rounded-md border border-border bg-card px-3 py-2 text-xs">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <p className="font-medium text-foreground">生产预检</p>
+          <p className="text-secondary-foreground">概念预检，非生产文件。</p>
+        </div>
+        <Button disabled={!canRun} onClick={onRun} size="sm" type="button" variant="outline">
+          {isSubmitting ? "预检中" : "运行生产预检"}
+        </Button>
+      </div>
+      {report ? (
+        <div className="grid gap-1 text-secondary-foreground">
+          <p>
+            状态 {report.status === "concept_only" ? "概念预检" : report.status} · 缺少生产证据{" "}
+            {report.missing_evidence.length}
+          </p>
+          <div className="flex flex-wrap gap-1">
+            {missingRows.slice(0, 7).map((check) => (
+              <span className="rounded-sm border border-border px-1.5 py-0.5" key={check.id}>
+                {check.label}
+              </span>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <p className="text-secondary-foreground">尚未运行。</p>
+      )}
+      {notice ? <p className="text-primary">{notice}</p> : null}
+      {error ? <p className="text-destructive">{error}</p> : null}
+    </div>
+  );
+}
+
 interface PreviewSpecSummaryData {
   overlayLayerCount: number;
   safeZoneCount: number;
@@ -269,12 +345,35 @@ function ExportPackageFiles({ manifest }: { manifest: ExportResponse["manifest"]
   }
   return (
     <div className="mt-2 flex flex-wrap gap-1 text-xs text-secondary-foreground">
-      {paths.slice(0, 4).map((path) => (
+      {paths.slice(0, 6).map((path) => (
         <span className="rounded-sm border border-border px-1.5 py-0.5" key={path}>
           {path}
         </span>
       ))}
     </div>
+  );
+}
+
+function latestPreflightReport(
+  exports: ExportResponse[],
+): ProductionReadinessPreflightReport | null {
+  const entry = [...exports]
+    .reverse()
+    .find((item) => item.format === "production_readiness_preflight");
+  if (!entry) {
+    return null;
+  }
+  const report = entry.manifest.production_readiness_preflight;
+  return isPreflightReport(report) ? report : null;
+}
+
+function isPreflightReport(value: unknown): value is ProductionReadinessPreflightReport {
+  return (
+    isRecord(value) &&
+    Array.isArray(value.blockers) &&
+    Array.isArray(value.checks) &&
+    Array.isArray(value.missing_evidence) &&
+    value.status === "concept_only"
   );
 }
 

@@ -13,6 +13,7 @@ from caragent_core.generation import (
     TemplateSourceMetadata,
 )
 from caragent_core.preview3d import Preview3DScreenshotMetadata, Preview3DSpec
+from caragent_core.production_preflight import ProductionReadinessPreflightReport
 from caragent_core.references import ReferenceAssignment
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -484,3 +485,8 @@ class ExportCreateRequest(BaseModel):
     artifact_id: UUID | None = None
     concept_label: str = Field(default="concept_preview", min_length=1, max_length=120)
     manifest: dict[str, Any] = Field(default_factory=dict)
+
+
+class ProductionReadinessPreflightResponse(BaseModel):
+    export: ExportResponse
+    report: ProductionReadinessPreflightReport

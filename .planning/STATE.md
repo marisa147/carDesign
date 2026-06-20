@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Template Library And Production Readiness
 status: in-progress
-stopped_at: Completed Phase 18; ready for Phase 19 planning
-last_updated: "2026-06-19T23:25:00+08:00"
-last_activity: "2026-06-19 -- Completed Phase 18 template-aware generation, preview, and editing"
+stopped_at: Completed Phase 19; ready for Phase 20 hardening
+last_updated: "2026-06-20T08:50:00+08:00"
+last_activity: "2026-06-20 -- Completed Phase 19 concept handoff and production readiness preflight"
 progress:
   total_phases: 6
-  completed_phases: 4
+  completed_phases: 5
   total_plans: 33
-  completed_plans: 23
-  percent: 70
+  completed_plans: 28
+  percent: 85
 ---
 
 # Project State
@@ -21,17 +21,17 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-19)
 
 **Core value:** 用户能用自然语言快速得到一套可预览、可迭代、可导出的高质量痛车设计方案。
-**Current focus:** v3.0 Phase 19 planning
+**Current focus:** v3.0 Phase 20 hardening
 
 ## Current Position
 
 Milestone: v3.0 Template Library And Production Readiness — IN PROGRESS
-Phase: Phase 19 — Concept Handoff And Production Readiness Preflight
+Phase: Phase 20 — V3 Hardening, Docs, Smoke, And UAT
 Plan: none active
-Status: Ready to plan Phase 19
-Last activity: 2026-06-19 -- Completed Phase 18 template-aware generation, preview, and editing
+Status: Ready to execute Phase 20
+Last activity: 2026-06-20 -- Completed Phase 19 concept handoff and production readiness preflight
 
-Progress: [#######---] 70%
+Progress: [#########-] 85%
 
 ## Milestone Archives
 
@@ -54,7 +54,7 @@ v3.0 Template Library And Production Readiness is scoped to the following phase 
 | Phase 16 | MVP Generic Template Pack | 6/6 complete | V3-PACK-01..06 complete |
 | Phase 17 | Template Catalog API And Workbench Selection | 6/6 complete | V3-CATALOG-01..05 complete |
 | Phase 18 | Template-Aware Generation, Preview, And Editing | 6/6 complete | V3-INTEGRATION-01..06 complete |
-| Phase 19 | Concept Handoff And Production Readiness Preflight | 0/5 | V3-PREFLIGHT-01..04 |
+| Phase 19 | Concept Handoff And Production Readiness Preflight | 5/5 complete | V3-PREFLIGHT-01..04 complete |
 | Phase 20 | V3 Hardening, Docs, Smoke, And UAT | 0/5 | V3-REL-01..05 |
 
 ## Prior Milestone Metrics
@@ -179,6 +179,12 @@ Recent decisions affecting v2.0 and v3.0:
 - [Phase 18 Plan 04]: Reference-guided generation records concise template context alongside reference roles, rights snapshots, provider/model metadata, and cost trace.
 - [Phase 18 Plan 05]: Lightweight 3D compatibility resolves both legacy `generic-side-coupe` and canonical `generic_coupe_side_v1`, while unsupported MVP templates fall back with selected-template reason text.
 - [Phase 18 Plan 06]: Phase 18 validations, elevated contracts check, web/core/worker typechecks, and archived PreviewSpec regression coverage passed; V3-INTEGRATION-01..06 are complete.
+- [Phase 19 Planning]: Concept handoff preflight is scoped as a concept-only report and must not imply print-ready production output.
+- [Phase 19 Plan 01]: Core production readiness preflight models now report missing production evidence and template validation while keeping print-ready disallowed.
+- [Phase 19 Plan 02]: API now creates version-scoped preflight reports as durable JSON export artifacts and export ledger records.
+- [Phase 19 Plan 03]: Workbench export panel now runs preflight, shows concept-only status, and renders missing evidence labels for the selected version.
+- [Phase 19 Plan 04]: Enhanced handoff ZIPs now include `production-readiness-preflight.json`, `template-validation.json`, and matching manifest evidence.
+- [Phase 19 Plan 05]: Phase 19 validations passed; V3-PREFLIGHT-01..04 are complete and print-ready PSD/AI/PDF exports remain blocked.
 
 ### Pending Todos
 
@@ -195,8 +201,8 @@ None.
 - Hosted reference-image input remains manual-only until provider/model support, credentials, cost approval, and quota guards are verified.
 - Contract drift must be checked in each phase because v2.0 extends the v1.0 schema surface.
 - V3 template assets must be `internal_original`, licensed, or user-provided-with-rights; web-crawled or third-party reference-only material must not enter reusable template assets, masks, thumbnails, or catalog entries.
-- Template-aware generation, PreviewSpec overlays, targeted edits, reference traces, and 3D fallback are complete; Phase 19 must add concept-only production readiness preflight and richer handoff evidence without implying print readiness.
-- Concept handoff and preflight must keep non-production labels and avoid implying print-ready PSD/AI/PDF, verified scale/bleed/color/DPI, production UV, or installer readiness.
+- Concept handoff and preflight keep non-production labels and avoid implying print-ready PSD/AI/PDF, verified scale/bleed/color/DPI, production UV, or installer readiness.
+- Phase 20 must run V3-wide hardening, local/Docker smoke where available, Browser UAT, docs, milestone audit, and archive readiness.
 
 ## Deferred Items
 
@@ -225,8 +231,8 @@ Items acknowledged by `audit-open` at v2.0 milestone close on 2026-06-19:
 
 ## Session Continuity
 
-Last session: 2026-06-19T23:25:00+08:00
-Stopped at: Completed Phase 18; ready for Phase 19 planning
+Last session: 2026-06-20T08:50:00+08:00
+Stopped at: Completed Phase 19; ready for Phase 20 hardening
 Resume files:
 
 - `.planning/PROJECT.md`
@@ -245,6 +251,10 @@ Resume files:
 - `.planning/phases/18-template-aware-generation-preview-and-editing/18-UI-SPEC.md`
 - `.planning/phases/18-template-aware-generation-preview-and-editing/18-VERIFICATION.md`
 - `.planning/phases/18-template-aware-generation-preview-and-editing/18-REVIEW.md`
+- `.planning/phases/19-concept-handoff-and-production-readiness-preflight/19-CONTEXT.md`
+- `.planning/phases/19-concept-handoff-and-production-readiness-preflight/19-UI-SPEC.md`
+- `.planning/phases/19-concept-handoff-and-production-readiness-preflight/19-VERIFICATION.md`
+- `.planning/phases/19-concept-handoff-and-production-readiness-preflight/19-REVIEW.md`
 - `.planning/MILESTONES.md`
 - `.planning/RETROSPECTIVE.md`
 - `C:/Users/25858/Downloads/MVP_FINAL.md`
@@ -369,5 +379,5 @@ Resume files:
 - `.planning/phases/14-v2-mvp-hardening-docs-smoke-and-uat/14-06-SUMMARY.md`
 - `.planning/phases/14-v2-mvp-hardening-docs-smoke-and-uat/evidence/phase14-browser-metrics.json`
 
-Next recommended command: `$gsd-plan-phase 19`
-Alternative: `$gsd-discuss-phase 19 --auto`
+Next recommended command: `$gsd-execute-phase 20`
+Alternative: `$gsd-plan-phase 20`

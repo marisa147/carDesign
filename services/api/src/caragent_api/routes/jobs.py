@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 import binascii
 import hashlib
+import json
 from typing import Annotated
 from uuid import UUID, uuid4
 
@@ -17,6 +18,10 @@ from caragent_core.models import Artifact, ExportRecord
 from caragent_core.preview3d import (
     Preview3DScreenshotArtifactMetadata,
     required_preview_3d_warning_ids,
+)
+from caragent_core.production_preflight import (
+    PRODUCTION_PREFLIGHT_FORMAT,
+    build_production_readiness_preflight_report,
 )
 from caragent_core.services import jobs, workspaces
 from caragent_core.storage import ObjectStorage, build_object_key, validate_upload
@@ -41,6 +46,7 @@ from caragent_api.schemas import (
     JobEventResponse,
     ModelRunResponse,
     Preview3DScreenshotCreateRequest,
+    ProductionReadinessPreflightResponse,
     QueueRevokeResponse,
 )
 
@@ -353,6 +359,80 @@ async def create_export(
     return ExportResponse.model_validate(row)
 
 
+@router.post(
+    "/workspaces/{workspace_id}/versions/{version_id}/production-readiness-preflight",
+    response_model=ProductionReadinessPreflightResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_production_readiness_preflight(
+    workspace_id: UUID,
+    version_id: UUID,
+    session: SessionDependency,
+    storage: StorageDependency,
+) -> ProductionReadinessPreflightResponse:
+    try:
+        version = await jobs.get_workspace_version(session, workspace_id, version_id)
+        source_artifact = await _resolve_optional_generated_image_artifact(
+            session,
+            workspace_id,
+            version_id,
+        )
+        report = build_production_readiness_preflight_report(
+            source_artifact=source_artifact,
+            version=version,
+        )
+        report_json = json.dumps(
+            report.model_dump(mode="json"),
+            indent=2,
+            sort_keys=True,
+        ).encode("utf-8")
+        object_key = build_object_key(
+            workspace_id=workspace_id,
+            kind=ArtifactKind.EXPORT.value,
+            record_id=uuid4(),
+            filename="production-readiness-preflight.json",
+        )
+        await storage.put_object(object_key, report_json, "application/json")
+        report_artifact = await jobs.create_artifact(
+            session,
+            workspace_id,
+            byte_size=len(report_json),
+            checksum_sha256=hashlib.sha256(report_json).hexdigest(),
+            content_type="application/json",
+            job_id=version.job_id,
+            kind=ArtifactKind.EXPORT.value,
+            metadata={
+                "production_readiness_preflight": {
+                    "blockers": list(report.blockers),
+                    "missing_evidence": list(report.missing_evidence),
+                    "print_ready_allowed": report.print_ready_allowed,
+                    "schema_version": report.schema_version,
+                    "status": report.status,
+                },
+            },
+            object_key=object_key,
+            version_id=version.id,
+        )
+        export = await jobs.record_export(
+            session,
+            workspace_id,
+            version_id,
+            artifact_id=report_artifact.id,
+            concept_label="production-readiness-preflight",
+            export_format=PRODUCTION_PREFLIGHT_FORMAT,
+            manifest={"production_readiness_preflight": report.model_dump(mode="json")},
+            status=ExportStatus.SUCCEEDED.value,
+        )
+    except workspaces.WorkspaceNotFoundError as error:
+        raise workspace_not_found(error) from error
+    except jobs.JobValidationError as error:
+        raise job_validation_failed(error) from error
+    return ProductionReadinessPreflightResponse(
+        export=ExportResponse.model_validate(export),
+        report=report,
+    )
+
+
 async def _create_enhanced_handoff_export(
     *,
     workspace_id: UUID,
@@ -451,6 +531,21 @@ async def _resolve_handoff_source_artifact(
     if not candidates:
         raise jobs.JobValidationError("Handoff source concept image artifact not found")
     return candidates[-1]
+
+
+async def _resolve_optional_generated_image_artifact(
+    session: AsyncSession,
+    workspace_id: UUID,
+    version_id: UUID,
+) -> Artifact | None:
+    artifacts = await jobs.list_workspace_artifacts(session, workspace_id)
+    candidates = [
+        artifact
+        for artifact in artifacts
+        if artifact.version_id == version_id
+        and artifact.kind == ArtifactKind.GENERATED_IMAGE.value
+    ]
+    return candidates[-1] if candidates else None
 
 
 async def _list_handoff_screenshot_artifacts(
