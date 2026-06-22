@@ -1,37 +1,37 @@
 ---
 gsd_state_version: 1.0
-milestone: v3.0
-milestone_name: Template Library And Production Readiness
-status: archived
-stopped_at: Archived v3.0; ready for next milestone planning
-last_updated: "2026-06-20T09:35:00+08:00"
-last_activity: "2026-06-20 -- Archived v3.0 Template Library And Production Readiness milestone"
+milestone: v4.0
+milestone_name: Real Generation Closure And Reliability
+status: active
+stopped_at: Phase 21 ready for planning/execution
+last_updated: "2026-06-22T00:00:00+08:00"
+last_activity: "2026-06-22 -- Initialized v4.0 Real Generation Closure And Reliability milestone from carAgent_CODE_REVIEW.md"
 progress:
   total_phases: 6
-  completed_phases: 6
-  total_plans: 33
-  completed_plans: 33
-  percent: 100
+  completed_phases: 0
+  total_requirements: 23
+  completed_requirements: 0
+  percent: 0
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-06-20)
+See: .planning/PROJECT.md (updated 2026-06-22)
 
 **Core value:** 用户能用自然语言快速得到一套可预览、可迭代、可导出的高质量痛车设计方案。
-**Current focus:** Planning the next milestone
+**Current focus:** Phase 21 Real Generation Entry And Artifact Preview
 
 ## Current Position
 
-Milestone: v3.0 Template Library And Production Readiness — ARCHIVED
-Phase: none active
-Plan: none active
-Status: Ready to run `$gsd-new-milestone`
-Last activity: 2026-06-20 -- Archived v3.0 Template Library And Production Readiness milestone
+Milestone: v4.0 Real Generation Closure And Reliability — ACTIVE
+Phase: 21 Real Generation Entry And Artifact Preview
+Plan: not started
+Status: Ready to plan and execute Phase 21
+Last activity: 2026-06-22 -- Initialized v4.0 from `carAgent_CODE_REVIEW.md`
 
-Progress: [##########] 100%
+Progress: [----------] 0%
 
 ## Milestone Archives
 
@@ -49,16 +49,16 @@ Progress: [##########] 100%
 
 ## Current Milestone Scope
 
-v3.0 Template Library And Production Readiness is scoped to the following phase sequence:
+v4.0 Real Generation Closure And Reliability is scoped to the following phase sequence:
 
-| Phase | Focus | Plans | Requirements |
-|-------|-------|-------|--------------|
-| Phase 15 | Template Source Governance And Compatibility | 5/5 complete | V3-TEMPLATE-01..05 complete |
-| Phase 16 | MVP Generic Template Pack | 6/6 complete | V3-PACK-01..06 complete |
-| Phase 17 | Template Catalog API And Workbench Selection | 6/6 complete | V3-CATALOG-01..05 complete |
-| Phase 18 | Template-Aware Generation, Preview, And Editing | 6/6 complete | V3-INTEGRATION-01..06 complete |
-| Phase 19 | Concept Handoff And Production Readiness Preflight | 5/5 complete | V3-PREFLIGHT-01..04 complete |
-| Phase 20 | V3 Hardening, Docs, Smoke, And UAT | 5/5 complete | V3-REL-01..05 complete |
+| Phase | Focus | Requirements |
+|-------|-------|--------------|
+| Phase 21 | Real Generation Entry And Artifact Preview | GENC-01..04 |
+| Phase 22 | Shared Object Storage | STOR-01..04 |
+| Phase 23 | Dispatch And Worker Reliability | RELY-01..05 |
+| Phase 24 | Preview And Parameter Correctness | PREV-01..03 |
+| Phase 25 | Parser Boundary And Template Compositor | AGNT-01..03 |
+| Phase 26 | Security And Operations Hardening | HARD-01..04 |
 
 ## Prior Milestone Metrics
 
@@ -402,5 +402,5 @@ Resume files:
 - `.planning/phases/14-v2-mvp-hardening-docs-smoke-and-uat/14-06-SUMMARY.md`
 - `.planning/phases/14-v2-mvp-hardening-docs-smoke-and-uat/evidence/phase14-browser-metrics.json`
 
-Next recommended command: `$gsd-new-milestone`
-Alternative: `$gsd-review-backlog`
+Next recommended command: `$gsd-plan-phase 21`
+Alternative: `$gsd-discuss-phase 21`
