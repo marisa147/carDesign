@@ -18,7 +18,7 @@
     "orval.config.ts"
   ],
   "scripts": {
-    "generate": "orval --config ./orval.config.ts",
+    "generate": "orval --config ./orval.config.ts && node ../../scripts/patch-contract-binary-routes.mjs",
     "check": "node ../../scripts/check-contracts.mjs",
     "test": "tsc --project tsconfig.json --noEmit",
     "typecheck": "tsc --project tsconfig.json --noEmit",

@@ -184,6 +184,30 @@ class GenerationJob(IdMixin, TimestampMixin, Base):
     estimated_cost: Mapped[Decimal | None] = mapped_column(Numeric(12, 4), nullable=True)
     actual_cost: Mapped[Decimal | None] = mapped_column(Numeric(12, 4), nullable=True)
     latest_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    state_version: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    metadata_json: Mapped[JsonObject] = mapped_column("metadata", JSON, default=dict)
+
+
+class JobDispatchOutbox(IdMixin, TimestampMixin, Base):
+    __tablename__ = "job_dispatch_outbox"
+    __table_args__ = (
+        UniqueConstraint("job_id", "task_name", name="uq_job_dispatch_outbox_job_task"),
+        Index("ix_job_dispatch_outbox_status_created", "status", "created_at"),
+    )
+
+    job_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("generation_jobs.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    task_name: Mapped[str] = mapped_column(String(160), nullable=False)
+    queue_name: Mapped[str] = mapped_column(String(160), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), default="pending", nullable=False)
+    task_id: Mapped[str | None] = mapped_column(String(160), nullable=True)
+    attempts: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    dispatched_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     metadata_json: Mapped[JsonObject] = mapped_column("metadata", JSON, default=dict)
 
 

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import asyncio
+import struct
+import zlib
 from pathlib import Path
 from typing import Any
 
@@ -13,6 +15,20 @@ from caragent_api.config import ApiSettings
 from caragent_api.main import create_app
 
 
+def png_bytes(width: int, height: int) -> bytes:
+    def chunk(kind: bytes, data: bytes) -> bytes:
+        payload = kind + data
+        return (
+            struct.pack("!I", len(data))
+            + payload
+            + struct.pack("!I", zlib.crc32(payload) & 0xFFFFFFFF)
+        )
+
+    raw_rows = b"".join(b"\x00" + (b"\xff\xff\xff\xff" * width) for _ in range(height))
+    return b"\x89PNG\r\n\x1a\n" + chunk(
+        b"IHDR",
+        struct.pack("!IIBBBBB", width, height, 8, 6, 0, 0, 0),
+    ) + chunk(b"IDAT", zlib.compress(raw_rows)) + chunk(b"IEND", b"")
 def create_asset_client(tmp_path: Path) -> tuple[TestClient, Any, InMemoryObjectStorage]:
     database_path = tmp_path / "assets.db"
     settings = ApiSettings(database_url=f"sqlite+aiosqlite:///{database_path.as_posix()}")
@@ -35,7 +51,7 @@ def test_upload_list_and_update_asset_rights(tmp_path: Path) -> None:
     upload = client.post(
         f"/workspaces/{workspace_id}/assets",
         data={"kind": "reference"},
-        files={"file": ("reference.png", b"\x89PNG\r\n\x1a\nimage-bytes", "image/png")},
+        files={"file": ("reference.png", png_bytes(2, 2), "image/png")},
     )
 
     assert upload.status_code == 201
@@ -68,7 +84,7 @@ def test_get_asset_metadata(tmp_path: Path) -> None:
     uploaded = client.post(
         f"/workspaces/{workspace_id}/assets",
         data={"kind": "reference"},
-        files={"file": ("reference.png", b"\x89PNG\r\n\x1a\nimage-bytes", "image/png")},
+        files={"file": ("reference.png", png_bytes(2, 2), "image/png")},
     ).json()
 
     response = client.get(f"/assets/{uploaded['id']}")
@@ -79,6 +95,50 @@ def test_get_asset_metadata(tmp_path: Path) -> None:
     assert "credentials" not in response.text
 
 
+def test_asset_routes_reject_cross_workspace_owner(tmp_path: Path) -> None:
+    client, _app, _storage = create_asset_client(tmp_path)
+    workspace_id = client.post(
+        "/workspaces",
+        headers={"X-CarAgent-User": "alice"},
+        json={"title": "Private assets"},
+    ).json()["id"]
+    upload = client.post(
+        f"/workspaces/{workspace_id}/assets",
+        headers={"X-CarAgent-User": "alice"},
+        data={"kind": "reference"},
+        files={"file": ("reference.png", png_bytes(2, 2), "image/png")},
+    )
+    assert upload.status_code == 201
+    asset_id = upload.json()["id"]
+
+    list_response = client.get(
+        f"/workspaces/{workspace_id}/assets",
+        headers={"X-CarAgent-User": "bob"},
+    )
+    get_response = client.get(f"/assets/{asset_id}", headers={"X-CarAgent-User": "bob"})
+    rights_response = client.patch(
+        f"/assets/{asset_id}/rights",
+        headers={"X-CarAgent-User": "bob"},
+        json={"rights_status": "missing"},
+    )
+
+    assert list_response.status_code == 403
+    assert get_response.status_code == 403
+    assert rights_response.status_code == 403
+
+
+def test_upload_rejects_spoofed_png_bytes(tmp_path: Path) -> None:
+    client, _app, storage = create_asset_client(tmp_path)
+    workspace_id = client.post("/workspaces", json={"title": "Assets"}).json()["id"]
+
+    upload = client.post(
+        f"/workspaces/{workspace_id}/assets",
+        data={"kind": "reference"},
+        files={"file": ("reference.png", b"not-a-real-png", "image/png")},
+    )
+
+    assert upload.status_code == 422
+    assert storage.objects == {}
 def test_upload_rejects_unsupported_content_type(tmp_path: Path) -> None:
     client, _app, _storage = create_asset_client(tmp_path)
     workspace_id = client.post("/workspaces", json={"title": "Assets"}).json()["id"]

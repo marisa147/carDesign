@@ -8,7 +8,7 @@ import { AlertTriangle, CheckCircle2, Download, FileArchive, FileJson } from "lu
 import { Button } from "@/components/ui/button";
 import type { ProductionReadinessPreflightReport } from "@/lib/api/iteration";
 
-type ConceptExportFormat = "png" | "jpg" | "enhanced_concept_handoff_zip";
+type ConceptExportFormat = "png" | "jpg" | "enhanced_concept_handoff_zip" | "construction_package_zip";
 
 interface ExportPanelProps {
   artifact: ArtifactResponse | null;
@@ -33,6 +33,7 @@ const formatOptions: Array<{ label: string; value: ConceptExportFormat }> = [
   { label: "PNG", value: "png" },
   { label: "JPG", value: "jpg" },
   { label: "ZIP", value: "enhanced_concept_handoff_zip" },
+  { label: "施工包", value: "construction_package_zip" },
 ];
 
 const manifestDisclaimer = "概念预览，不是生产印刷文件。";
@@ -61,6 +62,7 @@ export function ExportPanel({
     ? exports.filter((entry) => entry.version_id === selectedVersion.id)
     : [];
   const isHandoffPackage = format === "enhanced_concept_handoff_zip";
+  const isConstructionPackage = format === "construction_package_zip";
   const baseCanSubmit = selectedVersion !== null && artifact !== null && !isSubmitting;
   const objectKeyPreview = artifact ? summarizeObjectKey(artifact.object_key) : "-";
   const selectedPreviewSpec = readPreviewSpecSummary(selectedVersion?.parameters.preview_spec);
@@ -102,12 +104,16 @@ export function ExportPanel({
       </div>
 
       <p className="rounded-md border border-dashed border-border bg-muted px-3 py-2 text-xs text-secondary-foreground">
-        {isHandoffPackage ? handoffPackageDisclaimer : manifestDisclaimer}
+        {isConstructionPackage
+          ? "SVG/PDF/PNG 准施工包，仍需人工生产校验"
+          : isHandoffPackage
+            ? handoffPackageDisclaimer
+            : manifestDisclaimer}
       </p>
 
       <div className="grid gap-2">
         <p className="text-xs font-medium text-secondary-foreground">导出格式</p>
-        <div className="grid grid-cols-3 gap-1">
+        <div className="grid grid-cols-4 gap-1">
           {formatOptions.map((option) => (
             <Button
               aria-pressed={format === option.value}
@@ -160,7 +166,7 @@ export function ExportPanel({
           </div>
         </dl>
         {selectedPreviewSpec ? <PreviewSpecSummary summary={selectedPreviewSpec} /> : null}
-        {isHandoffPackage ? (
+        {isHandoffPackage || isConstructionPackage ? (
           <PackageReadinessRows rows={packageReadiness} />
         ) : null}
       </div>
@@ -181,7 +187,13 @@ export function ExportPanel({
       {error ? <p className="text-xs text-destructive">{error}</p> : null}
 
       <Button disabled={!canSubmit} type="submit">
-        {isSubmitting ? "创建中" : isHandoffPackage ? "生成交接包" : "创建概念导出"}
+        {isSubmitting
+          ? "创建中"
+          : isConstructionPackage
+            ? "生成施工包"
+            : isHandoffPackage
+              ? "生成交接包"
+              : "创建概念导出"}
       </Button>
 
       <div className="grid gap-2 text-sm">
@@ -515,7 +527,13 @@ function packageArtifactObjectKey(manifest: ExportResponse["manifest"]): string 
 }
 
 function displayExportFormat(format: string): string {
-  return format === "enhanced_concept_handoff_zip" ? "ZIP" : format.toUpperCase();
+  if (format === "enhanced_concept_handoff_zip") {
+    return "ZIP";
+  }
+  if (format === "construction_package_zip") {
+    return "施工包";
+  }
+  return format.toUpperCase();
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

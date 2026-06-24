@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import base64
 import hashlib
 import json
 from dataclasses import dataclass
@@ -17,6 +18,7 @@ from caragent_core.enums import (
     ModelRunStatus,
 )
 from caragent_core.generation import (
+    GR86_BRZ_TEMPLATE_ID,
     MVP_COUPE_TEMPLATE_ID,
     MVP_TEMPLATE_IDS,
     MVP_VAN_TEMPLATE_ID,
@@ -44,6 +46,10 @@ from caragent_worker.providers import (
 )
 from caragent_worker.tasks import jobs as generation_tasks
 from caragent_worker.tasks.jobs import run_generate_2d_concept_job
+
+ASSET_PNG_BYTES = base64.b64decode(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+ip9sAAAAASUVORK5CYII="
+)
 
 
 @dataclass(frozen=True)
@@ -148,6 +154,109 @@ def test_generation_worker_persists_prompt_artifact_version_and_success(
     assert version.lineage_depth == 0
 
 
+def test_generation_worker_records_trace_and_timing_metadata(tmp_path: Path) -> None:
+    seeded = seed_generation_job(tmp_path)
+    output_storage = InMemoryObjectStorage()
+
+    result = asyncio.run(
+        run_generate_2d_concept_job(
+            seeded.database_url,
+            seeded.job_id,
+            settings=WorkerSettings(),
+            storage=output_storage,
+        ),
+    )
+    state = asyncio.run(read_generation_state(seeded.session_factory, seeded.job_id))
+
+    running_event = next(
+        event for event in state.events if event.message == "Generation worker started."
+    )
+    assert running_event.metadata_json["trace_id"] == str(seeded.job_id)
+    assert running_event.metadata_json["job_id"] == str(seeded.job_id)
+    assert running_event.metadata_json["queue_age_seconds"] >= 0
+
+    operations = state.job.metadata_json["operations"]
+    assert operations["trace_id"] == str(seeded.job_id)
+    assert operations["job_id"] == str(seeded.job_id)
+    assert operations["model_run_id"] == result["model_run_id"]
+    assert operations["running_duration_seconds"] >= 0
+
+
+def test_generation_worker_duplicate_claim_does_not_create_second_output(
+    tmp_path: Path,
+) -> None:
+    seeded = seed_generation_job(tmp_path)
+    output_storage = InMemoryObjectStorage()
+
+    first = asyncio.run(
+        run_generate_2d_concept_job(
+            seeded.database_url,
+            seeded.job_id,
+            settings=WorkerSettings(),
+            storage=output_storage,
+        ),
+    )
+    second = asyncio.run(
+        run_generate_2d_concept_job(
+            seeded.database_url,
+            seeded.job_id,
+            settings=WorkerSettings(),
+            storage=output_storage,
+        ),
+    )
+    state = asyncio.run(read_generation_state(seeded.session_factory, seeded.job_id))
+
+    assert first["status"] == JobStatus.SUCCEEDED.value
+    assert second == {
+        "external_calls": False,
+        "job_id": str(seeded.job_id),
+        "status": JobStatus.SUCCEEDED.value,
+    }
+    assert len(state.model_runs) == 1
+    assert len(state.artifacts) == 1
+    assert len(state.versions) == 1
+    assert [event.message for event in state.events].count("Generation worker started.") == 1
+
+
+def test_generation_worker_commits_running_state_while_provider_is_in_flight(
+    tmp_path: Path,
+) -> None:
+    seeded = seed_generation_job(tmp_path)
+    provider = BlockingProvider()
+    output_storage = InMemoryObjectStorage()
+
+    async def exercise() -> GenerateResult:
+        task = asyncio.create_task(
+            run_generate_2d_concept_job(
+                seeded.database_url,
+                seeded.job_id,
+                provider=provider,
+                settings=WorkerSettings(),
+                storage=output_storage,
+            ),
+        )
+        await asyncio.wait_for(provider.entered.wait(), timeout=5)
+        in_flight_state = await read_generation_state(seeded.session_factory, seeded.job_id)
+        provider.release.set()
+        result = await task
+
+        assert in_flight_state.job.status == JobStatus.RUNNING.value
+        assert in_flight_state.job.state_version == 1
+        assert [event.message for event in in_flight_state.events] == [
+            "Job queued.",
+            "Generation worker started.",
+            "Prompt planned.",
+        ]
+        assert len(in_flight_state.model_runs) == 1
+        assert in_flight_state.model_runs[0].status == ModelRunStatus.RUNNING.value
+        return result
+
+    result = asyncio.run(exercise())
+
+    assert result["status"] == JobStatus.SUCCEEDED.value
+    assert provider.requests
+
+
 def test_generation_worker_runs_local_provider_for_every_mvp_template(
     tmp_path: Path,
 ) -> None:
@@ -189,6 +298,56 @@ def test_generation_worker_runs_local_provider_for_every_mvp_template(
         assert zone_ids
         for layer in preview_spec["overlay_layers"]:
             assert layer["zone_id"] in zone_ids
+
+
+def test_generation_worker_persists_section_design_trace_for_gr86_template(
+    tmp_path: Path,
+) -> None:
+    seeded = seed_generation_job(tmp_path, vehicle_template_id=GR86_BRZ_TEMPLATE_ID)
+    output_storage = InMemoryObjectStorage()
+
+    result = asyncio.run(
+        run_generate_2d_concept_job(
+            seeded.database_url,
+            seeded.job_id,
+            settings=WorkerSettings(),
+            storage=output_storage,
+        ),
+    )
+    state = asyncio.run(read_generation_state(seeded.session_factory, seeded.job_id))
+
+    assert result["status"] == "succeeded"
+    section_ids = {
+        "door-left",
+        "front-bumper",
+        "front-fender",
+        "hood",
+        "rear-bumper",
+        "rear-quarter",
+        "roof",
+        "side-skirt",
+        "trunk",
+    }
+    assert (
+        set(
+            state.model_runs[0].prompt_payload["section_design_plan"]["sections"][index]["id"]
+            for index in range(9)
+        )
+        == section_ids
+    )
+    surfaces = [
+        state.model_runs[0].parameters,
+        state.artifacts[0].metadata_json,
+        state.versions[0].parameters,
+        state.job.metadata_json["operations"],
+        state.events[-1].metadata_json,
+    ]
+    for surface in surfaces:
+        section_design = surface["section_design"]
+        assert section_design["template_id"] == GR86_BRZ_TEMPLATE_ID
+        assert section_design["section_count"] == 9
+        assert set(section_design["section_ids"]) == section_ids
+        assert "Sakura heroine" in section_design["overall_direction"]
 
 
 def test_generation_worker_creates_child_version_from_iteration_metadata(
@@ -271,9 +430,10 @@ def test_generation_worker_passes_reference_usage_to_provider_request(
     assert state.model_runs[0].prompt_payload["reference_usage"]["items"][0]["asset_id"] == (
         reference_id
     )
-    assert state.model_runs[0].prompt_payload["reference_usage"]["items"][0]["rights"][
-        "rights_status"
-    ] == "confirmed"
+    assert (
+        state.model_runs[0].prompt_payload["reference_usage"]["items"][0]["rights"]["rights_status"]
+        == "confirmed"
+    )
 
 
 def test_generation_worker_persists_reference_trace_across_durable_records(
@@ -381,9 +541,7 @@ def test_generation_worker_recomposes_safe_targeted_edit_without_provider_call(
     assert model_run.parameters["prompt_delta"]["summary"] == "text=STAR RUN; move up"
     assert model_run.parameters["recomposition_route"] == "deterministic_recomposition"
     assert model_run.parameters["parent_version_id"] == str(parent.id)
-    assert model_run.prompt_payload["mask_edit"]["edit_route"] == (
-        "deterministic_recomposition"
-    )
+    assert model_run.prompt_payload["mask_edit"]["edit_route"] == ("deterministic_recomposition")
     assert model_run.output_artifact_id == state.artifacts[1].id
 
     child_artifact = state.artifacts[1]
@@ -1162,9 +1320,7 @@ def test_generation_worker_blocks_hosted_call_when_rate_limit_is_reached(
 
     assert result["status"] == "failed"
     assert provider.calls == 0
-    assert state.model_runs[-1].error_message == (
-        "Hosted provider per-minute rate limit reached."
-    )
+    assert state.model_runs[-1].error_message == ("Hosted provider per-minute rate limit reached.")
     assert_failure_metadata(
         state,
         category="provider_configuration",
@@ -1621,6 +1777,22 @@ class SuccessfulCancelingProvider:
         return provider_result_from_request(request, external_calls=True)
 
 
+GenerateResult = dict[str, object]
+
+
+class BlockingProvider:
+    def __init__(self) -> None:
+        self.entered = asyncio.Event()
+        self.release = asyncio.Event()
+        self.requests: list[ImageGenerationRequest] = []
+
+    async def generate(self, request: ImageGenerationRequest) -> ImageGenerationResult:
+        self.requests.append(request)
+        self.entered.set()
+        await self.release.wait()
+        return provider_result_from_request(request, external_calls=True)
+
+
 class RecordingSuccessProvider:
     def __init__(self) -> None:
         self.requests: list[ImageGenerationRequest] = []
@@ -1736,9 +1908,7 @@ def assert_reference_trace(surface: dict[str, object], *, reference_id: str) -> 
         "source_url",
     }
     assert rights["asset_id"] == reference_id
-    assert rights["checksum_sha256"] == hashlib.sha256(
-        b"\x89PNG\r\n\x1a\nstructured-reference",
-    ).hexdigest()
+    assert rights["checksum_sha256"] == hashlib.sha256(ASSET_PNG_BYTES).hexdigest()
     assert rights["content_type"] == "image/png"
     assert str(rights["object_key"]).endswith(
         f"/reference/{reference_id}/structured-reference.png",
@@ -1854,7 +2024,7 @@ async def seed_database(
                 session,
                 InMemoryObjectStorage(),
                 workspace.id,
-                byte_content=b"\x89PNG\r\n\x1a\nreference",
+                byte_content=ASSET_PNG_BYTES,
                 content_type="image/png",
                 filename="reference.png",
                 kind=AssetKind.REFERENCE.value,
@@ -1866,7 +2036,7 @@ async def seed_database(
                 session,
                 InMemoryObjectStorage(),
                 workspace.id,
-                byte_content=b"\x89PNG\r\n\x1a\nstructured-reference",
+                byte_content=ASSET_PNG_BYTES,
                 content_type="image/png",
                 filename="structured-reference.png",
                 kind=AssetKind.REFERENCE.value,
@@ -1892,7 +2062,7 @@ async def seed_database(
                 session,
                 InMemoryObjectStorage(),
                 workspace.id,
-                byte_content=b"\x89PNG\r\n\x1a\nlogo",
+                byte_content=ASSET_PNG_BYTES,
                 content_type="image/png",
                 filename="logo.png",
                 kind=AssetKind.LOGO.value,

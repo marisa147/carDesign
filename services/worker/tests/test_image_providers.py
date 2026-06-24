@@ -5,11 +5,19 @@ import base64
 import json
 from dataclasses import replace
 from decimal import Decimal
+from io import BytesIO
 
 import httpx
 import pytest
 from caragent_core.editing import EditIntent
-from caragent_core.generation import build_prompt_plan, create_generation_brief
+from caragent_core.generation import (
+    MVP_COUPE_TEMPLATE_ID,
+    TemplateCompositionRequest,
+    build_prompt_plan,
+    create_generation_brief,
+    template_asset_resource,
+)
+from PIL import Image, ImageChops
 
 from caragent_worker.config import WorkerSettings
 from caragent_worker.providers import (
@@ -20,12 +28,14 @@ from caragent_worker.providers import (
     ImageProviderTimeoutError,
     LocalDeterministicImageProvider,
     MaskEditRequest,
+    OpenAIImageProvider,
     select_image_provider,
 )
 from caragent_worker.recomposition import (
     DeterministicRecompositionError,
     recompose_targeted_edit,
 )
+from caragent_worker.template_compositor import PillowTemplateCompositor
 
 
 def test_local_provider_returns_deterministic_png_without_external_calls() -> None:
@@ -64,6 +74,50 @@ def test_local_provider_mirrors_preview_spec_metadata_and_overlay_output() -> No
     assert result.metadata["safe_zone_count"] >= 5
     assert result.metadata["warning_count"] == 0
     assert result.image_bytes != changed.image_bytes
+
+def test_template_compositor_protects_windows_wheels_and_handles() -> None:
+    request = build_image_request(text=["FULL COVER MAGENTA DECORATION"])
+    composition = PillowTemplateCompositor().compose(
+        TemplateCompositionRequest(
+            height=768,
+            prompt_payload=request.prompt_payload,
+            prompt_text=request.prompt_text,
+            width=1536,
+        ),
+    )
+
+    output = Image.open(BytesIO(composition.image_bytes)).convert("RGBA")
+    structural = structural_template_image(MVP_COUPE_TEMPLATE_ID)
+    protected_mask = protected_template_mask(MVP_COUPE_TEMPLATE_ID)
+    diff = ImageChops.difference(output, structural)
+    protected_diff = Image.new("RGBA", output.size, (0, 0, 0, 0))
+    protected_diff.paste(diff, (0, 0), protected_mask)
+
+    assert output.size == structural.size
+    assert protected_diff.getbbox() is None
+    assert composition.metadata["template_id"] == MVP_COUPE_TEMPLATE_ID
+    assert composition.metadata["protected_mask_slots"] == [
+        "window_mask",
+        "wheel_mask",
+        "handle_mask",
+    ]
+
+
+def test_local_provider_records_template_compositor_metadata() -> None:
+    request = build_image_request(text=["MOON DRIVE"])
+    provider = LocalDeterministicImageProvider(width=320, height=160)
+
+    result = asyncio.run(provider.generate(request))
+
+    assert result.metadata["template_compositor"]["template_id"] == MVP_COUPE_TEMPLATE_ID
+    assert result.metadata["template_compositor"]["asset_slots"] == [
+        "base",
+        "body_mask",
+        "window_mask",
+        "wheel_mask",
+        "handle_mask",
+        "panel_lines",
+    ]
 
 
 def test_local_provider_records_prompt_only_reference_usage_metadata() -> None:
@@ -167,15 +221,17 @@ def test_bfl_provider_is_selected_when_hosted_calls_are_enabled() -> None:
     assert isinstance(provider, BflImageProvider)
 
 
-def test_unsupported_hosted_provider_fails_fast_when_calls_are_enabled() -> None:
+def test_openai_provider_is_selected_when_hosted_calls_are_enabled() -> None:
     settings = WorkerSettings(
         ai_provider_default="openai",
         ai_provider_calls_enabled=True,
         ai_provider_openai_api_key="openai-secret",
+        ai_provider_model="gpt-image-2",
     )
 
-    with pytest.raises(ImageProviderConfigurationError, match="Unsupported image provider"):
-        select_image_provider(settings)
+    provider = select_image_provider(settings)
+
+    assert isinstance(provider, OpenAIImageProvider)
 
 
 def test_named_local_fallback_provider_uses_configured_local_dimensions() -> None:
@@ -195,6 +251,281 @@ def test_bfl_provider_requires_api_key_before_hosted_calls() -> None:
         BflImageProvider(api_key=None)
 
 
+
+def test_openai_provider_submits_image_api_request_and_decodes_png() -> None:
+    request = build_openai_image_request()
+    seen_authorization_headers: list[str | None] = []
+    submitted_payloads: list[dict[str, object]] = []
+
+    def handler(http_request: httpx.Request) -> httpx.Response:
+        seen_authorization_headers.append(http_request.headers.get("Authorization"))
+        if http_request.url.path == "/v1/images/generations":
+            submitted_payloads.append(json.loads(http_request.content))
+            return httpx.Response(
+                200,
+                json={
+                    "data": [
+                        {
+                            "b64_json": base64.b64encode(ONE_BY_ONE_PNG).decode("ascii"),
+                            "revised_prompt": "A refined pain-car concept prompt.",
+                        },
+                    ],
+                    "usage": {"total_tokens": 42},
+                },
+            )
+        return httpx.Response(404, text="unexpected request")
+
+    client = httpx.AsyncClient(
+        base_url="https://api.openai.test/v1",
+        transport=httpx.MockTransport(handler),
+    )
+    provider = OpenAIImageProvider(api_key="openai-secret", client=client)
+
+    try:
+        result = asyncio.run(provider.generate(request))
+    finally:
+        asyncio.run(client.aclose())
+
+    assert seen_authorization_headers == ["Bearer openai-secret"]
+    assert submitted_payloads == [
+        {
+            "model": "gpt-image-2",
+            "prompt": request.prompt_text,
+            "quality": "medium",
+            "size": "1536x768",
+        },
+    ]
+    assert result.image_bytes == ONE_BY_ONE_PNG
+    assert result.content_type == "image/png"
+    assert result.width == 1
+    assert result.height == 1
+    assert result.provider == "openai"
+    assert result.model == "gpt-image-2"
+    assert result.metadata["external_calls"] is True
+    assert result.metadata["revised_prompt"] == "A refined pain-car concept prompt."
+    assert result.metadata["usage"] == {"total_tokens": 42}
+    assert "openai-secret" not in json.dumps(result.metadata, sort_keys=True)
+
+
+
+def test_openai_provider_supports_codex_relay_chat_completion_data_url() -> None:
+    request = replace(build_openai_image_request(), model="gpt-5.5")
+    submitted_payloads: list[dict[str, object]] = []
+
+    def handler(http_request: httpx.Request) -> httpx.Response:
+        if http_request.url.path == "/v1/chat/completions":
+            submitted_payloads.append(json.loads(http_request.content))
+            image = base64.b64encode(ONE_BY_ONE_PNG).decode("ascii")
+            return httpx.Response(
+                200,
+                json={
+                    "choices": [
+                        {
+                            "message": {
+                                "content": f"![concept](data:image/png;base64,{image})",
+                            },
+                        },
+                    ],
+                    "usage": {"total_tokens": 12},
+                },
+            )
+        return httpx.Response(404, text="unexpected request")
+
+    client = httpx.AsyncClient(
+        base_url="http://127.0.0.1:8080/v1",
+        transport=httpx.MockTransport(handler),
+    )
+    provider = OpenAIImageProvider(
+        api_key="codex-relay-secret",
+        client=client,
+        image_path="/chat/completions",
+    )
+
+    try:
+        result = asyncio.run(provider.generate(request))
+    finally:
+        asyncio.run(client.aclose())
+
+    assert submitted_payloads
+    assert submitted_payloads[0]["model"] == "gpt-5.5"
+    expected_system_prompt = (
+        "Generate a single pain-car concept image. Return only compact JSON with either "
+        "{\"image_url\":\"https://...\"} or {\"image_base64\":\"...\"}. "
+        "Do not return explanatory prose or a text-only design description."
+    )
+    assert submitted_payloads[0]["messages"] == [
+        {"content": expected_system_prompt, "role": "system"},
+        {"content": request.prompt_text, "role": "user"},
+    ]
+    assert result.image_bytes == ONE_BY_ONE_PNG
+    assert result.content_type == "image/png"
+    assert result.width == 1
+    assert result.height == 1
+    assert result.model == "gpt-5.5"
+    assert result.metadata["response_mode"] == "chat_completions"
+    assert result.metadata["usage"] == {"total_tokens": 12}
+
+
+
+def test_openai_provider_supports_chat_completion_json_image_url_string() -> None:
+    request = replace(build_openai_image_request(), model="gpt-5.5")
+
+    def handler(http_request: httpx.Request) -> httpx.Response:
+        if http_request.url.path == "/v1/chat/completions":
+            return httpx.Response(
+                200,
+                json={
+                    "choices": [
+                        {
+                            "message": {
+                                "content": json.dumps(
+                                    {"image_url": "https://relay-images.test/concept.png"},
+                                ),
+                            },
+                        },
+                    ],
+                },
+            )
+        if http_request.url.host == "relay-images.test":
+            return httpx.Response(200, content=ONE_BY_ONE_PNG)
+        return httpx.Response(404, text="unexpected request")
+
+    client = httpx.AsyncClient(
+        base_url="http://127.0.0.1:8080/v1",
+        transport=httpx.MockTransport(handler),
+    )
+    provider = OpenAIImageProvider(
+        api_key="codex-relay-secret",
+        client=client,
+        image_path="/chat/completions",
+    )
+
+    try:
+        result = asyncio.run(provider.generate(request))
+    finally:
+        asyncio.run(client.aclose())
+
+    assert result.content_type == "image/png"
+    assert result.image_bytes == ONE_BY_ONE_PNG
+    assert result.width == 1
+    assert result.height == 1
+
+
+def test_openai_provider_normalizes_chat_completion_jpeg_base64_to_png() -> None:
+    request = replace(build_openai_image_request(), model="gpt-5.5")
+    jpeg_bytes = image_bytes("JPEG", size=(2, 3), color=(32, 120, 220))
+
+    def handler(http_request: httpx.Request) -> httpx.Response:
+        if http_request.url.path == "/v1/chat/completions":
+            return httpx.Response(
+                200,
+                json={
+                    "choices": [
+                        {
+                            "message": {
+                                "content": json.dumps(
+                                    {
+                                        "image_base64": base64.b64encode(jpeg_bytes).decode(
+                                            "ascii",
+                                        ),
+                                    },
+                                ),
+                            },
+                        },
+                    ],
+                },
+            )
+        return httpx.Response(404, text="unexpected request")
+
+    client = httpx.AsyncClient(
+        base_url="http://127.0.0.1:8080/v1",
+        transport=httpx.MockTransport(handler),
+    )
+    provider = OpenAIImageProvider(
+        api_key="codex-relay-secret",
+        client=client,
+        image_path="/chat/completions",
+    )
+
+    try:
+        result = asyncio.run(provider.generate(request))
+    finally:
+        asyncio.run(client.aclose())
+
+    assert result.content_type == "image/png"
+    assert result.image_bytes.startswith(b"\x89PNG\r\n\x1a\n")
+    assert png_dimensions(result.image_bytes) == (2, 3)
+
+
+
+
+def test_openai_provider_no_image_error_includes_response_excerpt() -> None:
+    request = replace(build_openai_image_request(), model="gpt-5.5")
+
+    def handler(http_request: httpx.Request) -> httpx.Response:
+        if http_request.url.path == "/v1/chat/completions":
+            return httpx.Response(
+                200,
+                json={
+                    "choices": [
+                        {
+                            "message": {
+                                "content": (
+                                    "I cannot create images here, but here is a description."
+                                ),
+                            },
+                        },
+                    ],
+                },
+            )
+        return httpx.Response(404, text="unexpected request")
+
+    client = httpx.AsyncClient(
+        base_url="http://127.0.0.1:8080/v1",
+        transport=httpx.MockTransport(handler),
+    )
+    provider = OpenAIImageProvider(
+        api_key="codex-relay-secret",
+        client=client,
+        image_path="/chat/completions",
+    )
+
+    try:
+        with pytest.raises(ImageProviderError) as exc_info:
+            asyncio.run(provider.generate(request))
+    finally:
+        asyncio.run(client.aclose())
+
+    assert "OpenAI chat completion response did not include an image" in str(exc_info.value)
+    assert "I cannot create images here" in str(exc_info.value)
+
+
+def test_openai_provider_reports_read_timeout_with_context() -> None:
+    request = replace(build_openai_image_request(), model="gpt-5.5")
+
+    def handler(_http_request: httpx.Request) -> httpx.Response:
+        raise httpx.ReadTimeout("")
+
+    client = httpx.AsyncClient(
+        base_url="http://127.0.0.1:8080/v1",
+        transport=httpx.MockTransport(handler),
+    )
+    provider = OpenAIImageProvider(
+        api_key="codex-relay-secret",
+        client=client,
+        image_path="/chat/completions",
+    )
+
+    try:
+        with pytest.raises(ImageProviderError, match="OpenAI image generation failed: ReadTimeout"):
+            asyncio.run(provider.generate(request))
+    finally:
+        asyncio.run(client.aclose())
+
+
+def test_openai_provider_requires_api_key_before_hosted_calls() -> None:
+    with pytest.raises(ImageProviderConfigurationError, match="AI_PROVIDER_OPENAI_API_KEY"):
+        OpenAIImageProvider(api_key=None)
 def test_image_generation_request_can_carry_mask_edit_metadata() -> None:
     request = replace(build_image_request(), mask_edit=build_mask_edit_request())
 
@@ -381,6 +712,92 @@ def test_bfl_provider_submits_polls_and_downloads_result_bytes() -> None:
     assert "delivery.test/result.png" not in rendered_metadata
 
 
+def test_bfl_provider_rejects_insecure_result_url() -> None:
+    request = build_bfl_image_request()
+
+    def handler(http_request: httpx.Request) -> httpx.Response:
+        if http_request.url.path == "/v1/flux-2-pro-preview":
+            return httpx.Response(
+                200,
+                json={
+                    "id": "bfl-insecure-url",
+                    "polling_url": "https://api.test/v1/get_result?id=bfl-insecure-url",
+                },
+            )
+        if http_request.url.path == "/v1/get_result":
+            return httpx.Response(
+                200,
+                json={
+                    "id": "bfl-insecure-url",
+                    "status": "Ready",
+                    "result": {"sample": "http://delivery.test/result.png"},
+                },
+            )
+        return httpx.Response(404, text="unexpected request")
+
+    client = httpx.AsyncClient(
+        base_url="https://api.test",
+        transport=httpx.MockTransport(handler),
+    )
+    provider = BflImageProvider(
+        api_key="bfl-secret",
+        client=client,
+        max_poll_attempts=1,
+        poll_interval_seconds=0,
+    )
+
+    try:
+        with pytest.raises(ImageProviderError, match="HTTPS"):
+            asyncio.run(provider.generate(request))
+    finally:
+        asyncio.run(client.aclose())
+
+
+def test_bfl_provider_rejects_downloaded_non_png_bytes() -> None:
+    request = build_bfl_image_request()
+
+    def handler(http_request: httpx.Request) -> httpx.Response:
+        if http_request.url.path == "/v1/flux-2-pro-preview":
+            return httpx.Response(
+                200,
+                json={
+                    "id": "bfl-invalid-image",
+                    "polling_url": "https://api.test/v1/get_result?id=bfl-invalid-image",
+                },
+            )
+        if http_request.url.path == "/v1/get_result":
+            return httpx.Response(
+                200,
+                json={
+                    "id": "bfl-invalid-image",
+                    "status": "Ready",
+                    "result": {"sample": "https://delivery.test/result.png"},
+                },
+            )
+        if http_request.url.host == "delivery.test":
+            return httpx.Response(
+                200,
+                content=b"not-a-png",
+                headers={"content-type": "image/png"},
+            )
+        return httpx.Response(404, text="unexpected request")
+
+    client = httpx.AsyncClient(
+        base_url="https://api.test",
+        transport=httpx.MockTransport(handler),
+    )
+    provider = BflImageProvider(
+        api_key="bfl-secret",
+        client=client,
+        max_poll_attempts=1,
+        poll_interval_seconds=0,
+    )
+
+    try:
+        with pytest.raises(ImageProviderError, match="valid PNG"):
+            asyncio.run(provider.generate(request))
+    finally:
+        asyncio.run(client.aclose())
 def test_bfl_provider_times_out_with_bounded_polling() -> None:
     request = build_bfl_image_request()
 
@@ -595,6 +1012,14 @@ def build_bfl_image_request() -> ImageGenerationRequest:
     )
 
 
+
+def build_openai_image_request() -> ImageGenerationRequest:
+    return replace(
+        build_image_request(),
+        model="gpt-image-2",
+        parameters={"quality": "medium", "size": "1536x768"},
+        provider="openai",
+    )
 def build_mask_edit_request() -> MaskEditRequest:
     return MaskEditRequest(
         mask_artifact_id="11111111-1111-1111-1111-111111111111",
@@ -626,7 +1051,35 @@ def png_dimensions(image_bytes: bytes) -> tuple[int, int]:
     )
 
 
+
+def image_bytes(format_name: str, *, size: tuple[int, int], color: tuple[int, int, int]) -> bytes:
+    image = Image.new("RGB", size, color)
+    output = BytesIO()
+    image.save(output, format=format_name)
+    return output.getvalue()
+
+
 ONE_BY_ONE_PNG = base64.b64decode(
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+ip9s"
     "AAAAASUVORK5CYII=",
 )
+
+
+def structural_template_image(template_id: str) -> Image.Image:
+    base = Image.open(BytesIO(template_asset_resource(template_id, "base").read_bytes())).convert(
+        "RGBA",
+    )
+    panel_lines = Image.open(
+        BytesIO(template_asset_resource(template_id, "panel_lines").read_bytes()),
+    ).convert("RGBA")
+    return Image.alpha_composite(base, panel_lines)
+
+
+def protected_template_mask(template_id: str) -> Image.Image:
+    protected_mask = Image.new("L", structural_template_image(template_id).size, 0)
+    for slot in ("window_mask", "wheel_mask", "handle_mask"):
+        mask = Image.open(BytesIO(template_asset_resource(template_id, slot).read_bytes())).convert(
+            "RGBA",
+        )
+        protected_mask = ImageChops.lighter(protected_mask, mask.getchannel("A"))
+    return protected_mask

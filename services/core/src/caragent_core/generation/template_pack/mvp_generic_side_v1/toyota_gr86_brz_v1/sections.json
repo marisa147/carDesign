@@ -1,0 +1,160 @@
+[
+  {
+    "id": "door-left",
+    "label": "Door panel",
+    "views": [
+      "side"
+    ],
+    "bounds": {
+      "x": 0.34,
+      "y": 0.42,
+      "width": 0.25,
+      "height": 0.25
+    },
+    "real_size_mm": {
+      "width": 1060,
+      "height": 620
+    }
+  },
+  {
+    "id": "rear-quarter",
+    "label": "Rear quarter panel",
+    "views": [
+      "side"
+    ],
+    "bounds": {
+      "x": 0.61,
+      "y": 0.38,
+      "width": 0.2,
+      "height": 0.28
+    },
+    "real_size_mm": {
+      "width": 760,
+      "height": 580
+    }
+  },
+  {
+    "id": "front-fender",
+    "label": "Front fender",
+    "views": [
+      "side",
+      "front"
+    ],
+    "bounds": {
+      "x": 0.18,
+      "y": 0.44,
+      "width": 0.16,
+      "height": 0.24
+    },
+    "real_size_mm": {
+      "width": 620,
+      "height": 540
+    }
+  },
+  {
+    "id": "hood",
+    "label": "Hood",
+    "views": [
+      "top",
+      "front"
+    ],
+    "bounds": {
+      "x": 0.22,
+      "y": 0.32,
+      "width": 0.24,
+      "height": 0.28
+    },
+    "real_size_mm": {
+      "width": 1180,
+      "height": 980
+    }
+  },
+  {
+    "id": "roof",
+    "label": "Roof",
+    "views": [
+      "top"
+    ],
+    "bounds": {
+      "x": 0.48,
+      "y": 0.34,
+      "width": 0.2,
+      "height": 0.26
+    },
+    "real_size_mm": {
+      "width": 1160,
+      "height": 920
+    }
+  },
+  {
+    "id": "trunk",
+    "label": "Trunk",
+    "views": [
+      "top",
+      "rear"
+    ],
+    "bounds": {
+      "x": 0.7,
+      "y": 0.34,
+      "width": 0.16,
+      "height": 0.24
+    },
+    "real_size_mm": {
+      "width": 940,
+      "height": 680
+    }
+  },
+  {
+    "id": "front-bumper",
+    "label": "Front bumper",
+    "views": [
+      "front",
+      "side"
+    ],
+    "bounds": {
+      "x": 0.08,
+      "y": 0.55,
+      "width": 0.12,
+      "height": 0.16
+    },
+    "real_size_mm": {
+      "width": 1380,
+      "height": 360
+    }
+  },
+  {
+    "id": "rear-bumper",
+    "label": "Rear bumper",
+    "views": [
+      "rear",
+      "side"
+    ],
+    "bounds": {
+      "x": 0.8,
+      "y": 0.55,
+      "width": 0.12,
+      "height": 0.16
+    },
+    "real_size_mm": {
+      "width": 1380,
+      "height": 360
+    }
+  },
+  {
+    "id": "side-skirt",
+    "label": "Side skirt",
+    "views": [
+      "side"
+    ],
+    "bounds": {
+      "x": 0.24,
+      "y": 0.68,
+      "width": 0.58,
+      "height": 0.08
+    },
+    "real_size_mm": {
+      "width": 2600,
+      "height": 220
+    }
+  }
+]

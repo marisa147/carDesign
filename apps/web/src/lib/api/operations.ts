@@ -8,12 +8,118 @@ import { publicEnv } from "@/lib/config/public-env";
 
 export const LOCAL_PROVIDER_ID = "local-deterministic";
 export const BFL_PROVIDER_ID = "bfl";
+export const OPENAI_PROVIDER_ID = "openai";
 const LOCAL_PROVIDER_MODEL = "local-concept-v1";
 const BFL_DEFAULT_MODEL = "flux-2-pro-preview";
+const OPENAI_DEFAULT_IMAGE_MODEL = "gpt-image-2";
 
+
+export interface BflSettings {
+  apiKeyConfigured: boolean;
+  apiKeyMasked: string | null;
+  baseUrl: string;
+  callsEnabled: boolean;
+  dailyCallLimit: number | null;
+  defaultProvider: "bfl" | "disabled" | string;
+  maxEstimatedCostPerJob: string | null;
+  model: string;
+  rateLimitPerMinute: number | null;
+  restartRequired: boolean;
+  resultPath: string;
+  rolloutEnabled: boolean;
+  submitPath: string;
+  submitUrl: string;
+}
+
+export interface BflSettingsUpdate {
+  apiKey?: string | null;
+  baseUrl: string;
+  callsEnabled: boolean;
+  dailyCallLimit: number | null;
+  defaultProvider: "bfl" | "disabled";
+  maxEstimatedCostPerJob: string | null;
+  model: string;
+  rateLimitPerMinute: number | null;
+  resultPath: string;
+  rolloutEnabled: boolean;
+  submitPath: string;
+}
+
+interface RawBflSettingsResponse {
+  api_key_configured: boolean;
+  api_key_masked: string | null;
+  base_url: string;
+  calls_enabled: boolean;
+  daily_call_limit: number | null;
+  default_provider: string;
+  max_estimated_cost_per_job: string | null;
+  model: string;
+  rate_limit_per_minute: number | null;
+  restart_required: boolean;
+  result_path: string;
+  rollout_enabled: boolean;
+  submit_path: string;
+  submit_url: string;
+}
+export interface OpenAISettings {
+  apiKeyConfigured: boolean;
+  apiKeyMasked: string | null;
+  baseUrl: string;
+  callsEnabled: boolean;
+  dailyCallLimit: number | null;
+  defaultProvider: "openai" | "disabled" | string;
+  imageModel: string;
+  imagePath: string;
+  imageUrl: string;
+  maxEstimatedCostPerJob: string | null;
+  parserEnabled: boolean;
+  rateLimitPerMinute: number | null;
+  responsesPath: string;
+  restartRequired: boolean;
+  rolloutEnabled: boolean;
+  textModel: string;
+}
+
+export interface OpenAISettingsUpdate {
+  apiKey?: string | null;
+  baseUrl: string;
+  callsEnabled: boolean;
+  dailyCallLimit: number | null;
+  defaultProvider: "openai" | "disabled";
+  imageModel: string;
+  imagePath: string;
+  maxEstimatedCostPerJob: string | null;
+  parserEnabled: boolean;
+  rateLimitPerMinute: number | null;
+  responsesPath: string;
+  rolloutEnabled: boolean;
+  textModel: string;
+}
+
+interface RawOpenAISettingsResponse {
+  api_key_configured: boolean;
+  api_key_masked: string | null;
+  base_url: string;
+  calls_enabled: boolean;
+  daily_call_limit: number | null;
+  default_provider: string;
+  image_model: string;
+  image_path: string;
+  image_url: string;
+  max_estimated_cost_per_job: string | null;
+  parser_enabled: boolean;
+  rate_limit_per_minute: number | null;
+  responses_path: string;
+  restart_required: boolean;
+  rollout_enabled: boolean;
+  text_model: string;
+}
 export interface OperationsApiOptions {
   apiBaseUrl?: string;
+  body?: BodyInit | null;
   fetch?: typeof fetch;
+  headers?: HeadersInit;
+  method?: string;
   signal?: AbortSignal;
 }
 
@@ -59,7 +165,84 @@ export interface WorkbenchProviderStatus {
   recentFailures: WorkbenchRecentFailure[];
 }
 
-export async function getProviderStatus(
+
+export async function getBflSettings(
+  options: OperationsApiOptions = {},
+): Promise<BflSettings> {
+  const response = await requestOperationsJson<RawBflSettingsResponse>(
+    "/operations/bfl-settings",
+    options,
+  );
+  return normalizeBflSettings(response);
+}
+
+export async function updateBflSettings(
+  input: BflSettingsUpdate,
+  options: OperationsApiOptions = {},
+): Promise<BflSettings> {
+  const response = await requestOperationsJson<RawBflSettingsResponse>(
+    "/operations/bfl-settings",
+    {
+      ...options,
+      body: JSON.stringify({
+        api_key: input.apiKey,
+        base_url: input.baseUrl,
+        calls_enabled: input.callsEnabled,
+        daily_call_limit: input.dailyCallLimit,
+        default_provider: input.defaultProvider,
+        max_estimated_cost_per_job: input.maxEstimatedCostPerJob,
+        model: input.model,
+        rate_limit_per_minute: input.rateLimitPerMinute,
+        result_path: input.resultPath,
+        rollout_enabled: input.rolloutEnabled,
+        submit_path: input.submitPath,
+      }),
+      headers: { "Content-Type": "application/json" },
+      method: "POST",
+    },
+  );
+  return normalizeBflSettings(response);
+}
+
+export async function getOpenAISettings(
+  options: OperationsApiOptions = {},
+): Promise<OpenAISettings> {
+  const response = await requestOperationsJson<RawOpenAISettingsResponse>(
+    "/operations/openai-settings",
+    options,
+  );
+  return normalizeOpenAISettings(response);
+}
+
+export async function updateOpenAISettings(
+  input: OpenAISettingsUpdate,
+  options: OperationsApiOptions = {},
+): Promise<OpenAISettings> {
+  const response = await requestOperationsJson<RawOpenAISettingsResponse>(
+    "/operations/openai-settings",
+    {
+      ...options,
+      body: JSON.stringify({
+        api_key: input.apiKey,
+        base_url: input.baseUrl,
+        calls_enabled: input.callsEnabled,
+        daily_call_limit: input.dailyCallLimit,
+        default_provider: input.defaultProvider,
+        image_model: input.imageModel,
+        image_path: input.imagePath,
+        max_estimated_cost_per_job: input.maxEstimatedCostPerJob,
+        parser_enabled: input.parserEnabled,
+        rate_limit_per_minute: input.rateLimitPerMinute,
+        responses_path: input.responsesPath,
+        rollout_enabled: input.rolloutEnabled,
+        text_model: input.textModel,
+      }),
+      headers: { "Content-Type": "application/json" },
+      method: "POST",
+    },
+  );
+  return normalizeOpenAISettings(response);
+}export async function getProviderStatus(
   options: OperationsApiOptions = {},
 ): Promise<OperationsProviderStatusResponse> {
   return requestOperationsJson<OperationsProviderStatusResponse>(
@@ -104,16 +287,24 @@ export function normalizeProviderStatus(
     maxCostLabel,
     status,
   });
+  const openAIOption = buildOpenAIProviderOption({
+    capability: capabilities.get(OPENAI_PROVIDER_ID),
+    guardLabel,
+    maxCostLabel,
+    status,
+  });
   const activeProviderId =
-    provider?.active_mode === BFL_PROVIDER_ID && bflOption.enabled
-      ? BFL_PROVIDER_ID
-      : LOCAL_PROVIDER_ID;
+    provider?.active_mode === OPENAI_PROVIDER_ID && openAIOption.enabled
+      ? OPENAI_PROVIDER_ID
+      : provider?.active_mode === BFL_PROVIDER_ID && bflOption.enabled
+        ? BFL_PROVIDER_ID
+        : LOCAL_PROVIDER_ID;
 
   return {
     activeProviderId,
     guardLabel,
     maxCostLabel,
-    options: [localOption, bflOption],
+    options: [localOption, bflOption, openAIOption],
     recentFailures: (status?.recent_failures ?? []).map(normalizeRecentFailure),
   };
 }
@@ -136,7 +327,11 @@ async function requestOperationsJson<T>(
     throw new Error("No fetch implementation is available for the operations client.");
   }
 
-  const requestInit: RequestInit = { method: "GET" };
+  const requestInit: RequestInit = {
+    body: options.body,
+    headers: options.headers,
+    method: options.method ?? "GET",
+  };
   if (options.signal !== undefined) {
     requestInit.signal = options.signal;
   }
@@ -149,6 +344,46 @@ async function requestOperationsJson<T>(
   return (await response.json()) as T;
 }
 
+
+function normalizeBflSettings(response: RawBflSettingsResponse): BflSettings {
+  return {
+    apiKeyConfigured: response.api_key_configured,
+    apiKeyMasked: response.api_key_masked,
+    baseUrl: response.base_url,
+    callsEnabled: response.calls_enabled,
+    dailyCallLimit: response.daily_call_limit,
+    defaultProvider: response.default_provider,
+    maxEstimatedCostPerJob: response.max_estimated_cost_per_job,
+    model: response.model,
+    rateLimitPerMinute: response.rate_limit_per_minute,
+    restartRequired: response.restart_required,
+    resultPath: response.result_path,
+    rolloutEnabled: response.rollout_enabled,
+    submitPath: response.submit_path,
+    submitUrl: response.submit_url,
+  };
+}
+
+function normalizeOpenAISettings(response: RawOpenAISettingsResponse): OpenAISettings {
+  return {
+    apiKeyConfigured: response.api_key_configured,
+    apiKeyMasked: response.api_key_masked,
+    baseUrl: response.base_url,
+    callsEnabled: response.calls_enabled,
+    dailyCallLimit: response.daily_call_limit,
+    defaultProvider: response.default_provider,
+    imageModel: response.image_model,
+    imagePath: response.image_path,
+    imageUrl: response.image_url,
+    maxEstimatedCostPerJob: response.max_estimated_cost_per_job,
+    parserEnabled: response.parser_enabled,
+    rateLimitPerMinute: response.rate_limit_per_minute,
+    responsesPath: response.responses_path,
+    restartRequired: response.restart_required,
+    rolloutEnabled: response.rollout_enabled,
+    textModel: response.text_model,
+  };
+}
 function buildLocalProviderOption(
   capability: Record<string, unknown> | undefined,
 ): WorkbenchProviderOption {
@@ -209,6 +444,51 @@ function buildBflProviderOption({
     statusLabel: status ? (enabled ? "可用" : "暂不可用") : "未刷新",
   };
 }
+function buildOpenAIProviderOption({
+  capability,
+  guardLabel,
+  maxCostLabel,
+  status,
+}: {
+  capability: Record<string, unknown> | undefined;
+  guardLabel: string;
+  maxCostLabel: string;
+  status: OperationsProviderStatusResponse | null;
+}): WorkbenchProviderOption {
+  const provider = status?.provider;
+  const rawBlockedReasons = readStringArray(capability, "blocked_reasons");
+  const inferredBlockedReasons = inferOpenAIBlockedReasons(status);
+  const blockedReasons = (
+    rawBlockedReasons.length > 0 ? rawBlockedReasons : inferredBlockedReasons
+  ).map(formatBlockedReason);
+  const openAIKeyConfigured = Boolean(
+    asRecord(provider)?.openai_key_configured,
+  );
+  const enabled =
+    typeof capability?.enabled === "boolean"
+      ? capability.enabled && blockedReasons.length === 0
+      : Boolean(
+          provider?.calls_enabled &&
+            openAIKeyConfigured &&
+            provider.hosted_provider_configured &&
+            provider.hosted_quota_guard_enabled &&
+            !provider.hosted_calls_blocked_reason,
+        );
+  const model = readString(capability, "default_model") || OPENAI_DEFAULT_IMAGE_MODEL;
+
+  return {
+    blockedReasons,
+    conceptLabel: "GPT 概念预览",
+    enabled,
+    guardLabel,
+    id: OPENAI_PROVIDER_ID,
+    label: "GPT 托管",
+    maxCostLabel,
+    model,
+    referenceInput: normalizeReferenceInput(capability),
+    statusLabel: status ? (enabled ? "可用" : "暂不可用") : "未刷新",
+  };
+}
 
 function normalizeReferenceInput(
   capability: Record<string, unknown> | undefined,
@@ -256,6 +536,27 @@ function inferBflBlockedReasons(status: OperationsProviderStatusResponse | null)
   }
   return reasons;
 }
+function inferOpenAIBlockedReasons(status: OperationsProviderStatusResponse | null): string[] {
+  const provider = status?.provider;
+  if (!provider) {
+    return ["Provider status has not been refreshed"];
+  }
+
+  const reasons: string[] = [];
+  if (provider.hosted_calls_blocked_reason) {
+    reasons.push(provider.hosted_calls_blocked_reason);
+  }
+  if (!provider.calls_enabled) {
+    reasons.push("AI_PROVIDER_CALLS_ENABLED is disabled");
+  }
+  if (!asRecord(provider)?.openai_key_configured) {
+    reasons.push("AI_PROVIDER_OPENAI_API_KEY is missing");
+  }
+  if (!provider.hosted_quota_guard_enabled) {
+    reasons.push("Hosted quota/rate/cost guards are incomplete");
+  }
+  return reasons;
+}
 
 function normalizeRecentFailure(failure: RecentFailureResponse): WorkbenchRecentFailure {
   return {
@@ -296,6 +597,12 @@ function formatBlockedReason(reason: string): string {
   }
   if (reason.includes("AI_PROVIDER_BFL_API_KEY")) {
     return "BFL 凭据未配置";
+  }
+  if (
+    reason.includes("AI_PROVIDER_OPENAI_API_KEY") ||
+    reason.includes("OpenAI credential is missing")
+  ) {
+    return "OpenAI 凭据未配置";
   }
   if (reason.includes("Hosted quota/rate/cost guards are incomplete")) {
     return "配额/频率/成本护栏未完整配置";

@@ -41,3 +41,17 @@ def test_phase_2_initial_migration_contains_key_constraints() -> None:
     assert "rights_status" in migration
     assert "source_label" in migration
     assert "source_url" in migration
+
+def test_phase_23_dispatch_outbox_migration_exists() -> None:
+    migration_files = list(VERSIONS_DIR.glob("*_phase_23_dispatch_outbox.py"))
+    assert len(migration_files) == 1
+
+    migration = migration_files[0].read_text(encoding="utf-8")
+
+    assert 'down_revision: str | None = "f2d60f906fc6"' in migration
+    assert 'op.add_column(\n        "generation_jobs"' in migration
+    assert '"state_version"' in migration
+    assert 'op.create_table(\n        "job_dispatch_outbox"' in migration
+    assert "uq_job_dispatch_outbox_job_task" in migration
+    assert "ix_job_dispatch_outbox_status_created" in migration
+    assert "job_dispatch_outbox" in metadata.tables

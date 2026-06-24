@@ -8,16 +8,20 @@ import type {
   ReferenceAssignment,
   ReferenceRole,
   TemplateCatalogItemResponse,
+  TemplateDetailResponse,
 } from "@caragent/contracts";
 import {
   AlertTriangle,
+  Archive,
   CheckCircle2,
   Cloud,
   Cpu,
   Loader2,
+  Plus,
   Save,
   ShieldAlert,
   SlidersHorizontal,
+  Sparkles,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -41,16 +45,53 @@ import { templateThumbnailUrl } from "@/lib/api/templates";
 interface ParameterPanelProps {
   assets: AssetResponse[];
   currentBrief: WorkbenchBrief | null;
+  generationError: string | null;
+  isGenerating: boolean;
   isLoading: boolean;
+  onArchive: () => Promise<void>;
+  onGenerate: () => Promise<void>;
+  onNewConcept: () => void;
   onSave: (payload: GenerationBriefUpdateRequest) => Promise<GenerationBriefResponse>;
   onTemplateChange: (templateId: string) => Promise<void>;
   onProviderChange: (providerId: string) => void;
+  onSectionSelect: (section: TemplateSectionSelection) => void;
   providerStatus: WorkbenchProviderStatus;
   referenceAssignments: ReferenceUsageDraft[];
   selectedReferenceAssetIds: string[];
   selectedTemplateId: string;
   selectedProviderId: string;
+  templateDetail: TemplateDetailResponse | null;
   templates: TemplateCatalogItemResponse[];
+}
+
+interface TemplateSectionSelection {
+  bounds: {
+    height: number;
+    width: number;
+    x: number;
+    y: number;
+  };
+  id: string;
+  label: string;
+  realSizeLabel: string;
+  view: "front" | "rear" | "side" | "top";
+  views: string[];
+}
+
+interface TemplateSectionRecord {
+  bounds?: {
+    height?: unknown;
+    width?: unknown;
+    x?: unknown;
+    y?: unknown;
+  };
+  id?: unknown;
+  label?: unknown;
+  real_size_mm?: {
+    height?: unknown;
+    width?: unknown;
+  };
+  views?: unknown;
 }
 
 interface ParameterDraft {
@@ -76,6 +117,7 @@ type StringUpdateKey =
   | "coverage"
   | "style"
   | "typography_intent";
+
 type ArrayUpdateKey =
   | "overlay_logo_asset_ids"
   | "palette"
@@ -87,22 +129,39 @@ type ArrayUpdateKey =
 export function ParameterPanel({
   assets,
   currentBrief,
+  generationError,
+  isGenerating,
   isLoading,
+  onArchive,
+  onGenerate,
+  onNewConcept,
   onSave,
   onTemplateChange,
   onProviderChange,
+  onSectionSelect,
   providerStatus,
   referenceAssignments,
   selectedReferenceAssetIds,
   selectedTemplateId,
   selectedProviderId,
+  templateDetail,
   templates,
 }: ParameterPanelProps) {
   const [draft, setDraft] = useState(() =>
     createDraft(currentBrief, selectedReferenceAssetIds),
   );
   const [saveState, setSaveState] = useState<SaveState>("idle");
+  const [archiveState, setArchiveState] = useState<SaveState>("idle");
+  const [referenceAssetIdsTextTouched, setReferenceAssetIdsTextTouched] = useState(false);
+  const effectiveReferenceAssetIdsText = referenceAssetIdsTextTouched
+    ? draft.referenceAssetIdsText
+    : selectedReferenceAssetIds.join("\n");
+  const effectiveDraft = {
+    ...draft,
+    referenceAssetIdsText: effectiveReferenceAssetIdsText,
+  };
   const payload = currentBrief ? readPayload(currentBrief) : {};
+  const templateSections = readTemplateSections(templateDetail);
   const activeTemplateId = readString(payload, "vehicle_template_id") || selectedTemplateId;
   const handleTemplateSelect = async (templateId: string) => {
     setSaveState("saving");
@@ -128,17 +187,26 @@ export function ParameterPanel({
         <p className="rounded-md border border-dashed border-border bg-muted px-3 py-3 text-secondary-foreground">
           先发送设计需求以生成结构化 brief。
         </p>
-        <Button disabled type="button" variant="outline">
-          <SlidersHorizontal aria-hidden="true" className="h-4 w-4" />
-          保存参数
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button disabled type="button" variant="outline">
+            <SlidersHorizontal aria-hidden="true" className="h-4 w-4" />
+            保存参数
+          </Button>
+          <Button disabled type="button">
+            <Sparkles aria-hidden="true" className="h-4 w-4" />
+            生成概念
+          </Button>
+        </div>
       </div>
     );
   }
 
-  const updatePayload = buildUpdatePayload(payload, draft, referenceAssignments);
+  const updatePayload = buildUpdatePayload(payload, effectiveDraft, referenceAssignments);
   const isDirty = Object.keys(updatePayload).length > 0;
+  const isArchived = currentBrief.status === "archived";
   const canSave = isDirty && saveState !== "saving" && !isLoading;
+  const canGenerate = saveState !== "saving" && !isLoading && !isGenerating;
+  const canArchive = !isArchived && archiveState !== "saving" && saveState !== "saving" && !isLoading && !isGenerating;
 
   const handleSave = async () => {
     if (!canSave) {
@@ -149,9 +217,50 @@ export function ParameterPanel({
     try {
       const updatedBrief = await onSave(updatePayload);
       setDraft(createDraft(updatedBrief));
+      setReferenceAssetIdsTextTouched(false);
       setSaveState("saved");
     } catch {
       setSaveState("error");
+    }
+  };
+
+  const handleGenerate = async () => {
+    if (!canGenerate) {
+      return;
+    }
+
+    setSaveState("saving");
+    try {
+      if (isDirty) {
+        const updatedBrief = await onSave(updatePayload);
+        setDraft(createDraft(updatedBrief));
+        setReferenceAssetIdsTextTouched(false);
+      }
+      setSaveState("saved");
+      await onGenerate();
+    } catch {
+      setSaveState("error");
+    }
+  };
+
+  const handleNewConcept = () => {
+    setSaveState("idle");
+    setArchiveState("idle");
+    setReferenceAssetIdsTextTouched(false);
+    onNewConcept();
+  };
+
+  const handleArchive = async () => {
+    if (!canArchive) {
+      return;
+    }
+
+    setArchiveState("saving");
+    try {
+      await onArchive();
+      setArchiveState("saved");
+    } catch {
+      setArchiveState("error");
     }
   };
 
@@ -161,7 +270,30 @@ export function ParameterPanel({
         <InfoRow label="车型模板" value={readString(payload, "vehicle_template_label") || "-"} />
         <InfoRow label="视角" value={readString(payload, "view") || "-"} />
       </div>
-      <InfoRow label="画布" value={formatCanvas(payload)} />
+      <div className="grid grid-cols-2 gap-2">
+        <InfoRow label="概念状态" value={formatBriefStatus(currentBrief.status)} />
+        <InfoRow label="画布" value={formatCanvas(payload)} />
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button disabled={archiveState === "saving" || saveState === "saving" || isLoading} onClick={handleNewConcept} type="button" variant="outline">
+          <Plus aria-hidden="true" className="h-4 w-4" />
+          新建概念
+        </Button>
+        <Button disabled={!canArchive} onClick={handleArchive} type="button" variant="outline">
+          {archiveState === "saving" ? (
+            <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
+          ) : (
+            <Archive aria-hidden="true" className="h-4 w-4" />
+          )}
+          作废当前
+        </Button>
+        {archiveState === "error" ? (
+          <span className="inline-flex items-center gap-1 text-sm font-medium text-destructive" role="alert">
+            <AlertTriangle aria-hidden="true" className="h-4 w-4" />
+            作废失败
+          </span>
+        ) : null}
+      </div>
       <TemplateCatalogSelector
         activeTemplateId={activeTemplateId}
         isLoading={isLoading || saveState === "saving"}
@@ -181,6 +313,12 @@ export function ParameterPanel({
           providerStatus.options.find((option) => option.id === LOCAL_PROVIDER_ID) ??
           providerStatus.options[0]
         }
+      />
+      <ConstructionBriefSummary payload={payload} />
+      <SectionWorkspace
+        onSectionSelect={onSectionSelect}
+        sections={templateSections}
+        templateId={activeTemplateId}
       />
 
       <TextInput
@@ -291,10 +429,11 @@ export function ParameterPanel({
         id="parameter-reference-asset-ids"
         label="引用素材 ID"
         onChange={(value) => {
+          setReferenceAssetIdsTextTouched(true);
           setDraft((current) => ({ ...current, referenceAssetIdsText: value }));
           setSaveState("idle");
         }}
-        value={draft.referenceAssetIdsText}
+        value={effectiveReferenceAssetIdsText}
       />
 
       <div className="flex flex-wrap items-center gap-2">
@@ -306,12 +445,161 @@ export function ParameterPanel({
           )}
           保存参数
         </Button>
+        <Button disabled={!canGenerate} onClick={handleGenerate} type="button">
+          {isGenerating ? (
+            <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
+          ) : (
+            <Sparkles aria-hidden="true" className="h-4 w-4" />
+          )}
+          生成概念
+        </Button>
         <SaveStatus isDirty={isDirty} saveState={saveState} />
       </div>
+      {generationError ? (
+        <p className="text-xs font-medium text-destructive" role="alert">
+          {generationError}
+        </p>
+      ) : null}
 
       <Warnings warnings={readStringArray(payload, "warnings")} />
     </div>
   );
+}
+
+
+
+function SectionWorkspace({
+  onSectionSelect,
+  sections,
+  templateId,
+}: {
+  onSectionSelect: (section: TemplateSectionSelection) => void;
+  sections: TemplateSectionSelection[];
+  templateId: string;
+}) {
+  const [selectedSectionId, setSelectedSectionId] = useState<string | null>(null);
+  const selectedSection =
+    sections.find((section) => section.id === selectedSectionId) ?? sections[0] ?? null;
+
+  const handleSelect = (section: TemplateSectionSelection) => {
+    setSelectedSectionId(section.id);
+    onSectionSelect(section);
+  };
+
+  return (
+    <section className="grid gap-3 rounded-md border border-border bg-card p-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 className="text-sm font-semibold">分区工作台</h3>
+        <Badge variant={sections.length > 0 ? "primary" : "warning"}>
+          {sections.length > 0 ? `${sections.length} 个分区` : "模板未分区"}
+        </Badge>
+      </div>
+      {sections.length > 0 ? (
+        <>
+          <div aria-label="车身分区" className="grid grid-cols-2 gap-2" role="group">
+            {sections.map((section) => (
+              <button
+                aria-pressed={selectedSection?.id === section.id}
+                className={`min-h-10 rounded-md border px-3 py-2 text-left text-sm font-medium ${
+                  selectedSection?.id === section.id
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : "border-border bg-background hover:bg-muted"
+                }`}
+                key={section.id}
+                onClick={() => handleSelect(section)}
+                type="button"
+              >
+                <span className="block truncate">{section.label}</span>
+                <span className="block truncate text-xs opacity-80">{section.views.join(" / ")}</span>
+              </button>
+            ))}
+          </div>
+          {selectedSection ? <SectionDetail section={selectedSection} /> : null}
+        </>
+      ) : (
+        <p className="rounded-md border border-dashed border-border bg-muted px-3 py-3 text-sm text-secondary-foreground">
+          当前模板 {templateId} 未提供 sections，局部编辑会继续使用 PreviewSpec 安全区。
+        </p>
+      )}
+    </section>
+  );
+}
+
+function SectionDetail({ section }: { section: TemplateSectionSelection }) {
+  return (
+    <div className="grid grid-cols-2 gap-2 max-[720px]:grid-cols-1">
+      <InfoRow label="当前分区" value={`${section.label} (${section.id})`} />
+      <InfoRow label="相关视图" value={section.views.join(" / ")} />
+      <InfoRow label="平面尺寸" value={section.realSizeLabel} />
+      <InfoRow
+        label="归一化位置"
+        value={`${section.bounds.x}, ${section.bounds.y}, ${section.bounds.width} x ${section.bounds.height}`}
+      />
+    </div>
+  );
+}
+
+function ConstructionBriefSummary({ payload }: { payload: Record<string, unknown> }) {
+  const materialCount =
+    readStringArray(payload, "reference_asset_ids").length +
+    readStringArray(payload, "overlay_logo_asset_ids").length;
+  const warnings = buildConstructionWarnings(payload);
+
+  return (
+    <section className="grid gap-3 rounded-md border border-border bg-card p-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 className="text-sm font-semibold">施工单摘要</h3>
+        <Badge variant={warnings.length > 0 ? "warning" : "primary"}>
+          {warnings.length > 0 ? `${warnings.length} 项提醒` : "核心齐全"}
+        </Badge>
+      </div>
+      <div className="grid grid-cols-2 gap-2 max-[720px]:grid-cols-1">
+        <InfoRow label="车型" value={readString(payload, "vehicle_template_label") || "待补充"} />
+        <InfoRow label="范围" value={readString(payload, "coverage") || "待补充"} />
+        <InfoRow label="设计" value={formatDesignIntent(payload)} />
+        <InfoRow label="素材" value={materialCount > 0 ? `${materialCount} 个素材引用` : "待补充"} />
+        <InfoRow label="导出" value={formatExportIntent(payload)} />
+        <InfoRow label="风险" value={warnings.length > 0 ? warnings.slice(0, 2).join("；") : "无阻塞提醒"} />
+      </div>
+    </section>
+  );
+}
+
+function formatDesignIntent(payload: Record<string, unknown>): string {
+  const theme = readString(payload, "character_theme");
+  const palette = readStringArray(payload, "palette").join("、");
+  const text = readStringArray(payload, "text").join("、");
+  const parts = [theme, palette, text].filter(Boolean);
+  return parts.length > 0 ? parts.join(" / ") : "待补充";
+}
+
+function formatExportIntent(payload: Record<string, unknown>): string {
+  const template = readString(payload, "vehicle_template_id");
+  const view = readString(payload, "view");
+  if (!template) {
+    return "待选择模板";
+  }
+  return `${template}${view ? ` · ${view}` : ""} · SVG/PDF/PNG 准施工包`;
+}
+
+function buildConstructionWarnings(payload: Record<string, unknown>): string[] {
+  const warnings = [...readStringArray(payload, "warnings")];
+  if (readStringArray(payload, "palette").length === 0) {
+    warnings.push("主色未填写");
+  }
+  if (!readString(payload, "coverage")) {
+    warnings.push("包覆范围未填写");
+  }
+  if (
+    readStringArray(payload, "text").length === 0 &&
+    readStringArray(payload, "overlay_logo_asset_ids").length === 0
+  ) {
+    warnings.push("文字/Logo 未填写");
+  }
+  if (readStringArray(payload, "reference_asset_ids").length === 0) {
+    warnings.push("参考素材未绑定");
+  }
+  return [...new Set(warnings)];
 }
 
 function ProviderSelector({
@@ -784,19 +1072,23 @@ function buildUpdatePayload(
     draft.racingCuesText,
   );
   addChangedArray(updatePayload, "text", readStringArray(payload, "text"), draft.textText);
-  addChangedArray(
-    updatePayload,
-    "reference_asset_ids",
-    readStringArray(payload, "reference_asset_ids"),
-    draft.referenceAssetIdsText,
-  );
+  const previousReferenceIds = readStringArray(payload, "reference_asset_ids");
+  const draftReferenceIds = splitList(draft.referenceAssetIdsText);
+  const referenceIdsChanged =
+    draftReferenceIds.join("\n") !== previousReferenceIds.join("\n");
+  if (referenceIdsChanged) {
+    updatePayload.reference_asset_ids = draftReferenceIds;
+  }
   addChangedArray(
     updatePayload,
     "supporting_graphics",
     readStringArray(payload, "supporting_graphics"),
     draft.supportingGraphicsText,
   );
-  addReferenceUsageUpdate(updatePayload, payload, referenceAssignments);
+  addReferenceUsageUpdate(updatePayload, payload, referenceAssignments, {
+    draftReferenceIds,
+    referenceIdsChanged,
+  });
 
   return updatePayload;
 }
@@ -805,16 +1097,31 @@ function addReferenceUsageUpdate(
   updatePayload: GenerationBriefUpdateRequest,
   payload: Partial<GenerationBriefPayload>,
   referenceAssignments: ReferenceUsageDraft[],
+  options: { draftReferenceIds: string[]; referenceIdsChanged: boolean },
 ) {
-  if (referenceAssignments.length === 0) {
-    return;
-  }
-
-  const referencePayload = buildReferenceUsagePayload(referenceAssignments);
   const previousReferenceUsage = Array.isArray(payload.reference_usage)
     ? payload.reference_usage
     : [];
   const previousReferenceIds = readStringArray(payload, "reference_asset_ids");
+  const hasEnabledReferenceAssignments = referenceAssignments.some(
+    (assignment) => assignment.enabled,
+  );
+
+  if (options.referenceIdsChanged && options.draftReferenceIds.length === 0) {
+    updatePayload.reference_asset_ids = [];
+    updatePayload.reference_usage = [];
+    return;
+  }
+
+  if (referenceAssignments.length === 0 || !hasEnabledReferenceAssignments) {
+    if (previousReferenceUsage.length > 0 || previousReferenceIds.length > 0) {
+      updatePayload.reference_asset_ids = [];
+      updatePayload.reference_usage = [];
+    }
+    return;
+  }
+
+  const referencePayload = buildReferenceUsagePayload(referenceAssignments);
 
   if (
     referenceUsageSignature(previousReferenceUsage) !==
@@ -833,7 +1140,7 @@ function addChangedString(
   next: string,
 ) {
   const normalizedNext = next.trim();
-  if (normalizedNext.length > 0 && normalizedNext !== previous) {
+  if (normalizedNext !== previous) {
     updatePayload[key] = normalizedNext;
   }
 }
@@ -845,7 +1152,7 @@ function addChangedArray(
   next: string,
 ) {
   const normalizedNext = splitList(next);
-  if (normalizedNext.length > 0 && normalizedNext.join("\n") !== previous.join("\n")) {
+  if (normalizedNext.join("\n") !== previous.join("\n")) {
     updatePayload[key] = normalizedNext;
   }
 }
@@ -870,6 +1177,69 @@ function findTemplate(
   );
 }
 
+
+function readTemplateSections(
+  templateDetail: TemplateDetailResponse | null,
+): TemplateSectionSelection[] {
+  if (!templateDetail?.sections) {
+    return [];
+  }
+  return templateDetail.sections
+    .map((section) => normalizeTemplateSection(section as TemplateSectionRecord))
+    .filter((section): section is TemplateSectionSelection => section !== null);
+}
+
+function normalizeTemplateSection(
+  section: TemplateSectionRecord,
+): TemplateSectionSelection | null {
+  const id = typeof section.id === "string" ? section.id : "";
+  const bounds = section.bounds;
+  const views = Array.isArray(section.views)
+    ? section.views.filter((view): view is string => typeof view === "string")
+    : [];
+  const firstView = views.find(isWorkbenchView);
+  if (!id || !bounds || !firstView) {
+    return null;
+  }
+  const normalizedBounds = {
+    height: readNumber(bounds.height),
+    width: readNumber(bounds.width),
+    x: readNumber(bounds.x),
+    y: readNumber(bounds.y),
+  };
+  if (normalizedBounds.width <= 0 || normalizedBounds.height <= 0) {
+    return null;
+  }
+  return {
+    bounds: normalizedBounds,
+    id,
+    label: typeof section.label === "string" ? section.label : id,
+    realSizeLabel: formatRealSize(section.real_size_mm),
+    view: firstView,
+    views,
+  };
+}
+
+function formatRealSize(value: TemplateSectionRecord["real_size_mm"]): string {
+  if (!value) {
+    return "未提供";
+  }
+  const width = readNumber(value.width);
+  const height = readNumber(value.height);
+  if (width <= 0 || height <= 0) {
+    return "未提供";
+  }
+  return `${width} x ${height} mm`;
+}
+
+function isWorkbenchView(value: string): value is TemplateSectionSelection["view"] {
+  return value === "front" || value === "rear" || value === "side" || value === "top";
+}
+
+function readNumber(value: unknown): number {
+  return typeof value === "number" && Number.isFinite(value) ? value : 0;
+}
+
 function readString(payload: Record<string, unknown>, key: keyof GenerationBriefPayload): string {
   const value = payload[key];
   return typeof value === "string" ? value : "";
@@ -882,6 +1252,17 @@ function readStringArray(payload: Record<string, unknown>, key: keyof Generation
   }
 
   return value.filter((item): item is string => typeof item === "string");
+}
+
+function formatBriefStatus(status: string | null | undefined): string {
+  if (status === "draft") {
+    return "草稿";
+  }
+  if (status === "archived") {
+    return "已作废";
+  }
+
+  return status || "-";
 }
 
 function formatCanvas(payload: Record<string, unknown>): string {

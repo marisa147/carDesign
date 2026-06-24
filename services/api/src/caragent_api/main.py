@@ -1,12 +1,11 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from pathlib import Path
 from typing import Literal
 
 from caragent_core.database import create_engine, create_session_factory
-from caragent_core.storage import FileObjectStorage
+from caragent_core.storage import ObjectStorageFactory
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -95,7 +94,7 @@ def create_app(settings: ApiSettings | None = None) -> FastAPI:
         app.state.database_engine = database_engine
         app.state.session_factory = create_session_factory(database_engine)
     app.state.settings = active_settings
-    app.state.object_storage = FileObjectStorage(Path(".cache/object-storage"))
+    app.state.object_storage = ObjectStorageFactory.from_settings(active_settings)
     app.state.queue_client = CeleryQueueClient(
         database_url=active_settings.database_url,
         redis_url=active_settings.redis_url,

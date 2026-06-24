@@ -1,7 +1,19 @@
 from caragent_core.generation.briefs import (
+    BriefDraft,
+    BriefParser,
+    BriefParserInput,
+    DeterministicBriefParser,
     GenerationBriefPayload,
+    StructuredBriefParser,
     create_generation_brief,
+    create_generation_brief_from_draft,
     refresh_generation_brief_warnings,
+    select_brief_parser,
+)
+from caragent_core.generation.compositor import (
+    TemplateCompositionRequest,
+    TemplateCompositionResult,
+    TemplateCompositor,
 )
 from caragent_core.generation.prompts import (
     PromptPlan,
@@ -9,7 +21,10 @@ from caragent_core.generation.prompts import (
     build_prompt_plan,
 )
 from caragent_core.generation.templates import (
+    ALL_TEMPLATE_IDS,
     DEFAULT_TEMPLATE_ID,
+    GR86_BRZ_TEMPLATE_ID,
+    MAINTAINED_TEMPLATE_IDS,
     MVP_COUPE_TEMPLATE_ID,
     MVP_HATCHBACK_TEMPLATE_ID,
     MVP_SEDAN_TEMPLATE_ID,
@@ -41,7 +56,10 @@ from caragent_core.generation.templates import (
 )
 
 __all__ = [
+    "ALL_TEMPLATE_IDS",
     "DEFAULT_TEMPLATE_ID",
+    "GR86_BRZ_TEMPLATE_ID",
+    "MAINTAINED_TEMPLATE_IDS",
     "MVP_COUPE_TEMPLATE_ID",
     "MVP_HATCHBACK_TEMPLATE_ID",
     "MVP_SEDAN_TEMPLATE_ID",
@@ -52,6 +70,14 @@ __all__ = [
     "SUPPORTED_TEMPLATE_ID",
     "SUPPORTED_VIEW",
     "TEMPLATE_SOURCE_POLICIES",
+    "BriefDraft",
+    "BriefParser",
+    "BriefParserInput",
+    "DeterministicBriefParser",
+    "StructuredBriefParser",
+    "TemplateCompositionRequest",
+    "TemplateCompositionResult",
+    "TemplateCompositor",
     "GenerationBriefPayload",
     "PromptPlan",
     "PromptProviderSettings",
@@ -66,12 +92,14 @@ __all__ = [
     "audit_vehicle_templates",
     "build_prompt_plan",
     "create_generation_brief",
+    "create_generation_brief_from_draft",
     "evaluate_template_readiness",
     "list_vehicle_templates",
     "load_mvp_template_records",
     "refresh_generation_brief_warnings",
     "register_vehicle_template",
     "resolve_vehicle_template",
+    "select_brief_parser",
     "source_policy",
     "template_asset_resource",
     "template_pack_root",

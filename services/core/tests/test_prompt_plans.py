@@ -3,6 +3,7 @@ from __future__ import annotations
 from uuid import uuid4
 
 from caragent_core.generation import (
+    GR86_BRZ_TEMPLATE_ID,
     MVP_COUPE_TEMPLATE_ID,
     MVP_TEMPLATE_IDS,
     PromptProviderSettings,
@@ -312,3 +313,45 @@ def test_prompt_plan_legacy_reference_ids_use_default_inspiration_role() -> None
     assert first.prompt_payload["omitted_reference_asset_ids"] == []
     assert first.prompt_payload["unsupported_reference_roles"] == []
     assert first.model_dump(mode="json") == second.model_dump(mode="json")
+
+
+
+def test_build_prompt_plan_creates_gr86_section_design_plan() -> None:
+    brief = create_generation_brief(
+        original_request="GR86 初音未来主题，青绿白主色，门板和机盖，文字 MIKU RACING",
+        character_theme="初音未来主题",
+        color_harmony="white base with teal highlights",
+        coverage="doors, hood, roof, bumpers, side skirt",
+        palette=["white", "teal", "black"],
+        style="clean cyber racing itasha",
+        text=["MIKU RACING"],
+        vehicle_template_id=GR86_BRZ_TEMPLATE_ID,
+        view="side",
+    )
+
+    plan = build_prompt_plan(
+        brief,
+        provider_settings=PromptProviderSettings(provider="openai", model="gpt-image-2"),
+    )
+
+    section_plan = plan.prompt_payload["section_design_plan"]
+    assert section_plan["schema_version"] == 1
+    assert section_plan["template"]["id"] == GR86_BRZ_TEMPLATE_ID
+    assert "初音未来主题" in section_plan["overall_direction"]
+    section_ids = {section["id"] for section in section_plan["sections"]}
+    assert section_ids >= {
+        "door-left",
+        "front-bumper",
+        "front-fender",
+        "hood",
+        "rear-bumper",
+        "rear-quarter",
+        "roof",
+        "side-skirt",
+        "trunk",
+    }
+    hood = next(section for section in section_plan["sections"] if section["id"] == "hood")
+    assert hood["views"] == ["top", "front"]
+    assert hood["real_size_mm"] == {"width": 1180, "height": 980}
+    assert "Keep artwork inside section hood" in hood["prompt"]
+    assert "9 template sections" in plan.prompt_text

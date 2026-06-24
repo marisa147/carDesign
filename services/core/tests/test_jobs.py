@@ -5,6 +5,7 @@ import zipfile
 from collections.abc import AsyncIterator
 from decimal import Decimal
 from io import BytesIO
+from pathlib import Path
 from types import SimpleNamespace
 from uuid import uuid4
 
@@ -22,7 +23,7 @@ from caragent_core.enums import (
     JobStatus,
     ModelRunStatus,
 )
-from caragent_core.models import GenerationJob, metadata
+from caragent_core.models import GenerationJob, JobDispatchOutbox, metadata
 from caragent_core.production_preflight import REQUIRED_PRODUCTION_EVIDENCE_IDS
 from caragent_core.services import jobs, workspaces
 
@@ -77,6 +78,118 @@ async def test_create_job_is_idempotent_per_workspace(
     assert updated.estimated_cost == Decimal("1.2500")
     assert updated.actual_cost == Decimal("0.7500")
 
+
+async def test_job_dispatch_outbox_is_idempotent_and_replayable(
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    async with session_scope(session_factory) as session:
+        workspace = await workspaces.create_workspace(session, title="Dispatch")
+        created = await jobs.create_job(
+            session,
+            workspace.id,
+            idempotency_key="dispatch-001",
+            operation="generate_concept",
+        )
+        first = await jobs.create_job_dispatch_outbox(
+            session,
+            created.job.id,
+            queue_name="caragent.default",
+            task_name="caragent_worker.generate_2d_concept_job",
+        )
+        duplicate = await jobs.create_job_dispatch_outbox(
+            session,
+            created.job.id,
+            queue_name="caragent.default",
+            task_name="caragent_worker.generate_2d_concept_job",
+        )
+        ready_before_failure = await jobs.list_ready_job_dispatches(session)
+        failed = await jobs.mark_job_dispatch_failed(
+            session,
+            first.dispatch.id,
+            error_message="redis-secret unavailable",
+            secrets=("redis-secret",),
+        )
+        ready_after_failure = await jobs.list_ready_job_dispatches(session)
+        failed_status = failed.status
+        failed_attempts = failed.attempts
+        failed_last_error = failed.last_error
+        dispatched = await jobs.mark_job_dispatch_dispatched(
+            session,
+            first.dispatch.id,
+            task_id="task-1",
+        )
+        dispatched_again = await jobs.mark_job_dispatch_dispatched(
+            session,
+            first.dispatch.id,
+            task_id="task-ignored",
+        )
+        ready_after_dispatch = await jobs.list_ready_job_dispatches(session)
+        outbox_count = await session.scalar(select(func.count()).select_from(JobDispatchOutbox))
+
+    assert first.idempotent_reused is False
+    assert duplicate.idempotent_reused is True
+    assert duplicate.dispatch.id == first.dispatch.id
+    assert ready_before_failure == [first.dispatch]
+    assert failed_status == jobs.DISPATCH_FAILED
+    assert failed_attempts == 1
+    assert failed_last_error == "[redacted] unavailable"
+    assert ready_after_failure == [first.dispatch]
+    assert dispatched.status == jobs.DISPATCH_DISPATCHED
+    assert dispatched.task_id == "task-1"
+    assert dispatched.attempts == 2
+    assert dispatched.dispatched_at is not None
+    assert dispatched_again.task_id == "task-1"
+    assert dispatched_again.attempts == 2
+    assert ready_after_dispatch == []
+    assert outbox_count == 1
+
+
+async def test_claim_queued_job_is_conditional_and_versions_state(
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    async with session_scope(session_factory) as session:
+        workspace = await workspaces.create_workspace(session, title="Claim")
+        created = await jobs.create_job(
+            session,
+            workspace.id,
+            idempotency_key="claim-001",
+            operation="generate_concept",
+        )
+        initial_state_version = created.job.state_version
+        claimed = await jobs.claim_queued_job(
+            session,
+            created.job.id,
+            message="Generation worker started.",
+            source="worker-generation",
+        )
+        claim_status = claimed.status if claimed is not None else None
+        claim_state_version = claimed.state_version if claimed is not None else None
+        duplicate_claim = await jobs.claim_queued_job(
+            session,
+            created.job.id,
+            message="Duplicate worker started.",
+            source="worker-generation",
+        )
+        events_after_claim = await jobs.list_job_events(session, created.job.id)
+        succeeded = await jobs.transition_job_status(
+            session,
+            created.job.id,
+            status=JobStatus.SUCCEEDED.value,
+            message="Generation completed.",
+            source="worker-generation",
+        )
+
+    assert initial_state_version == 0
+    assert claimed is not None
+    assert claim_status == JobStatus.RUNNING.value
+    assert claim_state_version == 1
+    assert duplicate_claim is None
+    assert [event.status for event in events_after_claim] == [
+        JobStatus.QUEUED.value,
+        JobStatus.RUNNING.value,
+    ]
+    assert succeeded.status == JobStatus.SUCCEEDED.value
+    assert succeeded.state_version == 2
 
 async def test_job_events_order_and_status_persist_across_sessions(
     session_factory: async_sessionmaker[AsyncSession],
@@ -397,6 +510,115 @@ async def test_in_memory_object_storage_can_read_written_objects() -> None:
     with pytest.raises(FileNotFoundError):
         await storage.get_object("workspaces/workspace-1/export/package/missing.zip")
 
+
+async def test_file_object_storage_persists_content_type_metadata(tmp_path: Path) -> None:
+    from caragent_core.storage import FileObjectStorage
+
+    storage = FileObjectStorage(tmp_path)
+    key = "workspaces/workspace-1/generated/artifact/concept.png"
+
+    await storage.put_object(key, b"png-content", "image/png")
+
+    stored = await storage.get_object(key)
+    metadata = await storage.head_object(key)
+
+    assert stored.content == b"png-content"
+    assert stored.content_type == "image/png"
+    assert metadata.byte_size == len(b"png-content")
+    assert metadata.content_type == "image/png"
+
+    await storage.delete_object(key)
+
+    with pytest.raises(FileNotFoundError):
+        await storage.get_object(key)
+    with pytest.raises(FileNotFoundError):
+        await storage.head_object(key)
+
+
+async def test_object_storage_factory_uses_configured_local_root(tmp_path: Path) -> None:
+    from caragent_core.storage import FileObjectStorage, ObjectStorageFactory, StorageSettings
+
+    storage = ObjectStorageFactory.from_settings(
+        StorageSettings(backend="file", local_root=tmp_path, runtime_mode="local"),
+    )
+
+    assert isinstance(storage, FileObjectStorage)
+    await storage.put_object("workspaces/ws/artifacts/a.txt", b"hello", "text/plain")
+    assert (await storage.get_object("workspaces/ws/artifacts/a.txt")).content_type == "text/plain"
+
+
+async def test_s3_object_storage_uses_s3_client_contract() -> None:
+    from caragent_core.storage import ObjectStorageFactory, S3ObjectStorage, StorageSettings
+
+    class FakeBody:
+        def __init__(self, content: bytes) -> None:
+            self.content = content
+
+        def read(self) -> bytes:
+            return self.content
+
+    class FakeS3Client:
+        def __init__(self) -> None:
+            self.objects: dict[tuple[str, str], tuple[bytes, str]] = {}
+
+        def put_object(
+            self,
+            *,
+            Bucket: str,
+            Key: str,
+            Body: bytes,
+            ContentType: str,
+        ) -> object:
+            self.objects[(Bucket, Key)] = (Body, ContentType)
+            return {}
+
+        def get_object(self, *, Bucket: str, Key: str) -> dict[str, object]:
+            try:
+                content, content_type = self.objects[(Bucket, Key)]
+            except KeyError as error:
+                raise FileNotFoundError(Key) from error
+            return {
+                "Body": FakeBody(content),
+                "ContentLength": len(content),
+                "ContentType": content_type,
+            }
+
+        def head_object(self, *, Bucket: str, Key: str) -> dict[str, object]:
+            try:
+                content, content_type = self.objects[(Bucket, Key)]
+            except KeyError as error:
+                raise FileNotFoundError(Key) from error
+            return {"ContentLength": len(content), "ContentType": content_type}
+
+        def delete_object(self, *, Bucket: str, Key: str) -> object:
+            try:
+                del self.objects[(Bucket, Key)]
+            except KeyError as error:
+                raise FileNotFoundError(Key) from error
+            return {}
+
+    client = FakeS3Client()
+    storage = ObjectStorageFactory.from_settings(
+        StorageSettings(runtime_mode="production", s3_bucket="caragent-test"),
+        s3_client=client,
+    )
+    key = "workspaces/workspace-1/generated/artifact/concept.webp"
+
+    assert isinstance(storage, S3ObjectStorage)
+    await storage.put_object(key, b"webp-content", "image/webp")
+
+    stored = await storage.get_object(key)
+    metadata = await storage.head_object(key)
+
+    assert stored.content == b"webp-content"
+    assert stored.content_type == "image/webp"
+    assert metadata.byte_size == len(b"webp-content")
+    assert metadata.content_type == "image/webp"
+
+    await storage.delete_object(key)
+
+    with pytest.raises(FileNotFoundError):
+        await storage.get_object(key)
 
 async def test_feedback_and_export_require_version_to_belong_to_workspace(
     session_factory: async_sessionmaker[AsyncSession],

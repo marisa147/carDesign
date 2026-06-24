@@ -60,3 +60,5 @@ services/worker/.caragent-generated/
 # Keep committed examples visible.
 !.env.example
 !**/.env.example
+*.rar
+services/worker/.runtime/

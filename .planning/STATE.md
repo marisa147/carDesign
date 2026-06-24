@@ -1,37 +1,37 @@
 ---
 gsd_state_version: 1.0
-milestone: v4.0
-milestone_name: Real Generation Closure And Reliability
-status: active
-stopped_at: Phase 21 ready for planning/execution
-last_updated: "2026-06-22T00:00:00+08:00"
-last_activity: "2026-06-22 -- Initialized v4.0 Real Generation Closure And Reliability milestone from carAgent_CODE_REVIEW.md"
+milestone: v5.0
+milestone_name: GR86/BRZ Construction Package Customization
+status: milestone_complete
+stopped_at: Phase 33 complete; v5.0 ready for milestone verification/archive
+last_updated: "2026-06-23T00:00:00+08:00"
+last_activity: "2026-06-23 -- Completed Phase 33 construction package export, manifest source preservation, web export control, and focused validation"
 progress:
-  total_phases: 6
-  completed_phases: 0
-  total_requirements: 23
-  completed_requirements: 0
-  percent: 0
+  total_phases: 7
+  completed_phases: 7
+  total_requirements: 26
+  completed_requirements: 26
+  percent: 100
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-06-22)
+See: .planning/PROJECT.md (updated 2026-06-23)
 
 **Core value:** 用户能用自然语言快速得到一套可预览、可迭代、可导出的高质量痛车设计方案。
-**Current focus:** Phase 21 Real Generation Entry And Artifact Preview
+**Current focus:** v5.0 milestone verification/audit and archive preparation
 
 ## Current Position
 
-Milestone: v4.0 Real Generation Closure And Reliability — ACTIVE
-Phase: 21 Real Generation Entry And Artifact Preview
-Plan: not started
-Status: Ready to plan and execute Phase 21
-Last activity: 2026-06-22 -- Initialized v4.0 from `carAgent_CODE_REVIEW.md`
+Milestone: v5.0 GR86/BRZ Construction Package Customization — COMPLETE
+Phase: 33 SVG/PDF/PNG Construction Package Export — COMPLETE
+Plan: 33-01 complete
+Status: Phase 33 implemented; v5.0 ready for milestone verification/archive
+Last activity: 2026-06-23 -- Implemented construction package ZIP export, layered SVG/PDF/source PNG package contents, manifest source trace preservation, and Web export controls.
 
-Progress: [----------] 0%
+Progress: [##########] 100%
 
 ## Milestone Archives
 
@@ -49,57 +49,29 @@ Progress: [----------] 0%
 
 ## Current Milestone Scope
 
-v4.0 Real Generation Closure And Reliability is scoped to the following phase sequence:
+v5.0 GR86/BRZ Construction Package Customization is scoped to the following phase sequence:
 
 | Phase | Focus | Requirements |
 |-------|-------|--------------|
-| Phase 21 | Real Generation Entry And Artifact Preview | GENC-01..04 |
-| Phase 22 | Shared Object Storage | STOR-01..04 |
-| Phase 23 | Dispatch And Worker Reliability | RELY-01..05 |
-| Phase 24 | Preview And Parameter Correctness | PREV-01..03 |
-| Phase 25 | Parser Boundary And Template Compositor | AGNT-01..03 |
-| Phase 26 | Security And Operations Hardening | HARD-01..04 |
+| Phase 27 | View Truthfulness And Current Preview Repair | VIEW-01..02 — Complete |
+| Phase 28 | GR86/BRZ Template Package Schema | TPLG-01..04 — Complete |
+| Phase 29 | Template Management And Authorization | TMPL-01..04 — Complete |
+| Phase 30 | Construction Brief And Smart Q&A | BRIF-01..06 — Complete |
+| Phase 31 | Section-First Design Workspace | SECT-01..03 — Complete |
+| Phase 32 | GPT Sectioned Generation Pipeline | GPTD-01..04 — Complete |
+| Phase 33 | SVG/PDF/PNG Construction Package Export | PACK-01..03 — Complete |
 
-## Prior Milestone Metrics
+## Pending Todos
 
-**v1.0 Velocity:**
+- Run final v5.0 milestone verification/audit and archive when ready.
+- Keep v5 scoped to one deep GR86/BRZ package before broadening the vehicle catalog.
 
-- Total plans completed: 54
-- Total phases completed: 7
-- v1 requirements completed: 42/42
-- Source scale at close: about 112 source files / 17,452 LOC, excluding tests and runtime generated artifacts.
+## Blockers/Concerns
 
-**v1.0 By Phase:**
-
-| Phase | Plans | Status |
-|-------|-------|--------|
-| Phase 1 | 12/12 | Complete |
-| Phase 2 | 9/9 | Complete |
-| Phase 3 | 7/7 | Complete |
-| Phase 4 | 7/7 | Complete |
-| Phase 5 | 7/7 | Complete |
-| Phase 6 | 5/5 | Complete |
-| Phase 7 | 7/7 | Complete |
-
-**v2.0 Velocity:**
-
-- Total plans completed: 48
-- Total phases completed: 7
-- v2 requirements completed: 34/34
-- Source-plus-test scale at close: about 30,301 LOC across `apps/`, `packages/`, `services/`, `scripts/`, and `infra/`, excluding generated contracts and dependency folders.
-
-**v2.0 By Phase:**
-
-| Phase | Plans | Status |
-|-------|-------|--------|
-| Phase 8 | 5/5 | Complete |
-| Phase 9 | 7/7 | Complete |
-| Phase 10 | 8/8 | Complete |
-| Phase 11 | 7/7 | Complete |
-| Phase 12 | 8/8 | Complete |
-| Phase 13 | 7/7 | Complete |
-| Phase 14 | 6/6 | Complete |
-
+- Real GR86/BRZ template assets must be maintained project assets or clearly user-provided/authorized; web-crawled or reference-only imagery must not silently become reusable catalog material.
+- v5 exports are quasi-construction SVG/PDF/PNG packages, not installer-certified print-shop files.
+- PSD/AI export, marketplace, ordering/payment, installer routing, and automated copyright verification remain future scope.
+- GPT provider calls must stay config-driven, guarded, observable, and compatible with the user's Codex relay configuration.
 ## Accumulated Context
 
 ### Decisions
@@ -193,6 +165,18 @@ Recent decisions affecting v2.0 and v3.0:
 - [Phase 20 Plan 03]: Desktop/mobile Browser UAT passed with fixture-backed template catalog, selected van PreviewSpec, targeted edit controls, 3D fallback, enhanced handoff, preflight, concept-only labels, and no horizontal overflow.
 - [Phase 20 Plan 04]: V3 release notes and docs now explain template governance, MVP template pack, validation commands, concept-only boundaries, and future production promotions.
 - [Phase 20 Plan 05]: V3 milestone audit passed with all 31 v3.0 requirements complete and archive-ready.
+- [Phase 21]: Workbench generation entry, active-job polling, artifact `content_url`, real 2D image preview, binary artifact OpenAPI metadata, blob-aware generated client, focused verification, code review, and full `pnpm validate` now close GENC-01..04; manual browser UAT remains checklist-ready.
+- [Phase 22]: Shared `ObjectStorageFactory`, file metadata preservation, S3-compatible adapter boundary, API/Worker factory wiring, workspace-scoped artifact streaming, storage contract tests, code review, and full `pnpm validate` now close STOR-01..04.
+- [Phase 23]: `job_dispatch_outbox`, `generation_jobs.state_version`, after-commit generation dispatch, conditional worker claim, short provider-call transaction boundaries, focused reliability tests, code review, and full `pnpm validate` now close RELY-01..05.
+- [Phase 24]: Real canvas screenshot capture is directly tested, API screenshot validation remains covered, parameter diffs now preserve explicit empty strings/lists, reference clearing persists empty `reference_asset_ids` and `reference_usage`, focused regressions plus full `pnpm validate` now close PREV-01..03.
+- [Phase 25]: Strict `BriefDraft`/`BriefParser` boundaries, deterministic parser fallback, structured parser validation hook, core `TemplateCompositor` protocol, worker Pillow template compositor, local provider integration, protected-mask pixel tests, and full `pnpm validate` now close AGNT-01..03.
+- [Phase 26]: Server-derived workspace ownership, asset/job/generation route authorization, upload magic/dimension validation, BFL result URL/MIME/PNG validation, hosted quota reserve/settle boundary with non-local Redis store, worker trace/queue timing metadata, regenerated contracts, final full `pnpm validate`, and earlier Docker local smoke now close HARD-01..04.
+- [Phase 27]: View controls now reflect actual template view availability; unavailable views show `模板未提供该视图`; web typecheck passed while Vitest remains blocked by local Node/jsdom startup issues.
+- [Phase 28]: `toyota_gr86_brz_v1` maintained template package, deep template metadata, API exposure, contracts, and validation now close TPLG-01..04.
+- [Phase 29]: `/settings/templates`, zip package validation API, structured authorization display, source class visibility, OpenAPI/contracts updates, and focused API/type validation now close TMPL-01..04.
+- [Phase 30]: Chat requirement completion, first missing-field Q&A, GPT supplementation cue, clear conversation, construction-order summary, and web typecheck now close BRIF-01..06; Vitest remains blocked by local jsdom/CSS ESM startup.
+- [Phase 31]: Template-detail section loading, section-first workbench UI, section-to-targeted-edit coupling, expanded GR86/BRZ construction sections, core tests, validator, ruff, and web typecheck now close SECT-01..03.
+- [Phase 32]: Sectioned prompt planning, overall direction, GR86/BRZ section prompts, targeted section regeneration metadata, durable worker section trace, focused tests, ruff, and mypy now close GPTD-01..04.
 
 ### Pending Todos
 
@@ -210,7 +194,7 @@ None.
 - Contract drift must be checked in each phase because v2.0 extends the v1.0 schema surface.
 - V3 template assets must be `internal_original`, licensed, or user-provided-with-rights; web-crawled or third-party reference-only material must not enter reusable template assets, masks, thumbnails, or catalog entries.
 - Concept handoff and preflight keep non-production labels and avoid implying print-ready PSD/AI/PDF, verified scale/bleed/color/DPI, production UV, or installer readiness.
-- v3.0 is complete and ready to archive; future milestones must keep production handoff, verified UV, marketplace/order flows, hosted-provider production claims, and automated licensing outside scope until their evidence is explicitly added.
+- v4.0 is complete and ready for milestone audit/archive; future milestones must keep production handoff, verified UV, marketplace/order flows, hosted-provider production claims, and automated licensing outside scope until their evidence is explicitly added.
 
 ## Deferred Items
 
@@ -402,5 +386,11 @@ Resume files:
 - `.planning/phases/14-v2-mvp-hardening-docs-smoke-and-uat/14-06-SUMMARY.md`
 - `.planning/phases/14-v2-mvp-hardening-docs-smoke-and-uat/evidence/phase14-browser-metrics.json`
 
-Next recommended command: `$gsd-plan-phase 21`
-Alternative: `$gsd-discuss-phase 21`
+Next recommended command: `$gsd-complete-milestone`
+Alternative: `$gsd-audit-milestone`
+
+
+
+
+
+- [Phase 33]: `construction_package_zip` export, immutable ZIP package artifact, layered SVG/PDF/source PNG/warnings contents, true source-artifact manifest preservation, Web `施工包` export controls, API/core/web focused validation now close PACK-01..03.

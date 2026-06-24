@@ -3,9 +3,8 @@ from __future__ import annotations
 import asyncio
 import hashlib
 from dataclasses import dataclass
-from datetime import timedelta
+from datetime import datetime, timedelta
 from decimal import Decimal
-from pathlib import Path
 from typing import TypedDict
 from uuid import UUID, uuid4
 
@@ -38,6 +37,7 @@ from caragent_core.models import (
 from caragent_core.provider_capabilities import (
     BFL_PROVIDER,
     LOCAL_PROVIDER,
+    OPENAI_PROVIDER,
     PROVIDER_MASKED_GENERATION_ROUTE,
 )
 from caragent_core.references import (
@@ -47,7 +47,7 @@ from caragent_core.references import (
     build_reference_trace_metadata,
 )
 from caragent_core.services import assets, jobs
-from caragent_core.storage import FileObjectStorage, ObjectStorage, build_object_key
+from caragent_core.storage import ObjectStorage, ObjectStorageFactory, build_object_key
 from pydantic import ValidationError
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -66,6 +66,12 @@ from caragent_worker.providers import (
     select_image_provider,
 )
 from caragent_worker.providers.base import sanitize_provider_error
+from caragent_worker.quotas import (
+    HostedQuotaExceeded,
+    HostedQuotaReservation,
+    HostedQuotaReserveRequest,
+    hosted_quota_store_for_runtime,
+)
 from caragent_worker.recomposition import (
     RECOMPOSITION_MODEL,
     RECOMPOSITION_PROVIDER,
@@ -79,11 +85,10 @@ LOCAL_SIMULATION_MODEL = "phase-2-no-provider"
 LOCAL_SIMULATION_SOURCE = "worker-local-simulation"
 JOB_CANCELED_MESSAGE = "Job canceled."
 WORKER_CANCELED_MESSAGE = "Worker observed canceled job."
-HOSTED_GUARD_REQUIRED_MESSAGE = (
-    "Hosted calls require daily, per-minute, and per-job cost limits."
-)
+HOSTED_GUARD_REQUIRED_MESSAGE = "Hosted calls require daily, per-minute, and per-job cost limits."
 LOCAL_PROVIDER_NAMES = {"disabled", "local", "local-deterministic", RECOMPOSITION_PROVIDER}
 BFL_PROVIDER_NAMES = {"bfl", "black-forest-labs"}
+OPENAI_PROVIDER_NAMES = {"openai", "gpt"}
 
 
 @dataclass(frozen=True, slots=True)
@@ -150,7 +155,7 @@ def generate_2d_concept_job(
             active_database_url,
             UUID(job_id),
             settings=settings,
-            storage=FileObjectStorage(root=Path(".caragent-generated")),
+            storage=ObjectStorageFactory.from_settings(settings),
         ),
     )
 
@@ -192,6 +197,7 @@ async def _run_generate_2d_concept_job(
     failure_provider: str | None = None
     failure_model: str | None = None
     request: ImageGenerationRequest | None = None
+    running_started_at: datetime | None = None
     try:
         canceled_result = await _return_if_canceled(
             session,
@@ -202,15 +208,35 @@ async def _run_generate_2d_concept_job(
         if canceled_result is not None:
             return canceled_result
 
-        failure_stage = "job_transition_running"
-        await jobs.transition_job_status(
+        failure_stage = "job_claim"
+        preclaim_job = await jobs.get_job(session, job_id)
+        running_started_at = utc_now()
+        claim_metadata = _claim_trace_metadata(
+            preclaim_job,
+            job_id=job_id,
+            running_started_at=running_started_at,
+        )
+        claimed_job = await jobs.claim_queued_job(
             session,
             job_id,
-            status=JobStatus.RUNNING.value,
             message="Generation worker started.",
+            metadata=claim_metadata,
             source="worker-generation",
         )
-        job = await jobs.get_job(session, job_id)
+        if claimed_job is None:
+            existing_job = await jobs.get_job(session, job_id)
+            return {
+                "external_calls": False,
+                "job_id": str(job_id),
+                "status": existing_job.status,
+            }
+        job = claimed_job
+        job.metadata_json = {
+            **(job.metadata_json or {}),
+            "trace_id": claim_metadata["trace_id"],
+            "worker_started_at": running_started_at.isoformat(),
+        }
+        await session.commit()
         if job.brief_id is None:
             raise RuntimeError("Generation job requires a design brief")
 
@@ -237,6 +263,7 @@ async def _run_generate_2d_concept_job(
         failure_model = prompt_plan.model
         preview_spec = _preview_spec_from_prompt_payload(prompt_plan.prompt_payload)
         preview_spec_summary = _preview_spec_summary(preview_spec)
+        section_design_metadata = _section_design_metadata(prompt_plan.prompt_payload)
         input_artifact_ids = _input_artifact_ids(
             prompt_plan.input_artifact_ids,
             preview_spec=preview_spec,
@@ -257,6 +284,7 @@ async def _run_generate_2d_concept_job(
         )
         if canceled_result is not None:
             return canceled_result
+        await session.commit()
 
         failure_stage = "targeted_edit_intent"
         edit_intent = _job_edit_intent(job)
@@ -299,6 +327,10 @@ async def _run_generate_2d_concept_job(
                 input_artifact_ids=input_artifact_ids,
             )
             edit_route_metadata = _edit_route_metadata(request)
+            section_design_metadata = _section_design_metadata(
+                request.prompt_payload,
+                target_section_id=_section_regeneration_target_id(request),
+            )
             reference_metadata = _reference_usage_metadata(request)
             template_trace_metadata = _vehicle_template_trace_metadata(
                 prompt_payload=request.prompt_payload,
@@ -315,6 +347,7 @@ async def _run_generate_2d_concept_job(
                     **edit_route_metadata,
                     **reference_metadata,
                     **preview_spec_summary,
+                    **section_design_metadata,
                     **template_trace_metadata,
                     "provider_attempt": attempt_index,
                     "provider_route": request.provider,
@@ -325,6 +358,7 @@ async def _run_generate_2d_concept_job(
                 status=ModelRunStatus.RUNNING.value,
             )
             model_run_id = model_run.id
+            quota_reservation: HostedQuotaReservation | None = None
             try:
                 failure_stage = "rights_check"
                 reference_rights_snapshots = await _require_confirmed_reference_rights(
@@ -357,10 +391,11 @@ async def _run_generate_2d_concept_job(
                 failure_stage = "hosted_preflight"
                 failure_provider = request.provider
                 failure_model = request.model
-                await _enforce_hosted_preflight(
+                quota_reservation = await _enforce_hosted_preflight(
                     session,
                     request,
                     settings=settings,
+                    current_job_id=job_id,
                     current_model_run_id=model_run_id,
                 )
                 failure_stage = "reference_capability_preflight"
@@ -378,10 +413,17 @@ async def _run_generate_2d_concept_job(
                     settings,
                     provider_name=request.provider,
                 )
+                await session.commit()
                 failure_stage = "provider_generate"
                 failure_provider = request.provider
                 failure_model = request.model
                 provider_result = await active_provider.generate(request)
+                await _settle_hosted_quota(
+                    quota_reservation,
+                    settings=settings,
+                    actual_cost=provider_result.actual_cost,
+                    status="succeeded",
+                )
                 canceled_result = await _return_if_canceled(
                     session,
                     job_id,
@@ -391,6 +433,7 @@ async def _run_generate_2d_concept_job(
                 )
                 if canceled_result is not None:
                     return canceled_result
+                await session.commit()
                 attempt_metadata = {"provider_attempt_count": total_attempts}
                 break
             except Exception as exc:
@@ -399,6 +442,12 @@ async def _run_generate_2d_concept_job(
                     secrets=_provider_secrets(settings),
                 )
                 attempt_category = _classify_generation_failure(exc, stage=failure_stage)
+                await _settle_hosted_quota(
+                    quota_reservation,
+                    settings=settings,
+                    actual_cost=None,
+                    status="failed",
+                )
                 await jobs.fail_model_run(
                     session,
                     model_run_id,
@@ -424,6 +473,7 @@ async def _run_generate_2d_concept_job(
                     source="worker-generation",
                     status=JobStatus.RUNNING.value,
                 )
+                await session.commit()
                 if _should_retry_provider_attempt(
                     attempt_category,
                     attempt_index,
@@ -495,14 +545,16 @@ async def _run_generate_2d_concept_job(
                 )
                 model_run_id = model_run.id
                 request = fallback_request
+                fallback_quota_reservation: HostedQuotaReservation | None = None
                 try:
                     failure_stage = "hosted_preflight"
                     failure_provider = fallback_request.provider
                     failure_model = fallback_request.model
-                    await _enforce_hosted_preflight(
+                    fallback_quota_reservation = await _enforce_hosted_preflight(
                         session,
                         fallback_request,
                         settings=settings,
+                        current_job_id=job_id,
                         current_model_run_id=model_run_id,
                     )
                     failure_stage = "reference_capability_preflight"
@@ -523,10 +575,17 @@ async def _run_generate_2d_concept_job(
                         settings,
                         provider_name=fallback_request.provider,
                     )
+                    await session.commit()
                     failure_stage = "provider_generate"
                     failure_provider = fallback_request.provider
                     failure_model = fallback_request.model
                     provider_result = await active_provider.generate(fallback_request)
+                    await _settle_hosted_quota(
+                        fallback_quota_reservation,
+                        settings=settings,
+                        actual_cost=provider_result.actual_cost,
+                        status="succeeded",
+                    )
                     canceled_result = await _return_if_canceled(
                         session,
                         job_id,
@@ -538,6 +597,7 @@ async def _run_generate_2d_concept_job(
                     )
                     if canceled_result is not None:
                         return canceled_result
+                    await session.commit()
                     attempt_metadata = {
                         "fallback_from_provider": prompt_plan.provider,
                         "fallback_reason": sanitized_attempt_error,
@@ -549,6 +609,12 @@ async def _run_generate_2d_concept_job(
                     sanitized_fallback_error = sanitize_provider_error(
                         str(fallback_exc),
                         secrets=_provider_secrets(settings),
+                    )
+                    await _settle_hosted_quota(
+                        fallback_quota_reservation,
+                        settings=settings,
+                        actual_cost=None,
+                        status="failed",
                     )
                     await jobs.fail_model_run(
                         session,
@@ -569,6 +635,7 @@ async def _run_generate_2d_concept_job(
             **provider_result.metadata,
             **provider_trace_metadata,
             **preview_spec_summary,
+            **section_design_metadata,
             **attempt_metadata,
             "concept_label": request.concept_label,
             "preview_spec": preview_spec,
@@ -599,6 +666,7 @@ async def _run_generate_2d_concept_job(
                 **attempt_metadata,
                 "model": provider_result.model,
                 **provider_trace_metadata,
+                **section_design_metadata,
                 "preview_spec": preview_spec,
                 "provider": provider_result.provider,
                 **preview_spec_summary,
@@ -666,6 +734,13 @@ async def _run_generate_2d_concept_job(
             metadata={
                 **attempt_metadata,
                 **provider_trace_metadata,
+                **section_design_metadata,
+                **_completion_trace_metadata(
+                    job,
+                    job_id=job_id,
+                    model_run_id=model_run.id,
+                    running_started_at=running_started_at,
+                ),
                 "external_calls": bool(provider_result.metadata.get("external_calls", True)),
                 "model": provider_result.model,
                 "provider": provider_result.provider,
@@ -698,6 +773,14 @@ async def _run_generate_2d_concept_job(
             "worker_version": __version__,
         }
         if job is not None:
+            failure_metadata.update(
+                _completion_trace_metadata(
+                    job,
+                    job_id=job_id,
+                    model_run_id=model_run_id,
+                    running_started_at=running_started_at,
+                ),
+            )
             failure_metadata.update(
                 _targeted_edit_failure_metadata(
                     job,
@@ -746,13 +829,15 @@ async def _run_deterministic_recomposition(
 ) -> Generate2DConceptResult:
     model_run_id: UUID | None = None
     try:
-        parent_version, parent_artifact, parent_preview_spec = (
-            await _load_recomposition_parent_context(
-                session,
-                edit_intent=edit_intent,
-                parent_version_id=parent_version_id,
-                workspace_id=job.workspace_id,
-            )
+        (
+            parent_version,
+            parent_artifact,
+            parent_preview_spec,
+        ) = await _load_recomposition_parent_context(
+            session,
+            edit_intent=edit_intent,
+            parent_version_id=parent_version_id,
+            workspace_id=job.workspace_id,
         )
         recomposition = recompose_targeted_edit(
             parent_preview_spec,
@@ -819,6 +904,7 @@ async def _run_deterministic_recomposition(
         )
         if canceled_result is not None:
             return canceled_result
+        await session.commit()
 
         object_key = build_object_key(
             filename="concept.png",
@@ -1118,10 +1204,14 @@ def _should_retry_provider_attempt(
     attempt_index: int,
     max_attempts: int,
 ) -> bool:
-    return category in {
-        FailureCategory.PROVIDER,
-        FailureCategory.TIMEOUT,
-    } and attempt_index < max_attempts
+    return (
+        category
+        in {
+            FailureCategory.PROVIDER,
+            FailureCategory.TIMEOUT,
+        }
+        and attempt_index < max_attempts
+    )
 
 
 def _should_fallback_to_local(
@@ -1141,24 +1231,91 @@ def _should_fallback_to_local(
     }
 
 
+def _claim_trace_metadata(
+    job: GenerationJob,
+    *,
+    job_id: UUID,
+    running_started_at: datetime,
+) -> dict[str, object]:
+    return {
+        "job_id": str(job_id),
+        "queue_age_seconds": _elapsed_seconds(job.created_at, running_started_at),
+        "trace_id": _job_trace_id(job, job_id=job_id),
+        "worker_version": __version__,
+    }
+
+
+def _completion_trace_metadata(
+    job: GenerationJob,
+    *,
+    job_id: UUID,
+    model_run_id: UUID | None,
+    running_started_at: datetime | None,
+) -> dict[str, object]:
+    completed_at = utc_now()
+    started_at = (
+        running_started_at or _metadata_datetime(job, "worker_started_at") or job.updated_at
+    )
+    metadata: dict[str, object] = {
+        "job_id": str(job_id),
+        "running_duration_seconds": _elapsed_seconds(started_at, completed_at),
+        "trace_id": _job_trace_id(job, job_id=job_id),
+    }
+    if model_run_id is not None:
+        metadata["model_run_id"] = str(model_run_id)
+    return metadata
+
+
+def _job_trace_id(job: GenerationJob, *, job_id: UUID) -> str:
+    metadata = job.metadata_json if isinstance(job.metadata_json, dict) else {}
+    value = metadata.get("trace_id")
+    if isinstance(value, str) and value.strip():
+        return value.strip()
+    return str(job_id)
+
+
+def _metadata_datetime(job: GenerationJob, key: str) -> datetime | None:
+    metadata = job.metadata_json if isinstance(job.metadata_json, dict) else {}
+    value = metadata.get(key)
+    if not isinstance(value, str) or not value.strip():
+        return None
+    try:
+        return datetime.fromisoformat(value)
+    except ValueError:
+        return None
+
+
+def _elapsed_seconds(started_at: datetime, ended_at: datetime) -> float:
+    if started_at.tzinfo is None and ended_at.tzinfo is not None:
+        started_at = started_at.replace(tzinfo=ended_at.tzinfo)
+    if ended_at.tzinfo is None and started_at.tzinfo is not None:
+        ended_at = ended_at.replace(tzinfo=started_at.tzinfo)
+    return max(0.0, round((ended_at - started_at).total_seconds(), 6))
+
+
 async def _enforce_hosted_preflight(
     session: AsyncSession,
     request: ImageGenerationRequest,
     *,
+    current_job_id: UUID,
     current_model_run_id: UUID,
     settings: WorkerSettings,
-) -> None:
+) -> HostedQuotaReservation | None:
     if _is_local_provider(request.provider):
-        return
+        return None
     if not settings.v2_hosted_provider_rollout_enabled:
         raise ImageProviderConfigurationError("V2_HOSTED_PROVIDER_ROLLOUT_ENABLED is disabled.")
     if not settings.ai_provider_calls_enabled:
         raise ImageProviderConfigurationError("AI_PROVIDER_CALLS_ENABLED is disabled.")
     if _is_bfl_provider(request.provider) and not (
-        settings.ai_provider_bfl_api_key
-        and settings.ai_provider_bfl_api_key.get_secret_value()
+        settings.ai_provider_bfl_api_key and settings.ai_provider_bfl_api_key.get_secret_value()
     ):
         raise ImageProviderConfigurationError("AI_PROVIDER_BFL_API_KEY is missing.")
+    if _is_openai_provider(request.provider) and not (
+        settings.ai_provider_openai_api_key
+        and settings.ai_provider_openai_api_key.get_secret_value()
+    ):
+        raise ImageProviderConfigurationError("AI_PROVIDER_OPENAI_API_KEY is missing.")
     if (
         settings.ai_hosted_daily_call_limit is None
         or settings.ai_hosted_rate_limit_per_minute is None
@@ -1189,6 +1346,44 @@ async def _enforce_hosted_preflight(
     )
     if minute_count >= settings.ai_hosted_rate_limit_per_minute:
         raise ImageProviderConfigurationError("Hosted provider per-minute rate limit reached.")
+
+    try:
+        return await hosted_quota_store_for_runtime(
+            redis_url=settings.redis_url,
+            runtime_mode=settings.runtime_mode,
+        ).reserve(
+            HostedQuotaReserveRequest(
+                daily_limit=settings.ai_hosted_daily_call_limit,
+                estimated_cost=request.estimated_cost,
+                job_id=str(current_job_id),
+                max_estimated_cost_per_job=settings.ai_max_estimated_cost_per_job,
+                minute_limit=settings.ai_hosted_rate_limit_per_minute,
+                model_run_id=str(current_model_run_id),
+                now=now,
+                provider=request.provider,
+            ),
+        )
+    except HostedQuotaExceeded as error:
+        raise ImageProviderConfigurationError(str(error)) from error
+
+
+async def _settle_hosted_quota(
+    reservation: HostedQuotaReservation | None,
+    *,
+    settings: WorkerSettings,
+    actual_cost: Decimal | None,
+    status: str,
+) -> None:
+    if reservation is None:
+        return
+    await hosted_quota_store_for_runtime(
+        redis_url=settings.redis_url,
+        runtime_mode=settings.runtime_mode,
+    ).settle(
+        reservation.reservation_id,
+        actual_cost=actual_cost,
+        status=status,
+    )
 
 
 def _enforce_reference_capability_preflight(
@@ -1243,9 +1438,8 @@ async def _enforce_provider_mask_preflight(
         raise ImageProviderConfigurationError(
             "provider_masked_generation requires a parent version.",
         )
-    if (
-        mask_edit.parent_version_id is not None
-        and mask_edit.parent_version_id != str(parent_version_id)
+    if mask_edit.parent_version_id is not None and mask_edit.parent_version_id != str(
+        parent_version_id
     ):
         raise ImageProviderConfigurationError(
             "provider_masked_generation parent version does not match job.",
@@ -1306,6 +1500,8 @@ def _capability_provider_key(provider_name: str) -> str:
         return LOCAL_PROVIDER
     if normalized in BFL_PROVIDER_NAMES:
         return BFL_PROVIDER
+    if normalized in OPENAI_PROVIDER_NAMES:
+        return OPENAI_PROVIDER
     return normalized
 
 
@@ -1334,6 +1530,10 @@ def _is_local_provider(provider_name: str) -> bool:
 
 def _is_bfl_provider(provider_name: str) -> bool:
     return provider_name.strip().lower() in BFL_PROVIDER_NAMES
+
+
+def _is_openai_provider(provider_name: str) -> bool:
+    return provider_name.strip().lower() in OPENAI_PROVIDER_NAMES
 
 
 async def _return_if_canceled(
@@ -1391,6 +1591,7 @@ def _prompt_provider_settings(
         if (
             job_provider_intent.provider not in LOCAL_PROVIDER_NAMES
             and job_provider_intent.provider not in BFL_PROVIDER_NAMES
+            and job_provider_intent.provider not in OPENAI_PROVIDER_NAMES
         ):
             raise ImageProviderConfigurationError(
                 f"Unsupported image provider: {job_provider_intent.provider}",
@@ -1407,7 +1608,13 @@ def _prompt_provider_settings(
         if settings.ai_provider_calls_enabled and settings.ai_provider_default != "disabled"
         else "local-deterministic"
     )
-    model = settings.ai_provider_model
+    provider_key = provider.strip().lower()
+    if provider_key in OPENAI_PROVIDER_NAMES:
+        model = settings.ai_provider_openai_image_model
+    elif provider_key in BFL_PROVIDER_NAMES:
+        model = settings.ai_provider_model
+    else:
+        model = settings.ai_provider_model
     return PromptProviderSettings(
         model=model,
         parameters={
@@ -1753,6 +1960,47 @@ def _preview_spec_summary(preview_spec: dict[str, object]) -> dict[str, object]:
         "safe_zone_count": len(_json_list(preview_spec.get("safe_zones"))),
         "warning_count": len(_json_list(preview_spec.get("warnings"))),
     }
+
+
+def _section_design_metadata(
+    prompt_payload: dict[str, object],
+    *,
+    target_section_id: str | None = None,
+) -> dict[str, object]:
+    section_plan = prompt_payload.get("section_design_plan")
+    if not isinstance(section_plan, dict):
+        return {}
+    sections = [
+        section for section in _json_list(section_plan.get("sections")) if isinstance(section, dict)
+    ]
+    raw_template = section_plan.get("template")
+    raw_regeneration = section_plan.get("regeneration")
+    template = dict(raw_template) if isinstance(raw_template, dict) else {}
+    regeneration = dict(raw_regeneration) if isinstance(raw_regeneration, dict) else {}
+    section_ids = [str(section.get("id")) for section in sections if section.get("id")]
+    if target_section_id in section_ids:
+        regeneration = {
+            **regeneration,
+            "mode": "section_regeneration",
+            "target_section_id": target_section_id,
+        }
+    return {
+        "section_design": {
+            "overall_direction": _optional_text(section_plan.get("overall_direction")),
+            "regeneration": dict(regeneration),
+            "section_count": len(sections),
+            "section_ids": section_ids,
+            "template_id": _optional_text(template.get("id")),
+        }
+    }
+
+
+def _section_regeneration_target_id(request: ImageGenerationRequest) -> str | None:
+    target = request.mask_edit.target if request.mask_edit is not None else None
+    if not isinstance(target, dict):
+        return None
+    target_id = target.get("id")
+    return str(target_id) if isinstance(target_id, str) and target_id else None
 
 
 def _vehicle_template_trace_metadata(

@@ -11,6 +11,7 @@ import {
   listTemplates,
   templateThumbnailPath,
   templateThumbnailUrl,
+  validateTemplatePackage,
 } from "@/lib/api/templates";
 
 function jsonResponse(body: unknown, status = 200): Response {
@@ -65,6 +66,13 @@ describe("template API wrappers", () => {
       ...templateFixture,
       asset_slots: { base: "base.png", thumbnail: "thumbnail.png" },
       safe_zones: [{ id: "door-main" }],
+      authorization: null,
+      dimensions: null,
+      export_config: null,
+      forbidden_zones: [],
+      scale: null,
+      sections: [],
+      view_assets: {},
     };
     const fetchMock = vi
       .fn()
@@ -107,4 +115,30 @@ describe("template API wrappers", () => {
       templateThumbnailUrl("/templates/generic_van_side_v1/thumbnail.png", "http://api.test"),
     ).toBe("http://api.test/templates/generic_van_side_v1/thumbnail.png");
   });
+
+  it("uploads template packages for validation", async () => {
+    const validationFixture = {
+      accepted: true,
+      authorization: { source: "user_uploaded" },
+      files_checked: ["template.json"],
+      issues: [],
+      label: "User GR86 demo",
+      source_class: "user_provided",
+      template_id: "user_gr86_demo_v1",
+    };
+    const fetchMock = vi.fn().mockResolvedValueOnce(jsonResponse(validationFixture));
+    const file = new File(["zip-bytes"], "template.zip", { type: "application/zip" });
+
+    await expect(
+      validateTemplatePackage(file, { apiBaseUrl: "http://api.test", fetch: fetchMock }),
+    ).resolves.toEqual(validationFixture);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://api.test/templates/validate-package",
+      expect.objectContaining({ body: expect.any(FormData), method: "POST" }),
+    );
+    const formData = fetchMock.mock.calls[0][1].body as FormData;
+    expect(formData.get("package")).toBe(file);
+  });
+
 });

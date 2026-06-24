@@ -44,6 +44,14 @@ class ApiSettings(BaseSettings):
         validation_alias="S3_SECRET_ACCESS_KEY",
     )
     s3_bucket: str = Field(default=LOCAL_S3_BUCKET, validation_alias="S3_BUCKET")
+    object_storage_backend: Literal["file", "s3"] | None = Field(
+        default=None,
+        validation_alias="OBJECT_STORAGE_BACKEND",
+    )
+    object_storage_local_root: str = Field(
+        default=".runtime/object-storage",
+        validation_alias="OBJECT_STORAGE_LOCAL_ROOT",
+    )
     cors_origins: Annotated[list[str], NoDecode] = Field(
         default_factory=lambda: LOCAL_CORS_ORIGINS.copy(),
         validation_alias="CORS_ORIGINS",
@@ -76,6 +84,26 @@ class ApiSettings(BaseSettings):
     ai_provider_openai_api_key: SecretStr | None = Field(
         default=None,
         validation_alias="AI_PROVIDER_OPENAI_API_KEY",
+    )
+    ai_provider_openai_base_url: str = Field(
+        default="https://api.openai.com/v1",
+        validation_alias="AI_PROVIDER_OPENAI_BASE_URL",
+    )
+    ai_provider_openai_image_model: str = Field(
+        default="gpt-image-2",
+        validation_alias="AI_PROVIDER_OPENAI_IMAGE_MODEL",
+    )
+    ai_provider_openai_responses_path: str = Field(
+        default="/responses",
+        validation_alias="AI_PROVIDER_OPENAI_RESPONSES_PATH",
+    )
+    ai_provider_openai_text_model: str = Field(
+        default="gpt-5.5",
+        validation_alias="AI_PROVIDER_OPENAI_TEXT_MODEL",
+    )
+    ai_brief_parser_provider: str = Field(
+        default="deterministic",
+        validation_alias="AI_BRIEF_PARSER_PROVIDER",
     )
     ai_provider_fal_api_key: SecretStr | None = Field(
         default=None,
@@ -174,9 +202,15 @@ class ApiSettings(BaseSettings):
         bfl_key_configured = bool(
             self.ai_provider_bfl_api_key and self.ai_provider_bfl_api_key.get_secret_value()
         )
+        openai_key_configured = bool(
+            self.ai_provider_openai_api_key
+            and self.ai_provider_openai_api_key.get_secret_value()
+        )
         return build_provider_capability_map(
             bfl_key_configured=bfl_key_configured,
-            default_model=self.ai_provider_model,
+            openai_key_configured=openai_key_configured,
+            bfl_default_model=self.ai_provider_model,
+            openai_default_model=self.ai_provider_openai_image_model,
             default_provider=self.ai_provider_default,
             hosted_daily_call_limit=self.ai_hosted_daily_call_limit,
             hosted_rate_limit_per_minute=self.ai_hosted_rate_limit_per_minute,
@@ -191,3 +225,4 @@ def get_settings() -> ApiSettings:
     """Return cached API settings for application startup."""
 
     return ApiSettings()
+

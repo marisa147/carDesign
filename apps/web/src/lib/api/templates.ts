@@ -9,6 +9,24 @@ import {
 
 import { publicEnv } from "@/lib/config/public-env";
 
+
+export interface TemplatePackageValidationIssue {
+  severity: "error" | "warning";
+  code: string;
+  message: string;
+  path: string | null;
+}
+
+export interface TemplatePackageValidationResponse {
+  accepted: boolean;
+  template_id: string | null;
+  label: string | null;
+  source_class: string | null;
+  authorization: Record<string, unknown> | null;
+  files_checked: string[];
+  issues: TemplatePackageValidationIssue[];
+}
+
 export interface TemplateApiOptions {
   apiBaseUrl?: string;
   fetch?: typeof fetch;
@@ -33,6 +51,33 @@ export async function getTemplate(
     getGetTemplateTemplatesTemplateIdGetUrl(templateId),
     options,
   );
+}
+
+
+export async function validateTemplatePackage(
+  packageFile: File,
+  options: TemplateApiOptions = {},
+): Promise<TemplatePackageValidationResponse> {
+  const apiBaseUrl = options.apiBaseUrl ?? publicEnv.apiBaseUrl;
+  const fetcher = options.fetch ?? globalThis.fetch;
+
+  if (!fetcher) {
+    throw new Error("No fetch implementation is available for the template client.");
+  }
+
+  const formData = new FormData();
+  formData.append("package", packageFile);
+  const requestInit: RequestInit = { body: formData, method: "POST" };
+  if (options.signal !== undefined) {
+    requestInit.signal = options.signal;
+  }
+
+  const response = await fetcher(`${apiBaseUrl}/templates/validate-package`, requestInit);
+  if (!response.ok) {
+    throw new Error(`Template validation failed with status ${response.status}`);
+  }
+
+  return (await response.json()) as TemplatePackageValidationResponse;
 }
 
 export function templateThumbnailUrl(

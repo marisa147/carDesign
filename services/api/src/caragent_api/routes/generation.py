@@ -4,10 +4,13 @@ from dataclasses import dataclass
 from typing import Annotated, Any
 from uuid import UUID
 
-from caragent_core.enums import JobStatus
+from caragent_core.enums import DesignBriefStatus, JobStatus
 from caragent_core.generation import (
+    BriefDraft,
+    BriefParserInput,
     GenerationBriefPayload,
     create_generation_brief,
+    create_generation_brief_from_draft,
     refresh_generation_brief_warnings,
 )
 from caragent_core.models import Artifact, DesignBrief, GenerationJob
@@ -16,6 +19,8 @@ from caragent_core.provider_capabilities import (
     BFL_PROVIDER,
     LOCAL_DEFAULT_MODEL,
     LOCAL_PROVIDER,
+    OPENAI_ALIASES,
+    OPENAI_PROVIDER,
     PROVIDER_MASKED_GENERATION_ROUTE,
     normalize_provider_name,
 )
@@ -25,8 +30,21 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from caragent_api.config import ApiSettings
-from caragent_api.dependencies import get_db_session, get_queue_client
-from caragent_api.queue import GENERATION_QUEUE, QueueClient, QueuedGenerationTask
+from caragent_api.dependencies import (
+    CurrentUser,
+    CurrentUserDependency,
+    OwnedWorkspaceDependency,
+    SessionDependency,
+    get_queue_client,
+    require_workspace_owner,
+)
+from caragent_api.openai_brief_parser import parse_openai_brief
+from caragent_api.queue import (
+    GENERATE_2D_CONCEPT_TASK,
+    GENERATION_QUEUE,
+    QueueClient,
+    QueuedGenerationTask,
+)
 from caragent_api.schemas import (
     GenerationBriefCreateRequest,
     GenerationBriefResponse,
@@ -44,7 +62,6 @@ GENERATION_OPERATION = "generate_2d_concept"
 
 router = APIRouter(tags=["generation"])
 
-SessionDependency = Annotated[AsyncSession, Depends(get_db_session)]
 QueueDependency = Annotated[QueueClient, Depends(get_queue_client)]
 LOCAL_PROVIDER_NAMES = {"local", LOCAL_PROVIDER}
 
@@ -83,6 +100,39 @@ def generation_validation_failed(error: Exception) -> HTTPException:
     )
 
 
+async def _require_workspace_owner_by_id(
+    session: AsyncSession,
+    workspace_id: UUID,
+    current_user: CurrentUser,
+) -> None:
+    try:
+        workspace = await workspaces.get_workspace(session, workspace_id)
+    except workspaces.WorkspaceNotFoundError as error:
+        raise workspace_not_found(error) from error
+    require_workspace_owner(workspace, current_user)
+
+
+async def _require_brief_owner(
+    session: AsyncSession,
+    brief: DesignBrief,
+    current_user: CurrentUser,
+) -> None:
+    await _require_workspace_owner_by_id(session, brief.workspace_id, current_user)
+
+
+async def _get_owned_generation_job(
+    session: AsyncSession,
+    job_id: UUID,
+    current_user: CurrentUser,
+) -> GenerationJob:
+    try:
+        job = await jobs.get_job(session, job_id)
+    except jobs.JobNotFoundError as error:
+        raise job_not_found(error) from error
+    await _require_workspace_owner_by_id(session, job.workspace_id, current_user)
+    return job
+
+
 @router.post(
     "/workspaces/{workspace_id}/generation/briefs",
     response_model=GenerationBriefResponse,
@@ -91,27 +141,12 @@ def generation_validation_failed(error: Exception) -> HTTPException:
 async def create_generation_brief_route(
     workspace_id: UUID,
     payload: GenerationBriefCreateRequest,
+    request: Request,
     session: SessionDependency,
+    _workspace: OwnedWorkspaceDependency,
 ) -> GenerationBriefResponse:
     try:
-        brief_payload = create_generation_brief(
-            character_focus=payload.character_focus,
-            character_theme=payload.character_theme,
-            color_harmony=payload.color_harmony,
-            coverage=payload.coverage,
-            overlay_logo_asset_ids=payload.overlay_logo_asset_ids,
-            original_request=payload.original_request,
-            palette=payload.palette,
-            racing_cues=payload.racing_cues,
-            reference_asset_ids=payload.reference_asset_ids,
-            reference_usage=payload.reference_usage,
-            style=payload.style,
-            supporting_graphics=payload.supporting_graphics,
-            text=payload.text,
-            typography_intent=payload.typography_intent,
-            vehicle_template_id=payload.vehicle_template_id,
-            view=payload.view,
-        )
+        brief_payload = await _brief_payload_from_create_request(payload, request)
         brief = await workspaces.create_design_brief(
             session,
             workspace_id,
@@ -132,17 +167,22 @@ async def update_generation_brief_route(
     brief_id: UUID,
     payload: GenerationBriefUpdateRequest,
     session: SessionDependency,
+    current_user: CurrentUserDependency,
 ) -> GenerationBriefResponse:
     brief = await session.get(DesignBrief, brief_id)
     if brief is None:
         raise brief_not_found()
+    await _require_brief_owner(session, brief, current_user)
 
     try:
         current = GenerationBriefPayload.model_validate(brief.payload)
         update_payload = payload.model_dump(exclude_unset=True)
-        if not update_payload:
+        next_status = update_payload.pop("status", None)
+        if not update_payload and next_status is None:
             raise ValueError("At least one brief field is required")
-        updated = _updated_brief_payload(current, update_payload)
+        updated = _updated_brief_payload(current, update_payload) if update_payload else current
+        if next_status is not None:
+            brief.status = _normalized_brief_status(str(next_status))
     except ValueError as error:
         raise generation_validation_failed(error) from error
 
@@ -162,6 +202,8 @@ async def submit_generation_job(
     request: Request,
     session: SessionDependency,
     queue: QueueDependency,
+    current_user: CurrentUserDependency,
+    _workspace: OwnedWorkspaceDependency,
 ) -> GenerationJobSubmissionResponse:
     brief = await _get_workspace_brief(session, workspace_id, payload.brief_id)
     brief_payload = GenerationBriefPayload.model_validate(brief.payload)
@@ -188,16 +230,14 @@ async def submit_generation_job(
             model=provider_intent.model if provider_intent is not None else None,
             operation=GENERATION_OPERATION,
             provider=provider_intent.provider if provider_intent is not None else None,
-            requested_by=payload.requested_by,
+            requested_by=current_user.id,
         )
     except (workspaces.WorkspaceNotFoundError, jobs.JobValidationError) as error:
         raise generation_validation_failed(error) from error
 
     queued = None
     if not result.idempotent_reused:
-        queued_task = await queue.enqueue_generation_job(result.job.id)
-        await _persist_queued_task_metadata(session, result.job, queued_task)
-        queued = GenerationQueuedTaskResponse.model_validate(queued_task)
+        queued = await _dispatch_created_generation_job(session, queue, result.job)
 
     return GenerationJobSubmissionResponse(
         idempotent_reused=result.idempotent_reused,
@@ -218,6 +258,8 @@ async def submit_generation_iteration_job(
     request: Request,
     session: SessionDependency,
     queue: QueueDependency,
+    current_user: CurrentUserDependency,
+    _workspace: OwnedWorkspaceDependency,
 ) -> GenerationJobSubmissionResponse:
     brief = await _get_workspace_brief(session, workspace_id, payload.brief_id)
     brief_payload = GenerationBriefPayload.model_validate(brief.payload)
@@ -250,16 +292,14 @@ async def submit_generation_iteration_job(
             model=provider_intent.model if provider_intent is not None else None,
             operation=GENERATION_OPERATION,
             provider=provider_intent.provider if provider_intent is not None else None,
-            requested_by=payload.requested_by,
+            requested_by=current_user.id,
         )
     except (workspaces.WorkspaceNotFoundError, jobs.JobValidationError) as error:
         raise generation_validation_failed(error) from error
 
     queued = None
     if not result.idempotent_reused:
-        queued_task = await queue.enqueue_generation_job(result.job.id)
-        await _persist_queued_task_metadata(session, result.job, queued_task)
-        queued = GenerationQueuedTaskResponse.model_validate(queued_task)
+        queued = await _dispatch_created_generation_job(session, queue, result.job)
 
     return GenerationJobSubmissionResponse(
         idempotent_reused=result.idempotent_reused,
@@ -278,11 +318,9 @@ async def retry_generation_job(
     payload: GenerationJobRetryRequest,
     session: SessionDependency,
     queue: QueueDependency,
+    current_user: CurrentUserDependency,
 ) -> GenerationJobRetryResponse:
-    try:
-        failed_job = await jobs.get_job(session, job_id)
-    except jobs.JobNotFoundError as error:
-        raise job_not_found(error) from error
+    failed_job = await _get_owned_generation_job(session, job_id, current_user)
 
     if failed_job.status != JobStatus.FAILED.value:
         raise generation_validation_failed(ValueError("Only failed generation jobs can be retried"))
@@ -302,14 +340,12 @@ async def retry_generation_job(
         provider=(
             provider_intent.provider if provider_intent is not None else failed_job.provider
         ),
-        requested_by=payload.requested_by,
+        requested_by=current_user.id,
     )
 
     queued = None
     if not result.idempotent_reused:
-        queued_task = await queue.enqueue_generation_job(result.job.id)
-        await _persist_queued_task_metadata(session, result.job, queued_task)
-        queued = GenerationQueuedTaskResponse.model_validate(queued_task)
+        queued = await _dispatch_created_generation_job(session, queue, result.job)
 
     return GenerationJobRetryResponse(
         idempotent_reused=result.idempotent_reused,
@@ -328,8 +364,46 @@ async def _get_workspace_brief(
     brief = await session.get(DesignBrief, brief_id)
     if brief is None or brief.workspace_id != workspace_id:
         raise brief_not_found()
+    if brief.status == DesignBriefStatus.ARCHIVED.value:
+        raise generation_validation_failed(
+            ValueError("archived brief cannot be used for generation."),
+        )
     return brief
 
+
+async def _dispatch_created_generation_job(
+    session: AsyncSession,
+    queue: QueueClient,
+    job: GenerationJob,
+) -> GenerationQueuedTaskResponse:
+    dispatch = await jobs.create_job_dispatch_outbox(
+        session,
+        job.id,
+        metadata={"source": "generation-api"},
+        queue_name=GENERATION_QUEUE,
+        task_name=GENERATE_2D_CONCEPT_TASK,
+    )
+    await session.commit()
+
+    try:
+        queued_task = await queue.enqueue_generation_job(job.id)
+    except Exception as error:
+        await jobs.mark_job_dispatch_failed(
+            session,
+            dispatch.dispatch.id,
+            error_message=str(error),
+        )
+        await session.commit()
+        raise
+
+    await _persist_queued_task_metadata(session, job, queued_task)
+    await jobs.mark_job_dispatch_dispatched(
+        session,
+        dispatch.dispatch.id,
+        task_id=queued_task.task_id,
+    )
+    await session.commit()
+    return GenerationQueuedTaskResponse.model_validate(queued_task)
 
 async def _persist_queued_task_metadata(
     session: AsyncSession,
@@ -354,6 +428,33 @@ def _settings_from_request(request: Request) -> ApiSettings:
     return ApiSettings()
 
 
+
+def _brief_parser_input(payload: GenerationBriefCreateRequest) -> BriefParserInput:
+    return BriefParserInput.model_validate(
+        payload.model_dump(
+            include=set(BriefDraft.model_fields),
+            mode="python",
+        ),
+    )
+
+
+async def _brief_payload_from_create_request(
+    payload: GenerationBriefCreateRequest,
+    request: Request,
+) -> GenerationBriefPayload:
+    settings = _settings_from_request(request)
+    parser_input = _brief_parser_input(payload)
+    if settings.ai_brief_parser_provider.strip().lower() in OPENAI_ALIASES:
+        parser_client = getattr(request.app.state, "openai_brief_parser_client", None)
+        draft = await parse_openai_brief(
+            parser_input,
+            client=parser_client,
+            settings=settings,
+        )
+        return create_generation_brief_from_draft(draft)
+
+    return create_generation_brief_from_draft(BriefDraft.model_validate(parser_input))
+
 def _provider_intent_from_submission(
     payload: GenerationJobSubmissionRequest | GenerationIterationSubmissionRequest,
     settings: ApiSettings,
@@ -374,6 +475,8 @@ def _provider_intent_from_submission(
         )
     if provider in BFL_ALIASES:
         return _bfl_provider_intent(payload, settings)
+    if provider in OPENAI_ALIASES:
+        return _openai_provider_intent(payload, settings)
     raise generation_validation_failed(ValueError(f"Unsupported provider: {provider}"))
 
 
@@ -397,6 +500,37 @@ def _bfl_provider_intent(
         parameters=dict(payload.provider_parameters),
         provider=BFL_PROVIDER,
     )
+
+
+def _openai_provider_intent(
+    payload: GenerationJobSubmissionRequest | GenerationIterationSubmissionRequest,
+    settings: ApiSettings,
+) -> ProviderIntent:
+    capability = settings.provider_capability_map()[OPENAI_PROVIDER]
+    blocked_reasons = [str(reason) for reason in capability["blocked_reasons"]]
+    if blocked_reasons:
+        raise generation_validation_failed(ValueError("; ".join(blocked_reasons)))
+
+    model = _requested_model(payload.model, default=str(capability["default_model"]))
+    allowed_models = {str(model_name) for model_name in capability.get("allowed_models", [])}
+    if model not in allowed_models:
+        raise generation_validation_failed(
+            ValueError(f"Unsupported model for provider openai: {model}"),
+        )
+    return ProviderIntent(
+        model=model,
+        parameters=dict(payload.provider_parameters),
+        provider=OPENAI_PROVIDER,
+    )
+
+
+
+def _normalized_brief_status(value: str) -> str:
+    normalized_status = value.strip().lower()
+    allowed_statuses = {item.value for item in DesignBriefStatus}
+    if normalized_status not in allowed_statuses:
+        raise ValueError(f"Unsupported brief status: {value}")
+    return normalized_status
 
 
 def _requested_model(value: str | None, *, default: str) -> str:
@@ -509,7 +643,12 @@ def _updated_brief_payload(
     update_payload: dict[str, Any],
 ) -> GenerationBriefPayload:
     merged: dict[str, Any] = current.model_dump(mode="json") | update_payload
-    if "vehicle_template_id" not in update_payload and "view" not in update_payload:
+    should_normalize_with_fallbacks = (
+        "vehicle_template_id" in update_payload
+        or "view" in update_payload
+        or _has_empty_required_brief_fields(update_payload)
+    )
+    if not should_normalize_with_fallbacks:
         return refresh_generation_brief_warnings(GenerationBriefPayload(**merged))
 
     return create_generation_brief(
@@ -529,6 +668,16 @@ def _updated_brief_payload(
         typography_intent=_optional_string(merged.get("typography_intent")),
         vehicle_template_id=_optional_string(merged.get("vehicle_template_id")),
         view=_optional_string(merged.get("view")),
+    )
+
+
+_REQUIRED_BRIEF_FALLBACK_FIELDS = {"character_theme", "coverage", "style"}
+
+
+def _has_empty_required_brief_fields(update_payload: dict[str, Any]) -> bool:
+    return any(
+        isinstance(update_payload.get(field), str) and update_payload[field].strip() == ""
+        for field in _REQUIRED_BRIEF_FALLBACK_FIELDS
     )
 
 
@@ -611,4 +760,6 @@ def _capability_provider_key(provider_name: str) -> str:
         return LOCAL_PROVIDER
     if provider in BFL_ALIASES:
         return BFL_PROVIDER
+    if provider in OPENAI_ALIASES:
+        return OPENAI_PROVIDER
     return provider

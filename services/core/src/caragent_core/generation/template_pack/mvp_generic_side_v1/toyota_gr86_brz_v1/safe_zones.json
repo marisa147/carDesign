@@ -1,0 +1,92 @@
+[
+  {
+    "id": "door-left",
+    "kind": "body",
+    "label": "Door panel safe art area",
+    "x": 0.34,
+    "y": 0.42,
+    "width": 0.25,
+    "height": 0.25
+  },
+  {
+    "id": "rear-quarter",
+    "kind": "body",
+    "label": "Rear quarter safe art area",
+    "x": 0.61,
+    "y": 0.38,
+    "width": 0.2,
+    "height": 0.28
+  },
+  {
+    "id": "front-fender",
+    "kind": "body",
+    "label": "Front fender safe art area",
+    "x": 0.18,
+    "y": 0.44,
+    "width": 0.16,
+    "height": 0.24
+  },
+  {
+    "id": "hood",
+    "kind": "body",
+    "label": "Hood top safe art area",
+    "x": 0.22,
+    "y": 0.32,
+    "width": 0.24,
+    "height": 0.28
+  },
+  {
+    "id": "roof",
+    "kind": "body",
+    "label": "Roof safe art area",
+    "x": 0.48,
+    "y": 0.34,
+    "width": 0.2,
+    "height": 0.26
+  },
+  {
+    "id": "trunk",
+    "kind": "body",
+    "label": "Trunk safe art area",
+    "x": 0.7,
+    "y": 0.34,
+    "width": 0.16,
+    "height": 0.24
+  },
+  {
+    "id": "door-main",
+    "kind": "body",
+    "label": "Door main safe art area",
+    "x": 0.34,
+    "y": 0.42,
+    "width": 0.25,
+    "height": 0.25
+  },
+  {
+    "id": "front-wheel-arch",
+    "kind": "risky",
+    "label": "Front wheel arch installer review area",
+    "x": 0.15,
+    "y": 0.58,
+    "width": 0.16,
+    "height": 0.2
+  },
+  {
+    "id": "rear-wheel-arch",
+    "kind": "risky",
+    "label": "Rear wheel arch installer review area",
+    "x": 0.7,
+    "y": 0.58,
+    "width": 0.16,
+    "height": 0.2
+  },
+  {
+    "id": "side-window",
+    "kind": "window",
+    "label": "Side window protected area",
+    "x": 0.25,
+    "y": 0.28,
+    "width": 0.4,
+    "height": 0.16
+  }
+]

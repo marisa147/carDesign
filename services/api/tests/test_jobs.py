@@ -3,7 +3,9 @@ from __future__ import annotations
 import asyncio
 import base64
 import json
+import struct
 import zipfile
+import zlib
 from decimal import Decimal
 from io import BytesIO
 from pathlib import Path
@@ -20,6 +22,7 @@ from caragent_core.enums import (
     JobStatus,
     ModelRunStatus,
 )
+from caragent_core.generation.templates import GR86_BRZ_TEMPLATE_ID, resolve_vehicle_template
 from caragent_core.models import Artifact, DesignVersion, metadata
 from caragent_core.preview3d import (
     Preview3DScreenshotArtifactMetadata,
@@ -36,7 +39,24 @@ from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker
 from caragent_api.config import ApiSettings
 from caragent_api.main import create_app
 
-PNG_BYTES = b"\x89PNG\r\n\x1a\n" + b"\x00" * 32
+
+def png_bytes(width: int, height: int) -> bytes:
+    def chunk(kind: bytes, data: bytes) -> bytes:
+        payload = kind + data
+        return (
+            struct.pack("!I", len(data))
+            + payload
+            + struct.pack("!I", zlib.crc32(payload) & 0xFFFFFFFF)
+        )
+
+    raw_rows = b"".join(b"\x00" + (b"\xff\xff\xff\xff" * width) for _ in range(height))
+    return b"\x89PNG\r\n\x1a\n" + chunk(
+        b"IHDR",
+        struct.pack("!IIBBBBB", width, height, 8, 6, 0, 0, 0),
+    ) + chunk(b"IDAT", zlib.compress(raw_rows)) + chunk(b"IEND", b"")
+
+
+PNG_BYTES = png_bytes(640, 360)
 
 
 def create_job_client(
@@ -348,31 +368,62 @@ async def create_handoff_export_records(
     workspace_id: UUID,
     job_id: UUID,
     *,
+    template_id: str | None = None,
     trace: dict[str, object] | None = None,
 ) -> dict[str, str]:
     trace = reference_trace_metadata() if trace is None else trace
+    preview_spec: dict[str, object] = {
+        **parent_preview_spec(),
+        "template": {
+            "id": "generic-side-coupe",
+            "label": "Generic side-view coupe",
+            "readiness": {"catalog_eligible": True},
+            "source": {
+                "license_status": "approved",
+                "source_type": "internal_original",
+            },
+            "view": "side",
+        },
+    }
+    section_design: dict[str, object] | None = None
+    if template_id is not None:
+        resolution = resolve_vehicle_template(vehicle_template_id=template_id, view="side")
+        preview_spec = {
+            **parent_preview_spec(),
+            "canvas": {"height": resolution.canvas_height, "width": resolution.canvas_width},
+            "safe_zones": resolution.safe_zones,
+            "template": {
+                "id": resolution.template_id,
+                "label": resolution.template_label,
+                "readiness": resolution.template_readiness.model_dump(mode="json"),
+                "source": resolution.template_source.model_dump(mode="json"),
+                "view": resolution.view,
+            },
+        }
+        section_design = {
+            "overall_direction": "review fixture section plan",
+            "regeneration": {"mode": "full_design", "target_section_id": None},
+            "schema_version": 1,
+            "sections": resolution.sections,
+            "template": {
+                "id": resolution.template_id,
+                "label": resolution.template_label,
+                "view": resolution.view,
+            },
+        }
     async with session_scope(session_factory) as session:
+        version_parameters: dict[str, object] = {
+            "preview_3d": preview_3d_spec().model_dump(mode="json"),
+            "preview_spec": preview_spec,
+            **trace,
+        }
+        if section_design is not None:
+            version_parameters["section_design"] = section_design
         version = await jobs.create_design_version(
             session,
             workspace_id,
             job_id=job_id,
-            parameters={
-                "preview_3d": preview_3d_spec().model_dump(mode="json"),
-                "preview_spec": {
-                    **parent_preview_spec(),
-                    "template": {
-                        "id": "generic-side-coupe",
-                        "label": "Generic side-view coupe",
-                        "readiness": {"catalog_eligible": True},
-                        "source": {
-                            "license_status": "approved",
-                            "source_type": "internal_original",
-                        },
-                        "view": "side",
-                    },
-                },
-                **trace,
-            },
+            parameters=version_parameters,
             status=DesignVersionStatus.GENERATED.value,
             title="Enhanced handoff source",
         )
@@ -608,6 +659,55 @@ def test_simulation_records_are_readable_through_api(tmp_path: Path) -> None:
     assert [item["id"] for item in exports.json()] == [records["export_id"]]
 
 
+def test_artifact_content_url_streams_workspace_scoped_object(tmp_path: Path) -> None:
+    client, app = create_job_client(tmp_path)
+    workspace_id = client.post("/workspaces", json={"title": "Artifact bytes"}).json()["id"]
+    other_workspace_id = client.post("/workspaces", json={"title": "Other"}).json()["id"]
+    job_id = client.post(
+        f"/workspaces/{workspace_id}/jobs",
+        json={"idempotency_key": "artifact-content-001", "operation": "generate_concept"},
+    ).json()["id"]
+    records = asyncio.run(
+        create_simulation_records(app.state.session_factory, UUID(workspace_id), UUID(job_id)),
+    )
+    asyncio.run(
+        app.state.object_storage.put_object(
+            f"workspaces/{workspace_id}/generated/{records['version_id']}/concept.png",
+            PNG_BYTES,
+            "image/png",
+        ),
+    )
+
+    artifacts = client.get(f"/workspaces/{workspace_id}/artifacts")
+
+    assert artifacts.status_code == 200
+    artifact = artifacts.json()[0]
+    assert artifact["content_url"] == (
+        f"/workspaces/{workspace_id}/artifacts/{records['artifact_id']}/content"
+    )
+
+    content = client.get(artifact["content_url"])
+    wrong_workspace = client.get(
+        f"/workspaces/{other_workspace_id}/artifacts/{records['artifact_id']}/content",
+    )
+
+    assert content.status_code == 200
+    assert content.headers["content-type"] == "image/png"
+    assert content.content == PNG_BYTES
+    assert wrong_workspace.status_code == 404
+
+    openapi = client.get("/openapi.json").json()
+    content_types = set(
+        openapi["paths"][
+            "/workspaces/{workspace_id}/artifacts/{artifact_id}/content"
+        ]["get"]["responses"]["200"]["content"],
+    )
+    assert "application/json" not in content_types
+    assert {"application/octet-stream", "image/png", "image/webp"}.issubset(
+        content_types,
+    )
+
+
 def test_targeted_edit_records_are_readable_through_api(tmp_path: Path) -> None:
     client, app = create_job_client(tmp_path)
     workspace_id = client.post("/workspaces", json={"title": "Targeted evidence"}).json()["id"]
@@ -762,6 +862,115 @@ def test_enhanced_handoff_export_can_be_created_through_api(tmp_path: Path) -> N
     assert [artifact["id"] for artifact in package_artifacts] == [payload["artifact_id"]]
     assert package_artifacts[0]["content_type"] == "application/zip"
 
+
+
+
+def test_construction_package_export_can_be_created_through_api(tmp_path: Path) -> None:
+    client, app = create_job_client(tmp_path)
+    storage = InMemoryObjectStorage()
+    app.state.object_storage = storage
+    workspace_id = client.post("/workspaces", json={"title": "Construction package"}).json()["id"]
+    job_id = client.post(
+        f"/workspaces/{workspace_id}/jobs",
+        json={"idempotency_key": "construction-package-001", "operation": "generate_concept"},
+    ).json()["id"]
+    records = asyncio.run(
+        create_handoff_export_records(
+            app.state.session_factory,
+            storage,
+            UUID(workspace_id),
+            UUID(job_id),
+            template_id=GR86_BRZ_TEMPLATE_ID,
+        ),
+    )
+
+    created = client.post(
+        f"/workspaces/{workspace_id}/versions/{records['version_id']}/exports",
+        json={"format": "construction_package_zip"},
+    )
+
+    assert created.status_code == 201
+    payload = created.json()
+    assert payload["format"] == "construction_package_zip"
+    assert payload["status"] == "succeeded"
+    assert payload["artifact_id"] is not None
+    assert payload["manifest"]["format"] == "construction_package_zip"
+    UUID(payload["manifest"]["source_artifact_id"])
+    assert payload["manifest"]["package_artifact"]["content_type"] == "application/zip"
+    assert "not print-shop certified" in payload["manifest"]["warning"]
+
+    package_object_key = payload["manifest"]["package_artifact"]["object_key"]
+    stored = storage.objects[package_object_key]
+    assert stored.content_type == "application/zip"
+    with zipfile.ZipFile(BytesIO(stored.content)) as archive:
+        names = set(archive.namelist())
+        assert {
+            "manifest.json",
+            "construction/layered.svg",
+            "construction/package.pdf",
+            "preview/source.png",
+            "warnings.md",
+        } <= names
+        manifest = json.loads(archive.read("manifest.json"))
+        assert manifest["format"] == "construction_package_zip"
+        assert manifest["source_artifact_id"] == payload["manifest"]["source_artifact_id"]
+        assert manifest["files"] == payload["manifest"]["files"]
+        evidence = manifest["construction_evidence"]
+        assert evidence["template"]["id"] == GR86_BRZ_TEMPLATE_ID
+        assert evidence["template"]["version"] == "v1"
+        assert evidence["dimensions"]["overall_length"] == 4265
+        assert evidence["scale"]["side_x"] == 3.33
+        assert evidence["export_config"]["bleed_mm"] == 30
+        assert evidence["export_config"]["safe_margin_mm"] == 25
+        assert {zone["id"] for zone in evidence["safe_zones"]} >= {"door-left", "rear-quarter"}
+        assert {zone["id"] for zone in evidence["forbidden_zones"]} >= {"side-window"}
+        assert "door-left" in evidence["section_ids"]
+        pdf_bytes = archive.read("construction/package.pdf")
+        startxref = pdf_bytes.rsplit(b"startxref", 1)[1].splitlines()[1]
+        assert pdf_bytes[int(startxref) : int(startxref) + 4] == b"xref"
+        svg = archive.read("construction/layered.svg").decode("utf-8")
+        assert '<g id="panel_lines">' in svg
+        assert 'id="section-door-left"' in svg
+        assert 'id="forbidden-side-window"' in svg
+        assert f'data-source-artifact-id="{manifest["source_artifact_id"]}"' in svg
+        assert archive.read("preview/source.png").startswith(b"\x89PNG")
+
+
+def test_construction_package_rejects_non_generated_source_artifact(tmp_path: Path) -> None:
+    client, app = create_job_client(tmp_path)
+    storage = InMemoryObjectStorage()
+    app.state.object_storage = storage
+    workspace_id = client.post(
+        "/workspaces",
+        json={"title": "Construction source kind"},
+    ).json()["id"]
+    job_id = client.post(
+        f"/workspaces/{workspace_id}/jobs",
+        json={
+            "idempotency_key": "construction-package-source-kind",
+            "operation": "generate_concept",
+        },
+    ).json()["id"]
+    records = asyncio.run(
+        create_handoff_export_records(
+            app.state.session_factory,
+            storage,
+            UUID(workspace_id),
+            UUID(job_id),
+            template_id=GR86_BRZ_TEMPLATE_ID,
+        ),
+    )
+
+    created = client.post(
+        f"/workspaces/{workspace_id}/versions/{records['version_id']}/exports",
+        json={
+            "artifact_id": records["screenshot_artifact_id"],
+            "format": "construction_package_zip",
+        },
+    )
+
+    assert created.status_code == 422
+    assert "source concept image artifact" in created.json()["detail"]
 
 def test_production_readiness_preflight_can_be_created_through_api(tmp_path: Path) -> None:
     client, app = create_job_client(
@@ -1136,6 +1345,44 @@ def test_preview_3d_screenshot_creation_validates_payload_and_ownership(
     assert unsupported_type.status_code == 422
     assert wrong_workspace.status_code == 422
     assert wrong_version.status_code == 422
+
+
+def test_preview_3d_screenshot_creation_rejects_mismatched_png_dimensions(
+    tmp_path: Path,
+) -> None:
+    client, app = create_job_client(
+        tmp_path,
+        settings_overrides={"v2_lightweight_3d_preview_enabled": True},
+    )
+    workspace_id = client.post(
+        "/workspaces",
+        json={"title": "3D dimension validation"},
+    ).json()["id"]
+    job_id = client.post(
+        f"/workspaces/{workspace_id}/jobs",
+        json={"idempotency_key": "preview-3d-dimensions", "operation": "generate_concept"},
+    ).json()["id"]
+    records = asyncio.run(
+        create_preview_3d_source_records(
+            app.state.session_factory,
+            UUID(workspace_id),
+            UUID(job_id),
+        ),
+    )
+    payload = preview_3d_screenshot_create_payload(
+        source_artifact_id=records["source_artifact_id"],
+        source_artifact_object_key=records["source_artifact_object_key"],
+        version_id=records["version_id"],
+        workspace_id=workspace_id,
+    )
+
+    response = client.post(
+        f"/workspaces/{workspace_id}/versions/{records['version_id']}/preview-3d-screenshots",
+        json={**payload, "width": 1280, "height": 720},
+    )
+
+    assert response.status_code == 422
+    assert "actual screenshot dimensions" in response.json()["detail"]
 
 
 def test_preview_3d_screenshot_creation_restores_required_warning_metadata(

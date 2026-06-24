@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { publicEnv } from "@/lib/config/public-env";
 import { cn } from "@/lib/utils";
 import {
   useWorkbenchStore,
@@ -70,6 +71,8 @@ export function PreviewPanel({ artifacts, isLoading, versions }: PreviewPanelPro
     artifacts[0] ??
     null;
   const previewSpec = readPreviewSpec(selectedVersion);
+  const conceptImageUrl = artifactContentUrl(selectedArtifact);
+  const viewAvailability = resolveViewAvailability(previewSpec, selectedView);
 
   useEffect(() => {
     if (!selectedComparisonChildId) {
@@ -135,6 +138,9 @@ export function PreviewPanel({ artifacts, isLoading, versions }: PreviewPanelPro
                       "Generated 2D concept preview."}
                   </p>
                 </div>
+                {conceptImageUrl && !previewSpec ? (
+                  <ConceptImage imageUrl={conceptImageUrl} />
+                ) : null}
                 <div className="rounded-md border border-border bg-background p-4">
                   <p className="text-xs font-medium text-secondary-foreground">对象键</p>
                   <p className="mt-1 break-all text-sm">{selectedArtifact.object_key}</p>
@@ -146,71 +152,81 @@ export function PreviewPanel({ artifacts, isLoading, versions }: PreviewPanelPro
                 {previewSpec ? (
                   <>
                     <PreviewSpecSummary previewSpec={previewSpec} />
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Button
-                        aria-pressed={showOverlayLayers}
-                        onClick={toggleOverlayLayers}
-                        size="sm"
-                        type="button"
-                        variant={showOverlayLayers ? "default" : "outline"}
-                      >
-                        <ImageIcon aria-hidden="true" className="h-4 w-4" />
-                        文字/Logo 图层
-                      </Button>
-                      <Button
-                        aria-pressed={showSafeZones}
-                        onClick={toggleSafeZones}
-                        size="sm"
-                        type="button"
-                        variant={showSafeZones ? "default" : "outline"}
-                      >
-                        <ImageIcon aria-hidden="true" className="h-4 w-4" />
-                        安全区
-                      </Button>
-                      <Button
-                        aria-pressed={isTargetedEditMode}
-                        onClick={() => {
-                          setTargetedEditMode(!isTargetedEditMode);
-                        }}
-                        size="sm"
-                        type="button"
-                        variant={isTargetedEditMode ? "default" : "outline"}
-                      >
-                        <Crosshair aria-hidden="true" className="h-4 w-4" />
-                        局部编辑
-                      </Button>
-                      <Button
-                        aria-pressed={showEditMaskPreview}
-                        disabled={!isTargetedEditMode || selectedEditTarget === null}
-                        onClick={toggleEditMaskPreview}
-                        size="sm"
-                        type="button"
-                        variant={showEditMaskPreview ? "default" : "outline"}
-                      >
-                        {showEditMaskPreview ? (
-                          <EyeOff aria-hidden="true" className="h-4 w-4" />
-                        ) : (
-                          <Eye aria-hidden="true" className="h-4 w-4" />
-                        )}
-                        {showEditMaskPreview ? "隐藏编辑遮罩" : "显示编辑遮罩"}
-                      </Button>
-                    </div>
-                    {isTargetedEditMode && selectedEditTarget ? (
-                      <p className="text-xs font-medium text-primary">
-                        已选 {selectedEditTarget.type}: {selectedEditTarget.id}
-                      </p>
-                    ) : null}
-                    <PreviewSpecCanvas
-                      isTargetedEditMode={isTargetedEditMode}
-                      onSelectEditTarget={setSelectedEditTarget}
-                      previewSpec={previewSpec}
-                      previewZoom={previewZoom}
-                      selectedEditTarget={selectedEditTarget}
-                      showEditMaskPreview={showEditMaskPreview}
-                      showOverlayLayers={showOverlayLayers}
-                      showSafeZones={showSafeZones}
-                    />
-                    <TemplateLegend previewSpec={previewSpec} showSafeZones={showSafeZones} />
+                    {viewAvailability.isSelectedViewAvailable ? (
+                      <>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Button
+                            aria-pressed={showOverlayLayers}
+                            onClick={toggleOverlayLayers}
+                            size="sm"
+                            type="button"
+                            variant={showOverlayLayers ? "default" : "outline"}
+                          >
+                            <ImageIcon aria-hidden="true" className="h-4 w-4" />
+                            文字/Logo 图层
+                          </Button>
+                          <Button
+                            aria-pressed={showSafeZones}
+                            onClick={toggleSafeZones}
+                            size="sm"
+                            type="button"
+                            variant={showSafeZones ? "default" : "outline"}
+                          >
+                            <ImageIcon aria-hidden="true" className="h-4 w-4" />
+                            安全区
+                          </Button>
+                          <Button
+                            aria-pressed={isTargetedEditMode}
+                            onClick={() => {
+                              setTargetedEditMode(!isTargetedEditMode);
+                            }}
+                            size="sm"
+                            type="button"
+                            variant={isTargetedEditMode ? "default" : "outline"}
+                          >
+                            <Crosshair aria-hidden="true" className="h-4 w-4" />
+                            局部编辑
+                          </Button>
+                          <Button
+                            aria-pressed={showEditMaskPreview}
+                            disabled={!isTargetedEditMode || selectedEditTarget === null}
+                            onClick={toggleEditMaskPreview}
+                            size="sm"
+                            type="button"
+                            variant={showEditMaskPreview ? "default" : "outline"}
+                          >
+                            {showEditMaskPreview ? (
+                              <EyeOff aria-hidden="true" className="h-4 w-4" />
+                            ) : (
+                              <Eye aria-hidden="true" className="h-4 w-4" />
+                            )}
+                            {showEditMaskPreview ? "隐藏编辑遮罩" : "显示编辑遮罩"}
+                          </Button>
+                        </div>
+                        {isTargetedEditMode && selectedEditTarget ? (
+                          <p className="text-xs font-medium text-primary">
+                            已选 {selectedEditTarget.type}: {selectedEditTarget.id}
+                          </p>
+                        ) : null}
+                        <PreviewSpecCanvas
+                          backgroundImageUrl={conceptImageUrl}
+                          isTargetedEditMode={isTargetedEditMode}
+                          onSelectEditTarget={setSelectedEditTarget}
+                          previewSpec={previewSpec}
+                          previewZoom={previewZoom}
+                          selectedEditTarget={selectedEditTarget}
+                          showEditMaskPreview={showEditMaskPreview}
+                          showOverlayLayers={showOverlayLayers}
+                          showSafeZones={showSafeZones}
+                        />
+                        <TemplateLegend previewSpec={previewSpec} showSafeZones={showSafeZones} />
+                      </>
+                    ) : (
+                      <UnavailableViewState
+                        selectedView={selectedView}
+                        templateLabel={previewSpec.template?.label ?? null}
+                      />
+                    )}
                   </>
                 ) : null}
                 <div className="flex flex-wrap items-center gap-2">
@@ -243,21 +259,36 @@ export function PreviewPanel({ artifacts, isLoading, versions }: PreviewPanelPro
           </div>
         )}
       </div>
-      <div className="flex flex-wrap gap-2">
-        {viewOptions.map((view) => (
-          <Button
-            aria-pressed={selectedView === view.value}
-            key={view.value}
-            onClick={() => {
-              setSelectedView(view.value);
-            }}
-            size="sm"
-            type="button"
-            variant={selectedView === view.value ? "default" : "outline"}
-          >
-            {view.label}
-          </Button>
-        ))}
+      <div className="grid gap-2">
+        <div className="flex flex-wrap gap-2">
+          {viewOptions.map((view) => {
+            const isAvailable = viewAvailability.availableViews.includes(view.value);
+            return (
+              <Button
+                aria-pressed={selectedView === view.value}
+                className={cn(!isAvailable && "border-dashed text-secondary-foreground")}
+                key={view.value}
+                onClick={() => {
+                  setSelectedView(view.value);
+                }}
+                size="sm"
+                title={isAvailable ? view.label : `${view.label}：模板未提供该视图`}
+                type="button"
+                variant={selectedView === view.value ? "default" : "outline"}
+              >
+                {view.label}
+              </Button>
+            );
+          })}
+        </div>
+        {previewSpec ? (
+          <p className="text-xs text-secondary-foreground">
+            可用视图：{formatViewList(viewAvailability.availableViews)}
+            {viewAvailability.missingViews.length > 0
+              ? ` · 未提供：${formatViewList(viewAvailability.missingViews)}`
+              : ""}
+          </p>
+        ) : null}
       </div>
       {versions.length > 0 ? (
         <div className="grid gap-2">
@@ -312,7 +343,7 @@ interface PreviewSpec {
   canvas: { height: number; width: number } | null;
   overlayLayers: OverlayLayer[];
   safeZones: SafeZone[];
-  template: { id: string; label: string; view: string } | null;
+  template: { id: string; label: string; supportedViews: WorkbenchView[]; view: WorkbenchView } | null;
   warnings: Array<{ id: string; message: string }>;
 }
 
@@ -332,6 +363,39 @@ interface SafeZone {
   width: number;
   x: number;
   y: number;
+}
+
+function UnavailableViewState({
+  selectedView,
+  templateLabel,
+}: {
+  selectedView: WorkbenchView;
+  templateLabel: string | null;
+}) {
+  return (
+    <div className="grid min-h-80 place-items-center rounded-md border border-dashed border-border bg-background p-6 text-center">
+      <div>
+        <ImageIcon aria-hidden="true" className="mx-auto h-9 w-9 text-secondary-foreground" />
+        <h4 className="mt-3 text-base font-semibold">模板未提供该视图</h4>
+        <p className="mt-2 text-sm text-secondary-foreground">
+          {templateLabel ?? "当前模板"} · {viewLabel(selectedView)}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function ConceptImage({ imageUrl }: { imageUrl: string }) {
+  return (
+    <div className="overflow-hidden rounded-md border border-border bg-background">
+      {/* eslint-disable-next-line @next/next/no-img-element -- Generated artifacts are served by the API content route. */}
+      <img
+        alt="2D concept preview"
+        className="aspect-[2/1] w-full bg-muted object-contain"
+        src={imageUrl}
+      />
+    </div>
+  );
 }
 
 function PreviewSpecSummary({ previewSpec }: { previewSpec: PreviewSpec }) {
@@ -370,6 +434,7 @@ function PreviewSpecSummary({ previewSpec }: { previewSpec: PreviewSpec }) {
 }
 
 function PreviewSpecCanvas({
+  backgroundImageUrl,
   isTargetedEditMode,
   onSelectEditTarget,
   previewSpec,
@@ -379,6 +444,7 @@ function PreviewSpecCanvas({
   showOverlayLayers,
   showSafeZones,
 }: {
+  backgroundImageUrl: string | null;
   isTargetedEditMode: boolean;
   onSelectEditTarget: (target: TargetedEditTarget) => void;
   previewSpec: PreviewSpec;
@@ -395,10 +461,21 @@ function PreviewSpecCanvas({
         className="relative aspect-[2/1] min-h-36 overflow-hidden rounded-md border border-border bg-muted"
         style={{ transform: `scale(${previewZoom})`, transformOrigin: "center" }}
       >
-        <div className="absolute left-[9%] top-[36%] h-[36%] w-[82%] rounded-[48px] border-2 border-foreground bg-card" />
-        <div className="absolute left-[22%] top-[28%] h-[16%] w-[42%] border-2 border-foreground bg-background" />
-        <div className="absolute left-[20%] top-[58%] h-[18%] w-[9%] rounded-full bg-foreground" />
-        <div className="absolute left-[72%] top-[58%] h-[18%] w-[9%] rounded-full bg-foreground" />
+        {backgroundImageUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element -- Generated artifacts are served by the API content route.
+          <img
+            alt="2D concept preview"
+            className="absolute inset-0 h-full w-full object-contain"
+            src={backgroundImageUrl}
+          />
+        ) : (
+          <>
+            <div className="absolute left-[9%] top-[36%] h-[36%] w-[82%] rounded-[48px] border-2 border-foreground bg-card" />
+            <div className="absolute left-[22%] top-[28%] h-[16%] w-[42%] border-2 border-foreground bg-background" />
+            <div className="absolute left-[20%] top-[58%] h-[18%] w-[9%] rounded-full bg-foreground" />
+            <div className="absolute left-[72%] top-[58%] h-[18%] w-[9%] rounded-full bg-foreground" />
+          </>
+        )}
         {showSafeZones
           ? previewSpec.safeZones.map((zone) => {
               const isSelected = isSelectedEditTarget(selectedEditTarget, "safe_zone", zone.id);
@@ -510,6 +587,17 @@ function TemplateLegend({
   );
 }
 
+function artifactContentUrl(artifact: ArtifactResponse | null): string | null {
+  const contentUrl = artifact?.content_url;
+  if (!contentUrl) {
+    return null;
+  }
+  if (contentUrl.startsWith("http://") || contentUrl.startsWith("https://")) {
+    return contentUrl;
+  }
+  return `${publicEnv.apiBaseUrl}${contentUrl}`;
+}
+
 function readPreviewSpec(version: DesignVersionResponse | null): PreviewSpec | null {
   const previewSpec = version?.parameters.preview_spec;
   if (!isRecord(previewSpec)) {
@@ -562,10 +650,14 @@ function readTemplate(value: unknown): PreviewSpec["template"] {
   if (!isRecord(value)) {
     return null;
   }
+
+  const view = readWorkbenchView(value.view) ?? "side";
+  const supportedViews = readSupportedViews(value.supported_views, view);
   return {
     id: readString(value.id),
     label: readString(value.label),
-    view: readString(value.view),
+    supportedViews,
+    view,
   };
 }
 
@@ -608,6 +700,50 @@ function readWarnings(value: unknown): PreviewSpec["warnings"] {
     id: readString(warning.id) || `warning-${index + 1}`,
     message: readString(warning.message),
   }));
+}
+
+function resolveViewAvailability(
+  previewSpec: PreviewSpec | null,
+  selectedView: WorkbenchView,
+): {
+  availableViews: WorkbenchView[];
+  isSelectedViewAvailable: boolean;
+  missingViews: WorkbenchView[];
+} {
+  const availableViews = previewSpec?.template?.supportedViews.length
+    ? previewSpec.template.supportedViews
+    : viewOptions.map((view) => view.value);
+  return {
+    availableViews,
+    isSelectedViewAvailable: availableViews.includes(selectedView),
+    missingViews: viewOptions
+      .map((view) => view.value)
+      .filter((view) => !availableViews.includes(view)),
+  };
+}
+
+function formatViewList(views: WorkbenchView[]): string {
+  return views.map(viewLabel).join("、") || "无";
+}
+
+function viewLabel(view: WorkbenchView): string {
+  return viewOptions.find((option) => option.value === view)?.label ?? view;
+}
+
+function readSupportedViews(value: unknown, fallbackView: WorkbenchView): WorkbenchView[] {
+  if (!Array.isArray(value)) {
+    return [fallbackView];
+  }
+  const views = value
+    .map(readWorkbenchView)
+    .filter((view): view is WorkbenchView => view !== null);
+  return views.length > 0 ? Array.from(new Set(views)) : [fallbackView];
+}
+
+function readWorkbenchView(value: unknown): WorkbenchView | null {
+  return typeof value === "string" && viewOptions.some((view) => view.value === value)
+    ? (value as WorkbenchView)
+    : null;
 }
 
 function zoneStyle(zone: SafeZone | undefined): CSSProperties {
@@ -714,3 +850,4 @@ function readString(value: unknown): string {
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
+

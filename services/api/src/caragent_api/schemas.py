@@ -107,6 +107,7 @@ class GenerationBriefUpdateRequest(BaseModel):
     reference_asset_ids: list[str] | None = None
     reference_usage: list[ReferenceAssignment] | None = None
     overlay_logo_asset_ids: list[str] | None = None
+    status: str | None = Field(default=None, min_length=1, max_length=32)
 
 
 class GenerationBriefResponse(BaseModel):
@@ -149,6 +150,30 @@ class TemplateCatalogItemResponse(BaseModel):
 class TemplateDetailResponse(TemplateCatalogItemResponse):
     asset_slots: dict[str, str | None]
     safe_zones: list[dict[str, Any]]
+    view_assets: dict[str, dict[str, str]] = Field(default_factory=dict)
+    sections: list[dict[str, Any]] = Field(default_factory=list)
+    forbidden_zones: list[dict[str, Any]] = Field(default_factory=list)
+    dimensions: dict[str, Any] | None = None
+    scale: dict[str, Any] | None = None
+    export_config: dict[str, Any] | None = None
+    authorization: dict[str, Any] | None = None
+
+
+class TemplatePackageValidationIssue(BaseModel):
+    severity: str = Field(pattern="^(error|warning)$")
+    code: str
+    message: str
+    path: str | None = None
+
+
+class TemplatePackageValidationResponse(BaseModel):
+    accepted: bool
+    template_id: str | None = None
+    label: str | None = None
+    source_class: str | None = None
+    authorization: dict[str, Any] | None = None
+    files_checked: list[str] = Field(default_factory=list)
+    issues: list[TemplatePackageValidationIssue] = Field(default_factory=list)
 
 
 class AssetResponse(BaseModel):
@@ -295,6 +320,7 @@ class JobEventResponse(BaseModel):
 class ProviderOperationsSummary(BaseModel):
     active_mode: str
     bfl_key_configured: bool
+    openai_key_configured: bool
     calls_enabled: bool
     capabilities: list[dict[str, Any]] = Field(default_factory=list)
     default_provider: str
@@ -338,6 +364,72 @@ class RecentFailureResponse(BaseModel):
     provider_status: str | None = None
     stage: str | None
     status: str
+
+
+class BflSettingsUpdateRequest(BaseModel):
+    api_key: str | None = None
+    base_url: str = Field(default="https://api.bfl.ai", max_length=512)
+    calls_enabled: bool = False
+    daily_call_limit: int | None = Field(default=None, ge=0)
+    default_provider: str = Field(default="disabled", max_length=80)
+    max_estimated_cost_per_job: Decimal | None = None
+    model: str = Field(default="flux-2-pro-preview", max_length=120)
+    rate_limit_per_minute: int | None = Field(default=None, ge=0)
+    result_path: str = Field(default="/v1/get_result", max_length=255)
+    rollout_enabled: bool = False
+    submit_path: str = Field(default="/v1/flux-2-pro-preview", max_length=255)
+
+
+class BflSettingsResponse(BaseModel):
+    api_key_configured: bool
+    api_key_masked: str | None
+    base_url: str
+    calls_enabled: bool
+    daily_call_limit: int | None
+    default_provider: str
+    max_estimated_cost_per_job: Decimal | None
+    model: str
+    rate_limit_per_minute: int | None
+    restart_required: bool
+    result_path: str
+    rollout_enabled: bool
+    submit_path: str
+    submit_url: str
+
+
+class OpenAISettingsUpdateRequest(BaseModel):
+    api_key: str | None = None
+    base_url: str = Field(default="https://api.openai.com/v1", max_length=512)
+    calls_enabled: bool = False
+    daily_call_limit: int | None = Field(default=None, ge=0)
+    default_provider: str = Field(default="disabled", max_length=80)
+    image_model: str = Field(default="gpt-image-2", max_length=120)
+    image_path: str = Field(default="/images/generations", max_length=255)
+    max_estimated_cost_per_job: Decimal | None = None
+    parser_enabled: bool = False
+    rate_limit_per_minute: int | None = Field(default=None, ge=0)
+    responses_path: str = Field(default="/responses", max_length=255)
+    rollout_enabled: bool = False
+    text_model: str = Field(default="gpt-5.5", max_length=120)
+
+
+class OpenAISettingsResponse(BaseModel):
+    api_key_configured: bool
+    api_key_masked: str | None
+    base_url: str
+    calls_enabled: bool
+    daily_call_limit: int | None
+    default_provider: str
+    image_model: str
+    image_path: str
+    image_url: str
+    max_estimated_cost_per_job: Decimal | None
+    parser_enabled: bool
+    rate_limit_per_minute: int | None
+    responses_path: str
+    restart_required: bool
+    rollout_enabled: bool
+    text_model: str
 
 
 class OperationsProviderStatusResponse(BaseModel):
@@ -390,6 +482,7 @@ class ArtifactResponse(BaseModel):
     kind: str
     object_key: str
     content_type: str | None
+    content_url: str | None = None
     byte_size: int | None
     checksum_sha256: str | None
     metadata: dict[str, Any] = Field(default_factory=dict, validation_alias="metadata_json")

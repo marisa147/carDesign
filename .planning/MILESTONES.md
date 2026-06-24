@@ -1,5 +1,37 @@
 # Project Milestones: 痛车设计生成 Agent
 
+## v4.0 Real Generation Closure And Reliability (Implemented: 2026-06-22)
+
+**Delivered:** A reliability-focused closure layer for the concept workflow: explicit generation entry, real artifact image preview, shared API/Worker object storage, durable dispatch outbox, conditional worker claim, short worker transactions, real 3D screenshots, clearable fields, strict parser boundary, template compositor, workspace ownership, safer uploads/downloads, hosted quota reserve/settle, and traceable operations metadata.
+
+**Phases completed:** 21-26
+
+**Key accomplishments:**
+
+- Added the explicit `生成概念` workbench path, active job polling, artifact content URLs, and real image rendering in the 2D preview.
+- Unified object storage settings and contract across API and Worker with file metadata preservation and workspace-scoped artifact streaming.
+- Added `job_dispatch_outbox`, `generation_jobs.state_version`, after-commit dispatch, conditional worker claim, and committed progress events during provider calls.
+- Replaced fake 3D screenshot bytes with real canvas capture and fixed parameter/reference clearing semantics.
+- Introduced strict `BriefParser`/`BriefDraft` boundaries and deterministic template-mask composition for local generation.
+- Hardened workspace ownership, upload/provider-download validation, hosted quota reserve/settle, and trace metadata.
+
+**Stats:**
+
+- 6 phases, 23/23 v4 requirements complete.
+- Current state marks the milestone archive-ready; formal archive/audit can still be run before tagging if needed.
+
+**Verification:**
+
+- Phase validations and aggregate `pnpm validate` were recorded during v4 completion.
+- Docker/local smoke evidence was recorded during Phase 26 closure.
+
+**Archives:**
+
+- Formal v4 archive files are still pending if `$gsd-complete-milestone` is run.
+
+**What's next:** v5.0 GR86/BRZ Construction Package Customization has been initialized from user-confirmed requirement-completion discussion; start Phase 27 with `$gsd-plan-phase 27`.
+
+---
 ## v3.0 Template Library And Production Readiness (Shipped: 2026-06-20)
 
 **Delivered:** A trustworthy template foundation and concept-only production readiness layer: source/license governance, five internal-original MVP templates, catalog selection, template-aware generation/preview/editing, production-readiness preflight, enhanced handoff evidence, and release validation.
@@ -121,3 +153,4 @@
 **What's next:** start the next milestone with `$gsd-new-milestone`. Fresh requirements should be defined before implementation resumes.
 
 ---
+

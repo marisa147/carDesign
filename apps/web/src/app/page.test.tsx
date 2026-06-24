@@ -1,6 +1,6 @@
 import "@/test/setup";
 
-import { act, render, screen, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
@@ -48,6 +48,8 @@ import {
   type TemplateSourceMetadata,
   type WorkspaceResponse,
 } from "@caragent/contracts";
+
+import { captureCanvasScreenshot } from "@/components/workbench/preview-3d-panel";
 
 import {
   buildPreview3DCompatibility,
@@ -249,6 +251,21 @@ const briefFixture: GenerationBriefResponse = {
 const designBriefFixture: DesignBriefResponse = {
   ...briefFixture,
   payload: { ...briefFixture.payload },
+};
+
+const secondDesignBriefFixture: DesignBriefResponse = {
+  ...designBriefFixture,
+  id: "brief-2",
+  payload: {
+    ...designBriefFixture.payload,
+    character_theme: "蓝色女主角",
+    original_request: "蓝色双门车，蓝色女主角，车门文字 BLUE DRIVE。",
+    palette: ["blue", "white"],
+    text: ["BLUE DRIVE"],
+  },
+  source_message_id: null,
+  title: "Second workbench brief",
+  updated_at: "2026-06-17T00:10:00Z",
 };
 
 const updatedBriefFixture: GenerationBriefResponse = {
@@ -1041,6 +1058,7 @@ function mockResumeWithGenerationState({
   exports = [],
   feedback = [],
   job = generationJobFixture,
+  operationsStatus = operationsStatusFixture,
   versions = [],
 }: {
   assets?: AssetResponse[];
@@ -1050,6 +1068,7 @@ function mockResumeWithGenerationState({
   exports?: ExportResponse[];
   feedback?: FeedbackResponse[];
   job?: GenerationJobResponse;
+  operationsStatus?: OperationsProviderStatusResponse;
   versions?: DesignVersionResponse[];
 }) {
   return vi
@@ -1065,7 +1084,8 @@ function mockResumeWithGenerationState({
     .mockResolvedValueOnce(jsonResponse(artifacts))
     .mockResolvedValueOnce(jsonResponse(versions))
     .mockResolvedValueOnce(jsonResponse(feedback))
-    .mockResolvedValueOnce(jsonResponse(exports));
+    .mockResolvedValueOnce(jsonResponse(exports))
+    .mockResolvedValueOnce(jsonResponse(operationsStatus));
 }
 
 describe("Phase 4 workbench shell", () => {
@@ -1185,6 +1205,28 @@ describe("Phase 4 workbench shell", () => {
     expect(JSON.stringify(materialPlan).toLowerCase()).not.toContain("base64");
   });
 
+  it("captures 3D screenshots from the live canvas blob", async () => {
+    const canvas = document.createElement("canvas");
+    canvas.width = 640;
+    canvas.height = 360;
+    const pngBytes = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+    const blob = new Blob([pngBytes], { type: "image/png" });
+    const toBlob = vi.fn((callback: BlobCallback, type?: string) => {
+      expect(type).toBe("image/png");
+      callback(blob);
+    });
+    Object.defineProperty(canvas, "toBlob", { value: toBlob });
+
+    const screenshot = await captureCanvasScreenshot(canvas);
+
+    expect(toBlob).toHaveBeenCalledTimes(1);
+    expect(screenshot).toEqual({
+      contentType: "image/png",
+      height: 360,
+      imageBase64: btoa(String.fromCharCode(...pngBytes)),
+      width: 640,
+    });
+  });
   it("opens concept 3D preview controls for the selected generated version", async () => {
     const user = userEvent.setup();
     localStorage.setItem("caragent.workbench.workspaceId", "workspace-1");
@@ -1241,12 +1283,13 @@ describe("Phase 4 workbench shell", () => {
     ).toBeVisible();
     expect(screen.getByText("概念 3D 预览")).toBeVisible();
     expect(screen.getByText("非生产贴膜参考")).toBeVisible();
-    for (const name of ["向左旋转", "向右旋转", "缩小 3D", "放大 3D", "重置相机", "截图"]) {
+    for (const name of ["向左旋转", "向右旋转", "缩小 3D", "放大 3D", "重置相机"]) {
       const control = preview3DControls.getByRole("button", { name });
       expect(control).toBeEnabled();
       control.focus();
       expect(control).toHaveFocus();
     }
+    expect(preview3DControls.getByRole("button", { name: "截图" })).toBeDisabled();
     expect(preview3DControls.getByText(PREVIEW_3D_UV_WARNING_TEXT, { exact: false })).toBeVisible();
     expect(preview3DControls.getAllByText("MOON DRIVE").length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText("door-main").length).toBeGreaterThanOrEqual(1);
@@ -1556,6 +1599,69 @@ describe("Phase 4 workbench shell", () => {
     ).toBe(false);
   });
 
+  it("submits a generation job from the explicit generate action", async () => {
+    const user = userEvent.setup();
+    localStorage.setItem("caragent.workbench.workspaceId", "workspace-1");
+    localStorage.setItem("caragent.workbench.briefId", "brief-1");
+    const completedJob = {
+      ...generationJobFixture,
+      status: "succeeded",
+      updated_at: "2026-06-17T00:20:00Z",
+    } satisfies GenerationJobResponse;
+    const submittedJob = {
+      ...generationJobFixture,
+      id: "job-2",
+      idempotency_key: "generation-submitted",
+      status: "queued",
+      updated_at: "2026-06-17T00:30:00Z",
+    } satisfies GenerationJobResponse;
+    const submission = {
+      idempotent_reused: false,
+      job: submittedJob,
+      queued: {
+        job_id: "job-2",
+        task_id: "task-2",
+        task_name: "caragent_worker.generate_2d_concept_job",
+      },
+    } satisfies GenerationJobSubmissionResponse;
+    const fetchMock = mockResumeWithGenerationState({ job: completedJob })
+      .mockResolvedValueOnce(jsonResponse(submission, 201))
+      .mockResolvedValueOnce(jsonResponse([submittedJob, completedJob]))
+      .mockResolvedValueOnce(jsonResponse(submittedJob))
+      .mockResolvedValueOnce(jsonResponse([{ ...jobEventFixture, job_id: "job-2" }]))
+      .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse(operationsStatusFixture));
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<Home />);
+
+    await screen.findByText(messageFixture.content);
+    await user.click(screen.getByRole("button", { name: "生成概念" }));
+
+    const submitCall = await waitFor(() =>
+      fetchMock.mock.calls.find(([url]) =>
+        String(url).includes(
+          getSubmitGenerationJobWorkspacesWorkspaceIdGenerationJobsPostUrl("workspace-1"),
+        ),
+      ),
+    );
+    expect(submitCall).toBeDefined();
+    expect(submitCall?.[1]).toEqual(expect.objectContaining({ method: "POST" }));
+    const requestInit = submitCall?.[1] as RequestInit;
+    expect(JSON.parse(String(requestInit.body))).toEqual({
+      brief_id: "brief-1",
+      idempotency_key: expect.stringMatching(/^generation-/),
+      requested_by: "web-workbench",
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      `http://localhost:8000${getListJobsWorkspacesWorkspaceIdJobsGetUrl("workspace-1")}`,
+      expect.objectContaining({ method: "GET" }),
+    );
+  });
+
   it("refetches durable chat and brief state after remount", async () => {
     localStorage.setItem("caragent.workbench.workspaceId", "workspace-1");
     localStorage.setItem("caragent.workbench.briefId", "brief-1");
@@ -1620,6 +1726,121 @@ describe("Phase 4 workbench shell", () => {
     );
   });
 
+  it("starts a new chat session and submits the next request to a fresh workspace", async () => {
+    const user = userEvent.setup();
+    localStorage.setItem("caragent.workbench.workspaceId", "workspace-1");
+    localStorage.setItem("caragent.workbench.briefId", "brief-1");
+    const nextWorkspace = { ...workspaceFixture, id: "workspace-2" } satisfies WorkspaceResponse;
+    const nextMessage = {
+      ...messageFixture,
+      content: "交给 GPT 补一套蓝色赛车痛车。",
+      id: "message-2",
+      workspace_id: "workspace-2",
+    } satisfies MessageResponse;
+    const nextBrief = {
+      ...briefFixture,
+      id: "brief-2",
+      payload: {
+        ...briefFixture.payload,
+        character_theme: "GPT 补充蓝色赛车主题",
+        original_request: nextMessage.content,
+        palette: ["blue", "white"],
+      },
+      source_message_id: "message-2",
+      workspace_id: "workspace-2",
+    } satisfies GenerationBriefResponse;
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse(workspaceFixture))
+      .mockResolvedValueOnce(jsonResponse([messageFixture]))
+      .mockResolvedValueOnce(jsonResponse([designBriefFixture]))
+      .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse(templateCatalogFixture))
+      .mockResolvedValueOnce(jsonResponse(operationsStatusFixture))
+      .mockResolvedValueOnce(jsonResponse(nextWorkspace, 201))
+      .mockResolvedValueOnce(jsonResponse(nextMessage, 201))
+      .mockResolvedValueOnce(jsonResponse(nextBrief, 201));
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<Home />);
+
+    expect(await screen.findByText(messageFixture.content)).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "新建对话" }));
+
+    expect(screen.queryByText(messageFixture.content)).not.toBeInTheDocument();
+    expect(screen.queryByText("结构化 brief 已保存")).not.toBeInTheDocument();
+    expect(localStorage.getItem("caragent.workbench.workspaceId")).toBeNull();
+    expect(localStorage.getItem("caragent.workbench.briefId")).toBeNull();
+
+    await user.type(screen.getByRole("textbox", { name: "设计需求" }), nextMessage.content);
+    await user.click(screen.getByRole("button", { name: "发送需求" }));
+
+    expect(await screen.findByText(nextMessage.content)).toBeVisible();
+    expect(screen.getByText(/GPT 补充蓝色赛车主题/)).toBeVisible();
+    expect(localStorage.getItem("caragent.workbench.workspaceId")).toBe("workspace-2");
+    expect(localStorage.getItem("caragent.workbench.briefId")).toBe("brief-2");
+  });
+
+  it("starts a new concept draft from the current brief", async () => {
+    const user = userEvent.setup();
+    localStorage.setItem("caragent.workbench.workspaceId", "workspace-1");
+    localStorage.setItem("caragent.workbench.briefId", "brief-1");
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse(workspaceFixture))
+      .mockResolvedValueOnce(jsonResponse([messageFixture]))
+      .mockResolvedValueOnce(jsonResponse([designBriefFixture]))
+      .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse(templateCatalogFixture))
+      .mockResolvedValueOnce(jsonResponse(operationsStatusFixture));
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<Home />);
+
+    expect(await screen.findByText("结构化 brief 已保存")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "新建概念" }));
+
+    expect(screen.getByText("先发送设计需求以生成结构化 brief。")).toBeVisible();
+    expect(screen.queryByText("结构化 brief 已保存")).not.toBeInTheDocument();
+    expect(localStorage.getItem("caragent.workbench.briefId")).toBeNull();
+  });
+
+  it("archives the current concept and selects the latest active brief", async () => {
+    const user = userEvent.setup();
+    localStorage.setItem("caragent.workbench.workspaceId", "workspace-1");
+    localStorage.setItem("caragent.workbench.briefId", "brief-1");
+    const archivedBrief = { ...briefFixture, status: "archived" };
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse(workspaceFixture))
+      .mockResolvedValueOnce(jsonResponse([messageFixture]))
+      .mockResolvedValueOnce(jsonResponse([designBriefFixture, secondDesignBriefFixture]))
+      .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse(templateCatalogFixture))
+      .mockResolvedValueOnce(jsonResponse(operationsStatusFixture))
+      .mockResolvedValueOnce(jsonResponse(archivedBrief));
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<Home />);
+
+    expect(await screen.findByDisplayValue("樱色女主角")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "作废当前" }));
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue("蓝色女主角")).toBeVisible();
+    });
+    expect(localStorage.getItem("caragent.workbench.briefId")).toBe("brief-2");
+    expect(fetchMock).toHaveBeenCalledWith(
+      `http://localhost:8000${getUpdateGenerationBriefRouteGenerationBriefsBriefIdPatchUrl("brief-1")}`,
+      expect.objectContaining({
+        body: JSON.stringify({ status: "archived" }),
+        method: "PATCH",
+      }),
+    );
+  });
   it("edits structured brief parameters without submitting generation", async () => {
     const user = userEvent.setup();
     localStorage.setItem("caragent.workbench.workspaceId", "workspace-1");
@@ -1632,6 +1853,7 @@ describe("Phase 4 workbench shell", () => {
       .mockResolvedValueOnce(jsonResponse([]))
       .mockResolvedValueOnce(jsonResponse([]))
       .mockResolvedValueOnce(jsonResponse(templateCatalogFixture))
+      .mockResolvedValueOnce(jsonResponse(operationsStatusFixture))
       .mockResolvedValueOnce(jsonResponse(updatedBriefFixture));
     vi.stubGlobal("fetch", fetchMock);
 
@@ -1665,14 +1887,11 @@ describe("Phase 4 workbench shell", () => {
     expect(screen.getByRole("textbox", { name: "文案" })).toHaveValue(
       "MOON DRIVE\nSAKURA MODE",
     );
-    expect(fetchMock).toHaveBeenNthCalledWith(
-      7,
-      `http://localhost:8000${getUpdateGenerationBriefRouteGenerationBriefsBriefIdPatchUrl("brief-1")}`,
-      expect.objectContaining({
-        method: "PATCH",
-      }),
+    const patchCall = fetchMock.mock.calls.find(([url]) =>
+      String(url).includes(getUpdateGenerationBriefRouteGenerationBriefsBriefIdPatchUrl("brief-1")),
     );
-    const patchInit = fetchMock.mock.calls[6]?.[1] as RequestInit;
+    expect(patchCall?.[1]).toEqual(expect.objectContaining({ method: "PATCH" }));
+    const patchInit = patchCall?.[1] as RequestInit;
     expect(JSON.parse(String(patchInit.body))).toEqual({
       palette: ["white", "magenta"],
       style: "霓虹赛博风",
@@ -1687,6 +1906,96 @@ describe("Phase 4 workbench shell", () => {
     ).toBe(false);
   });
 
+  it("submits explicit clears for strings, lists, and reference assignments", async () => {
+    const user = userEvent.setup();
+    localStorage.setItem("caragent.workbench.workspaceId", "workspace-1");
+    localStorage.setItem("caragent.workbench.briefId", "brief-1");
+    const clearedBrief = {
+      ...briefFixture,
+      payload: {
+        ...briefFixture.payload,
+        character_theme: briefFixture.payload.original_request,
+        coverage: "balanced side coverage",
+        palette: [],
+        reference_asset_ids: [],
+        reference_usage: [],
+        style: "itasha concept",
+        text: [],
+      },
+      updated_at: "2026-06-17T00:16:00Z",
+    } satisfies GenerationBriefResponse;
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse(workspaceFixture))
+      .mockResolvedValueOnce(jsonResponse([messageFixture]))
+      .mockResolvedValueOnce(jsonResponse([referenceDesignBriefFixture]))
+      .mockResolvedValueOnce(jsonResponse([confirmedCharacterAssetFixture]))
+      .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse(templateCatalogFixture))
+      .mockResolvedValueOnce(jsonResponse(operationsStatusFixture))
+      .mockImplementation((url, init) => {
+        if (
+          (init as RequestInit | undefined)?.method === "PATCH" &&
+          String(url).includes(getUpdateGenerationBriefRouteGenerationBriefsBriefIdPatchUrl("brief-1"))
+        ) {
+          return Promise.resolve(jsonResponse(clearedBrief));
+        }
+        return Promise.resolve(jsonResponse([]));
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<Home />);
+
+    expect(await screen.findByText("confirmed-reference.png")).toBeVisible();
+    expect(await screen.findByDisplayValue("清爽赛博风")).toBeVisible();
+    expect(screen.getByRole("textbox", { name: "配色" })).toHaveValue("white\nteal");
+    await user.clear(screen.getByRole("textbox", { name: "角色主题" }));
+    await user.clear(screen.getByRole("textbox", { name: "风格" }));
+    await user.clear(screen.getByRole("textbox", { name: "覆盖范围" }));
+    await user.clear(screen.getByRole("textbox", { name: "配色" }));
+    await user.clear(screen.getByRole("textbox", { name: "文案" }));
+    await user.clear(screen.getByRole("textbox", { name: "引用素材 ID" }));
+    expect(screen.getByRole("textbox", { name: "角色主题" })).toHaveValue("");
+    expect(screen.getByRole("textbox", { name: "风格" })).toHaveValue("");
+    expect(screen.getByRole("textbox", { name: "覆盖范围" })).toHaveValue("");
+    expect(screen.getByRole("textbox", { name: "配色" })).toHaveValue("");
+    expect(screen.getByRole("textbox", { name: "文案" })).toHaveValue("");
+    const referenceCheckbox = screen.getByRole("checkbox", {
+      name: "用于生成 confirmed-reference.png",
+    });
+    expect(referenceCheckbox).toBeChecked();
+    await user.click(referenceCheckbox);
+    expect(screen.getByRole("textbox", { name: "角色主题" })).toHaveValue("");
+    expect(screen.getByRole("textbox", { name: "风格" })).toHaveValue("");
+    expect(screen.getByRole("textbox", { name: "覆盖范围" })).toHaveValue("");
+    expect(screen.getByRole("textbox", { name: "配色" })).toHaveValue("");
+    expect(screen.getByRole("textbox", { name: "文案" })).toHaveValue("");
+    const saveButton = screen.getByRole("button", { name: "保存参数" });
+    await waitFor(() => {
+      expect(saveButton).toBeEnabled();
+    });
+    await user.click(saveButton);
+
+    const patchCall = await waitFor(() => {
+      const calls = fetchMock.mock.calls.filter(([url]) =>
+        String(url).includes(getUpdateGenerationBriefRouteGenerationBriefsBriefIdPatchUrl("brief-1")),
+      );
+      expect(calls.length).toBeGreaterThan(0);
+      return calls.at(-1);
+    });
+    expect(screen.queryByText("参数保存失败")).toBeNull();
+    expect(patchCall?.[1]).toEqual(expect.objectContaining({ method: "PATCH" }));
+    const patchInit = patchCall?.[1] as RequestInit;
+    expect(JSON.parse(String(patchInit.body))).toEqual({
+      character_theme: "",
+      coverage: "",
+      palette: [],
+      reference_asset_ids: [],
+      reference_usage: [],
+      style: "",
+      text: [],
+    });
+  });
   it("switches template catalog selection through the brief contract", async () => {
     const user = userEvent.setup();
     localStorage.setItem("caragent.workbench.workspaceId", "workspace-1");
@@ -1699,6 +2008,7 @@ describe("Phase 4 workbench shell", () => {
       .mockResolvedValueOnce(jsonResponse([]))
       .mockResolvedValueOnce(jsonResponse([]))
       .mockResolvedValueOnce(jsonResponse(templateCatalogFixture))
+      .mockResolvedValueOnce(jsonResponse(operationsStatusFixture))
       .mockResolvedValueOnce(jsonResponse(vanTemplateBriefFixture));
     vi.stubGlobal("fetch", fetchMock);
 
@@ -1744,6 +2054,7 @@ describe("Phase 4 workbench shell", () => {
       .mockResolvedValueOnce(jsonResponse([]))
       .mockResolvedValueOnce(jsonResponse([]))
       .mockResolvedValueOnce(jsonResponse(templateCatalogFixture))
+      .mockResolvedValueOnce(jsonResponse(operationsStatusFixture))
       .mockResolvedValueOnce(jsonResponse(phase6UpdatedBriefFixture));
     vi.stubGlobal("fetch", fetchMock);
 
@@ -1786,7 +2097,11 @@ describe("Phase 4 workbench shell", () => {
     await user.click(screen.getByRole("button", { name: "保存参数" }));
 
     expect(await screen.findByText("参数已保存")).toBeVisible();
-    const patchInit = fetchMock.mock.calls[6]?.[1] as RequestInit;
+    const patchCall = fetchMock.mock.calls.find(([url]) =>
+      String(url).includes(getUpdateGenerationBriefRouteGenerationBriefsBriefIdPatchUrl("brief-1")),
+    );
+    expect(patchCall?.[1]).toEqual(expect.objectContaining({ method: "PATCH" }));
+    const patchInit = patchCall?.[1] as RequestInit;
     expect(JSON.parse(String(patchInit.body))).toEqual({
       character_focus: "后翼子板 chibi，车门保留大标题",
       color_harmony: "青绿色主导，白色留白",
@@ -1816,6 +2131,7 @@ describe("Phase 4 workbench shell", () => {
       .mockResolvedValueOnce(jsonResponse([]))
       .mockResolvedValueOnce(jsonResponse([]))
       .mockResolvedValueOnce(jsonResponse(templateCatalogFixture))
+      .mockResolvedValueOnce(jsonResponse(operationsStatusFixture))
       .mockResolvedValueOnce(jsonResponse(missingRightsAssetFixture, 201))
       .mockResolvedValueOnce(jsonResponse(confirmedAssetFixture))
       .mockResolvedValueOnce(jsonResponse(referenceBriefFixture));
@@ -1833,12 +2149,13 @@ describe("Phase 4 workbench shell", () => {
     expect(
       screen.getByRole("checkbox", { name: "用于生成 reference.png" }),
     ).toBeDisabled();
-    expect(fetchMock).toHaveBeenNthCalledWith(
-      7,
-      `http://localhost:8000${getUploadAssetWorkspacesWorkspaceIdAssetsPostUrl("workspace-1")}`,
-      expect.objectContaining({ method: "POST" }),
+    const uploadCall = fetchMock.mock.calls.find(
+      ([url, init]) =>
+        String(url).includes(getUploadAssetWorkspacesWorkspaceIdAssetsPostUrl("workspace-1")) &&
+        (init as RequestInit | undefined)?.method === "POST",
     );
-    const uploadInit = fetchMock.mock.calls[6]?.[1] as RequestInit;
+    expect(uploadCall?.[1]).toEqual(expect.objectContaining({ method: "POST" }));
+    const uploadInit = uploadCall?.[1] as RequestInit;
     expect(uploadInit.headers).toBeUndefined();
     expect(uploadInit.body).toBeInstanceOf(FormData);
     const uploadForm = uploadInit.body as FormData;
@@ -1854,9 +2171,10 @@ describe("Phase 4 workbench shell", () => {
       name: "用于生成 reference.png",
     });
     expect(referenceCheckbox).toBeEnabled();
-    expect(fetchMock).toHaveBeenNthCalledWith(
-      8,
-      `http://localhost:8000${getUpdateAssetRightsAssetsAssetIdRightsPatchUrl("asset-1")}`,
+    const rightsCall = fetchMock.mock.calls.find(([url]) =>
+      String(url).includes(getUpdateAssetRightsAssetsAssetIdRightsPatchUrl("asset-1")),
+    );
+    expect(rightsCall?.[1]).toEqual(
       expect.objectContaining({
         body: JSON.stringify({
           rights_notes: "用户自有素材",
@@ -1873,7 +2191,11 @@ describe("Phase 4 workbench shell", () => {
     await user.click(screen.getByRole("button", { name: "保存参数" }));
 
     expect(await screen.findByText("参数已保存")).toBeVisible();
-    const patchInit = fetchMock.mock.calls[8]?.[1] as RequestInit;
+    const patchCall = fetchMock.mock.calls.find(([url]) =>
+      String(url).includes(getUpdateGenerationBriefRouteGenerationBriefsBriefIdPatchUrl("brief-1")),
+    );
+    expect(patchCall?.[1]).toEqual(expect.objectContaining({ method: "PATCH" }));
+    const patchInit = patchCall?.[1] as RequestInit;
     expect(JSON.parse(String(patchInit.body))).toEqual({
       reference_asset_ids: ["asset-1"],
       reference_usage: [
@@ -1916,6 +2238,7 @@ describe("Phase 4 workbench shell", () => {
       )
       .mockResolvedValueOnce(jsonResponse([]))
       .mockResolvedValueOnce(jsonResponse(templateCatalogFixture))
+      .mockResolvedValueOnce(jsonResponse(operationsStatusFixture))
       .mockResolvedValueOnce(jsonResponse(structuredReferenceBrief));
     vi.stubGlobal("fetch", fetchMock);
 
@@ -1943,7 +2266,11 @@ describe("Phase 4 workbench shell", () => {
     await user.click(screen.getByRole("button", { name: "保存参数" }));
 
     expect(await screen.findByText("参数已保存")).toBeVisible();
-    const patchInit = fetchMock.mock.calls[6]?.[1] as RequestInit;
+    const patchCall = fetchMock.mock.calls.find(([url]) =>
+      String(url).includes(getUpdateGenerationBriefRouteGenerationBriefsBriefIdPatchUrl("brief-1")),
+    );
+    expect(patchCall?.[1]).toEqual(expect.objectContaining({ method: "PATCH" }));
+    const patchInit = patchCall?.[1] as RequestInit;
     expect(JSON.parse(String(patchInit.body))).toEqual({
       reference_asset_ids: ["asset-2"],
       reference_usage: [
@@ -1968,6 +2295,7 @@ describe("Phase 4 workbench shell", () => {
       .mockResolvedValueOnce(jsonResponse([confirmedCharacterAssetFixture]))
       .mockResolvedValueOnce(jsonResponse([]))
       .mockResolvedValueOnce(jsonResponse(templateCatalogFixture))
+      .mockResolvedValueOnce(jsonResponse(operationsStatusFixture))
       .mockResolvedValueOnce(jsonResponse([]))
       .mockResolvedValueOnce(jsonResponse(guardedHostedOperationsStatusFixture));
     vi.stubGlobal("fetch", fetchMock);
@@ -2074,6 +2402,29 @@ describe("Phase 4 workbench shell", () => {
     expect(screen.getByText("Worker ok")).toBeVisible();
     expect(screen.getByText("Guard 25/day · 4/min · <= 0.7500")).toBeVisible();
     expect(document.body.textContent).not.toMatch(/api[_-]?key|secret|[A-Z]:\\/i);
+    expect(fetchMock).toHaveBeenCalledWith(
+      `http://localhost:8000${getProviderStatusOperationsProviderStatusGetUrl()}`,
+      expect.objectContaining({ method: "GET" }),
+    );
+  });
+
+  it("loads hosted provider status on restore so BFL is selectable without manual refresh", async () => {
+    localStorage.setItem("caragent.workbench.workspaceId", "workspace-1");
+    localStorage.setItem("caragent.workbench.briefId", "brief-1");
+    const fetchMock = mockResumeWithGenerationState({
+      operationsStatus: guardedHostedOperationsStatusFixture,
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<Home />);
+
+    expect(await screen.findByText("生成模式")).toBeVisible();
+    const bflButton = screen.getByRole("button", { name: "BFL 托管" });
+    await waitFor(() => {
+      expect(bflButton).toBeEnabled();
+    });
+    expect(bflButton).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByText("25/day · 4/min")).toBeVisible();
     expect(fetchMock).toHaveBeenCalledWith(
       `http://localhost:8000${getProviderStatusOperationsProviderStatusGetUrl()}`,
       expect.objectContaining({ method: "GET" }),
@@ -2432,6 +2783,34 @@ describe("Phase 4 workbench shell", () => {
     });
   });
 
+  it("renders the generated artifact content URL as a real 2D image", async () => {
+    localStorage.setItem("caragent.workbench.workspaceId", "workspace-1");
+    localStorage.setItem("caragent.workbench.briefId", "brief-1");
+    const succeededJob = {
+      ...generationJobFixture,
+      status: "succeeded",
+      updated_at: "2026-06-17T00:25:00Z",
+    } satisfies GenerationJobResponse;
+    const artifactWithContent = {
+      ...artifactFixture,
+      content_url: "/workspaces/workspace-1/artifacts/artifact-1/content",
+    } satisfies ArtifactResponse;
+    const fetchMock = mockResumeWithGenerationState({
+      artifacts: [artifactWithContent],
+      job: succeededJob,
+      versions: [versionFixture],
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<Home />);
+
+    const image = await screen.findByRole("img", { name: "2D concept preview" });
+    expect(image).toHaveAttribute(
+      "src",
+      "http://localhost:8000/workspaces/workspace-1/artifacts/artifact-1/content",
+    );
+  });
+
   it("renders 2D preview controls and switches version history locally", async () => {
     const user = userEvent.setup();
     localStorage.setItem("caragent.workbench.workspaceId", "workspace-1");
@@ -2477,6 +2856,7 @@ describe("Phase 4 workbench shell", () => {
       "aria-pressed",
       "false",
     );
+    expect(screen.getByText("可用视图：侧面 · 未提供：前视、后视、俯视")).toBeVisible();
 
     await user.click(screen.getByRole("button", { name: "安全区" }));
     expect(screen.getByRole("button", { name: "安全区" })).toHaveAttribute(
@@ -2496,6 +2876,9 @@ describe("Phase 4 workbench shell", () => {
       "aria-pressed",
       "true",
     );
+    expect(screen.getByText("模板未提供该视图")).toBeVisible();
+    expect(screen.getByText("Generic side-view coupe · 前视")).toBeVisible();
+    expect(screen.queryByRole("button", { name: "文字/Logo 图层" })).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "重置预览" }));
     expect(screen.getByText("100%")).toBeVisible();
     expect(screen.getByText(messageFixture.content)).toBeVisible();
@@ -3286,3 +3669,4 @@ describe("Phase 4 workbench shell", () => {
     expect(await screen.findByText("交接包导出已记录。")).toBeVisible();
   });
 });
+

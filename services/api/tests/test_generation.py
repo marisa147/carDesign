@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import re
 from dataclasses import dataclass
 from decimal import Decimal
@@ -8,14 +9,16 @@ from pathlib import Path
 from typing import Any
 from uuid import UUID, uuid4
 
+import httpx
 import pytest
 from caragent_core.database import session_scope
 from caragent_core.enums import ArtifactKind, DesignVersionStatus, JobStatus
 from caragent_core.generation import MVP_COUPE_TEMPLATE_ID
-from caragent_core.models import DesignVersion, GenerationJob, metadata
+from caragent_core.models import DesignVersion, GenerationJob, JobDispatchOutbox, metadata
 from caragent_core.services import jobs
 from fastapi.testclient import TestClient
 from pydantic import SecretStr
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker
 
 from caragent_api.config import ApiSettings
@@ -23,7 +26,6 @@ from caragent_api.main import create_app
 from caragent_api.queue import QueuedGenerationTask
 
 
-@dataclass
 class FakeQueueClient:
     enqueued: list[dict[str, Any]]
     revoked: list[str | None]
@@ -66,6 +68,19 @@ class FakeQueueClient:
             "status": "revoked" if task_id else "not_available",
             "task_id": task_id,
         }
+
+@dataclass
+class CommitVisibleQueueClient(FakeQueueClient):
+    def __init__(self, session_factory: async_sessionmaker[Any]) -> None:
+        super().__init__()
+        self.session_factory = session_factory
+
+    async def enqueue_generation_job(self, job_id: UUID) -> QueuedGenerationTask:
+        async with session_scope(self.session_factory) as session:
+            committed_job = await session.get(GenerationJob, job_id)
+            assert committed_job is not None
+            assert committed_job.status == JobStatus.QUEUED.value
+        return await super().enqueue_generation_job(job_id)
 
 
 def create_generation_client(
@@ -159,6 +174,255 @@ def test_create_and_update_structured_generation_brief(tmp_path: Path) -> None:
     assert updated.json()["payload"]["text"] == ["MOON DRIVE", "SAKURA"]
     assert updated.json()["payload"]["typography_intent"] == "stacked block type"
 
+
+
+def test_create_generation_brief_uses_openai_structured_parser_when_enabled(
+    tmp_path: Path,
+) -> None:
+    settings = api_settings(
+        tmp_path,
+        ai_brief_parser_provider="openai",
+        ai_provider_calls_enabled=True,
+        ai_provider_openai_api_key=SecretStr("openai-secret"),
+        ai_provider_openai_text_model="gpt-5.5",
+    )
+    client, app, _queue = create_generation_client(tmp_path, settings=settings)
+    workspace_id = client.post("/workspaces", json={"title": "GPT parser"}).json()["id"]
+    submitted_payloads: list[dict[str, object]] = []
+
+    def handler(http_request: httpx.Request) -> httpx.Response:
+        submitted_payloads.append(json.loads(http_request.content))
+        assert http_request.headers.get("Authorization") == "Bearer openai-secret"
+        return httpx.Response(
+            200,
+            json={
+                "id": "resp-brief-1",
+                "output": [
+                    {
+                        "type": "message",
+                        "content": [
+                            {
+                                "type": "output_text",
+                                "text": json.dumps(
+                                    {
+                                        "character_theme": "Miku racing heroine",
+                                        "coverage": "full side coverage",
+                                        "original_request": (
+                                            "白色双门车，初音未来主题，门板文字 MIKU DRIVE。"
+                                        ),
+                                        "palette": ["white", "cyan", "black"],
+                                        "style": "clean GPT itasha concept",
+                                        "text": ["MIKU DRIVE"],
+                                        "vehicle_template_id": MVP_COUPE_TEMPLATE_ID,
+                                        "view": "side",
+                                    },
+                                ),
+                            },
+                        ],
+                    },
+                ],
+            },
+        )
+
+    parser_client = httpx.AsyncClient(
+        base_url="https://api.openai.test/v1",
+        transport=httpx.MockTransport(handler),
+    )
+    app.state.openai_brief_parser_client = parser_client
+
+    try:
+        response = client.post(
+            f"/workspaces/{workspace_id}/generation/briefs",
+            json={"original_request": "白色双门车，初音未来主题，门板文字 MIKU DRIVE。"},
+        )
+    finally:
+        asyncio.run(parser_client.aclose())
+
+    assert response.status_code == 201
+    payload = response.json()["payload"]
+    assert payload["character_theme"] == "Miku racing heroine"
+    assert payload["style"] == "clean GPT itasha concept"
+    assert payload["palette"] == ["white", "cyan", "black"]
+    assert payload["text"] == ["MIKU DRIVE"]
+    assert submitted_payloads
+    assert submitted_payloads[0]["model"] == "gpt-5.5"
+    assert (
+        "infer and complete missing visual design details"
+        in submitted_payloads[0]["input"][0]["content"]
+    )
+    assert submitted_payloads[0]["text"]["format"]["type"] == "json_schema"
+    assert "openai-secret" not in response.text
+
+def test_create_generation_brief_supports_openai_chat_completions_parser(
+    tmp_path: Path,
+) -> None:
+    settings = api_settings(
+        tmp_path,
+        ai_brief_parser_provider="openai",
+        ai_provider_calls_enabled=True,
+        ai_provider_openai_api_key=SecretStr("openai-secret"),
+        ai_provider_openai_responses_path="/chat/completions",
+        ai_provider_openai_text_model="gpt-5.5",
+    )
+    client, app, _queue = create_generation_client(tmp_path, settings=settings)
+    workspace_id = client.post("/workspaces", json={"title": "Codex relay parser"}).json()["id"]
+    submitted_payloads: list[dict[str, object]] = []
+
+    def handler(http_request: httpx.Request) -> httpx.Response:
+        assert http_request.url.path.endswith("/chat/completions")
+        submitted_payload = json.loads(http_request.content)
+        submitted_payloads.append(submitted_payload)
+        assert http_request.headers.get("Authorization") == "Bearer openai-secret"
+        return httpx.Response(
+            200,
+            json={
+                "id": "chatcmpl-brief-1",
+                "choices": [
+                    {
+                        "message": {
+                            "role": "assistant",
+                            "content": "```json\n"
+                            + json.dumps(
+                                {
+                                    "character_focus": "large Miku portrait on door",
+                                    "character_theme": "Hatsune Miku racing theme",
+                                    "coverage": "balanced side coverage",
+                                    "original_request": (
+                                        "白色双门车，初音未来主题，门板文字 MIKU RACING。"
+                                    ),
+                                    "palette": ["white", "cyan", "black"],
+                                    "style": "clean racing itasha",
+                                    "text": ["MIKU RACING"],
+                                    "vehicle_template_id": MVP_COUPE_TEMPLATE_ID,
+                                    "view": "side",
+                                },
+                            )
+                            + "\n```",
+                        },
+                    },
+                ],
+            },
+        )
+
+    parser_client = httpx.AsyncClient(
+        base_url="https://api.openai.test/v1",
+        transport=httpx.MockTransport(handler),
+    )
+    app.state.openai_brief_parser_client = parser_client
+
+    try:
+        response = client.post(
+            f"/workspaces/{workspace_id}/generation/briefs",
+            json={"original_request": "白色双门车，初音未来主题，门板文字 MIKU RACING。"},
+        )
+    finally:
+        asyncio.run(parser_client.aclose())
+
+    assert response.status_code == 201
+    payload = response.json()["payload"]
+    assert payload["character_theme"] == "Hatsune Miku racing theme"
+    assert payload["character_focus"] == "large Miku portrait on door"
+    assert payload["style"] == "clean racing itasha"
+    assert payload["palette"] == ["white", "cyan", "black"]
+    assert payload["text"] == ["MIKU RACING"]
+    assert submitted_payloads
+    assert submitted_payloads[0]["model"] == "gpt-5.5"
+    assert "messages" in submitted_payloads[0]
+    assert (
+        "infer and complete missing visual design details"
+        in submitted_payloads[0]["messages"][0]["content"]
+    )
+    assert submitted_payloads[0]["response_format"] == {"type": "json_object"}
+    assert "openai-secret" not in response.text
+def test_update_generation_brief_accepts_explicit_clears(tmp_path: Path) -> None:
+    client, _app, _queue = create_generation_client(tmp_path)
+    workspace_id = client.post("/workspaces", json={"title": "Generation clears"}).json()["id"]
+    original_request = "White coupe with Sakura heroine and MOON DRIVE text."
+    created = client.post(
+        f"/workspaces/{workspace_id}/generation/briefs",
+        json={
+            "character_theme": "Sakura heroine",
+            "coverage": "full side coverage",
+            "original_request": original_request,
+            "palette": ["white", "teal"],
+            "reference_asset_ids": ["22222222-2222-2222-2222-222222222222"],
+            "reference_usage": [
+                {
+                    "asset_id": "22222222-2222-2222-2222-222222222222",
+                    "enabled": True,
+                    "role": "character",
+                },
+            ],
+            "style": "clean racing itasha",
+            "text": ["MOON DRIVE"],
+            "vehicle_template_id": MVP_COUPE_TEMPLATE_ID,
+            "view": "side",
+        },
+    )
+    assert created.status_code == 201
+
+    updated = client.patch(
+        f"/generation/briefs/{created.json()['id']}",
+        json={
+            "character_theme": "",
+            "coverage": "",
+            "palette": [],
+            "reference_asset_ids": [],
+            "reference_usage": [],
+            "style": "",
+            "text": [],
+        },
+    )
+
+    assert updated.status_code == 200
+    payload = updated.json()["payload"]
+    assert payload["character_theme"] == original_request
+    assert payload["coverage"] == "balanced side coverage"
+    assert payload["palette"] == []
+    assert payload["reference_asset_ids"] == []
+    assert payload["reference_usage"] == []
+    assert payload["style"] == "itasha concept"
+    assert payload["text"] == []
+
+
+def test_update_generation_brief_archives_and_blocks_generation(tmp_path: Path) -> None:
+    client, _app, _queue = create_generation_client(tmp_path)
+    workspace_id = client.post("/workspaces", json={"title": "Archive brief"}).json()["id"]
+    brief_id = create_brief(client, workspace_id)
+
+    archived = client.patch(
+        f"/generation/briefs/{brief_id}",
+        json={"status": "archived"},
+    )
+    generation = client.post(
+        f"/workspaces/{workspace_id}/generation/jobs",
+        json={
+            "brief_id": brief_id,
+            "idempotency_key": "archived-brief-generation",
+            "requested_by": "web-workbench",
+        },
+    )
+
+    assert archived.status_code == 200
+    assert archived.json()["status"] == "archived"
+    assert generation.status_code == 422
+    assert "archived" in generation.json()["detail"]
+
+
+def test_workspace_brief_list_omits_archived_generation_briefs(tmp_path: Path) -> None:
+    client, _app, _queue = create_generation_client(tmp_path)
+    workspace_id = client.post("/workspaces", json={"title": "Resume active brief"}).json()["id"]
+    archived_brief_id = create_brief(client, workspace_id)
+    active_brief_id = create_brief(client, workspace_id, original_request="Active concept")
+
+    archived = client.patch(
+        f"/generation/briefs/{archived_brief_id}",
+        json={"status": "archived"},
+    )
+    listed = client.get(f"/workspaces/{workspace_id}/briefs")
+
+    assert archived.status_code == 200
+    assert [brief["id"] for brief in listed.json()] == [active_brief_id]
 
 def test_update_generation_brief_recomputes_selected_template(tmp_path: Path) -> None:
     client, _app, _queue = create_generation_client(tmp_path)
@@ -342,6 +606,37 @@ def test_submit_generation_job_enqueues_worker_task_and_reuses_idempotency(
     assert queue.enqueued[0]["job_id"] == first.json()["job"]["id"]
     assert "secret" not in str(queue.enqueued[0]).lower()
 
+
+def test_submit_generation_job_dispatches_only_after_commit_and_marks_outbox(
+    tmp_path: Path,
+) -> None:
+    client, app, _queue = create_generation_client(tmp_path)
+    queue = CommitVisibleQueueClient(app.state.session_factory)
+    app.state.queue_client = queue
+    workspace_id = client.post("/workspaces", json={"title": "Committed dispatch"}).json()["id"]
+    brief_id = create_brief(client, workspace_id)
+
+    response = client.post(
+        f"/workspaces/{workspace_id}/generation/jobs",
+        json={
+            "brief_id": brief_id,
+            "idempotency_key": "dispatch-after-commit",
+            "requested_by": "local-user",
+        },
+    )
+
+    assert response.status_code == 201
+    job_id = UUID(response.json()["job"]["id"])
+    dispatches = asyncio.run(read_dispatch_outbox(app.state.session_factory))
+
+    assert len(queue.enqueued) == 1
+    assert queue.enqueued[0]["job_id"] == str(job_id)
+    assert len(dispatches) == 1
+    assert dispatches[0].job_id == job_id
+    assert dispatches[0].status == jobs.DISPATCH_DISPATCHED
+    assert dispatches[0].task_id == "task-1"
+    assert dispatches[0].attempts == 1
+    assert dispatches[0].dispatched_at is not None
 
 @pytest.mark.parametrize(
     ("settings_kwargs", "expected_reason"),
@@ -1057,7 +1352,6 @@ def test_api_generation_boundary_does_not_import_worker_or_provider_code() -> No
         re.compile(r"^\s*import\s+caragent_worker\b", re.MULTILINE),
         re.compile(r"^\s*from\s+caragent_worker\b", re.MULTILINE),
         re.compile(r"^\s*from\s+caragent_worker\.providers\b", re.MULTILINE),
-        re.compile(r"\bopenai\b", re.IGNORECASE),
         re.compile(r"\bfal_client\b"),
     )
     violations = [
@@ -1070,12 +1364,17 @@ def test_api_generation_boundary_does_not_import_worker_or_provider_code() -> No
     assert violations == []
 
 
-def create_brief(client: TestClient, workspace_id: str) -> str:
+def create_brief(
+    client: TestClient,
+    workspace_id: str,
+    *,
+    original_request: str = "White coupe with Sakura heroine and MOON DRIVE text.",
+) -> str:
     response = client.post(
         f"/workspaces/{workspace_id}/generation/briefs",
         json={
             "character_theme": "Sakura heroine",
-            "original_request": "White coupe with Sakura heroine and MOON DRIVE text.",
+            "original_request": original_request,
             "palette": ["white", "teal"],
             "text": ["MOON DRIVE"],
         },
@@ -1186,6 +1485,15 @@ async def create_parent_version_with_artifact(
         )
         return version.id, artifact.id
 
+
+async def read_dispatch_outbox(
+    session_factory: async_sessionmaker[Any],
+) -> list[JobDispatchOutbox]:
+    async with session_scope(session_factory) as session:
+        result = await session.scalars(
+            select(JobDispatchOutbox).order_by(JobDispatchOutbox.created_at.asc()),
+        )
+        return list(result)
 
 async def read_job(
     session_factory: async_sessionmaker[Any],

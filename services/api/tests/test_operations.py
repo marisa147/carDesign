@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 from caragent_api.config import ApiSettings
 from caragent_api.main import create_app
 from caragent_api.queue import QueuedGenerationTask, QueueInspection
+from caragent_api.routes.operations import _inspect_queue
 
 
 class FakeQueueClient:
@@ -53,6 +54,12 @@ class FakeQueueClient:
         }
 
 
+
+class SlowQueueClient(FakeQueueClient):
+    async def inspect_generation_queue(self) -> dict[str, Any]:
+        await asyncio.sleep(1)
+        return await super().inspect_generation_queue()
+
 class DataclassQueueClient(FakeQueueClient):
     async def inspect_generation_queue(self) -> QueueInspection:
         return QueueInspection(
@@ -86,6 +93,12 @@ async def create_schema(engine: AsyncEngine) -> None:
     async with engine.begin() as connection:
         await connection.run_sync(metadata.create_all)
 
+def test_operations_queue_inspection_timeout_returns_unavailable() -> None:
+    summary = asyncio.run(_inspect_queue(SlowQueueClient(), timeout_seconds=0.01))
+
+    assert summary.status == "unavailable"
+    assert summary.active_workers == 0
+    assert summary.detail == "Queue inspection timed out."
 
 def test_operations_provider_status_reports_local_disabled_provider(tmp_path: Path) -> None:
     client, _app = create_operations_client(tmp_path)
@@ -108,7 +121,7 @@ def test_operations_provider_status_reports_local_disabled_provider(tmp_path: Pa
     assert provider["hosted_quota_guard_enabled"] is False
     assert provider["hosted_rate_limit_per_minute"] is None
     assert provider["max_estimated_cost_per_job"] is None
-    assert provider["supported_providers"] == ["local-deterministic", "bfl"]
+    assert provider["supported_providers"] == ["local-deterministic", "bfl", "openai"]
     assert payload["queue"]["status"] == "unavailable"
     assert payload["queue"]["generation_queue"] == "caragent.default"
     assert payload["worker"]["status"] == "unavailable"
@@ -173,6 +186,38 @@ def test_operations_provider_status_reports_hosted_quota_guards(
     assert "bfl-secret" not in response.text
 
 
+
+def test_operations_provider_status_reports_openai_hosted_config(
+    tmp_path: Path,
+) -> None:
+    settings = ApiSettings(
+        ai_hosted_daily_call_limit=12,
+        ai_hosted_rate_limit_per_minute=3,
+        ai_max_estimated_cost_per_job=Decimal("0.9000"),
+        ai_provider_calls_enabled=True,
+        ai_provider_default="openai",
+        ai_provider_model="gpt-image-2",
+        ai_provider_openai_api_key=SecretStr("openai-secret"),
+        database_url=f"sqlite+aiosqlite:///{(tmp_path / 'openai-hosted.db').as_posix()}",
+        v2_hosted_provider_rollout_enabled=True,
+    )
+    client, _app = create_operations_client(tmp_path, settings=settings)
+
+    response = client.get("/operations/provider-status")
+
+    assert response.status_code == 200
+    provider = response.json()["provider"]
+    assert provider["active_mode"] == "openai"
+    assert provider["openai_key_configured"] is True
+    assert provider["hosted_provider_configured"] is True
+    assert provider["supported_providers"] == ["local-deterministic", "bfl", "openai"]
+    capabilities = {item["provider"]: item for item in provider["capabilities"]}
+    assert set(capabilities) == {"local-deterministic", "bfl", "openai"}
+    assert capabilities["openai"]["enabled"] is True
+    assert capabilities["openai"]["default_model"] == "gpt-image-2"
+    assert capabilities["openai"]["supports"]["generation"] is True
+    assert capabilities["openai"]["credential_configured"] is True
+    assert "openai-secret" not in response.text
 def test_operations_provider_status_exposes_safe_capabilities_and_guard_state(
     tmp_path: Path,
 ) -> None:
@@ -200,7 +245,7 @@ def test_operations_provider_status_exposes_safe_capabilities_and_guard_state(
         "rate_limit_per_minute": 4,
     }
     capabilities = {item["provider"]: item for item in provider["capabilities"]}
-    assert set(capabilities) == {"local-deterministic", "bfl"}
+    assert set(capabilities) == {"local-deterministic", "bfl", "openai"}
     assert capabilities["local-deterministic"]["enabled"] is True
     assert capabilities["local-deterministic"]["credential_required"] is False
     assert capabilities["local-deterministic"]["mask_input"]["accepted"] is False
@@ -410,3 +455,161 @@ def test_operations_recent_failures_fall_back_to_unknown_without_metadata(
     assert recent_failures[1]["failure_category"] == "provider"
     assert recent_failures[1]["message"] == "[redacted] upstream failed"
     assert "bfl-secret" not in response.text
+
+
+def test_operations_bfl_settings_update_writes_local_env_files_without_returning_secret(
+    tmp_path: Path,
+) -> None:
+    api_env = tmp_path / "api.env"
+    worker_env = tmp_path / "worker.env"
+    api_env.write_text(
+        "AI_PROVIDER_DEFAULT=disabled\n"
+        "AI_PROVIDER_CALLS_ENABLED=false\n"
+        "AI_PROVIDER_MODEL=local-concept-v1\n"
+        "V2_HOSTED_PROVIDER_ROLLOUT_ENABLED=false\n"
+        "AI_PROVIDER_BFL_API_KEY=\n",
+        encoding="utf-8",
+    )
+    worker_env.write_text(
+        "AI_PROVIDER_DEFAULT=disabled\n"
+        "AI_PROVIDER_CALLS_ENABLED=false\n"
+        "AI_PROVIDER_MODEL=local-concept-v1\n"
+        "AI_PROVIDER_BFL_BASE_URL=https://api.bfl.ai\n"
+        "AI_PROVIDER_BFL_SUBMIT_PATH=/v1/flux-2-pro-preview\n"
+        "AI_PROVIDER_BFL_RESULT_PATH=/v1/get_result\n"
+        "V2_HOSTED_PROVIDER_ROLLOUT_ENABLED=false\n"
+        "AI_PROVIDER_BFL_API_KEY=\n",
+        encoding="utf-8",
+    )
+    client, app = create_operations_client(tmp_path)
+    app.state.bfl_settings_env_paths = {"api": api_env, "worker": worker_env}
+
+    response = client.post(
+        "/operations/bfl-settings",
+        json={
+            "api_key": "bfl-real-secret-value",
+            "base_url": "https://api.bfl.ai",
+            "calls_enabled": True,
+            "daily_call_limit": 5,
+            "default_provider": "bfl",
+            "max_estimated_cost_per_job": "0.2500",
+            "model": "flux-2-pro-preview",
+            "rate_limit_per_minute": 1,
+            "result_path": "/v1/get_result",
+            "rollout_enabled": True,
+            "submit_path": "/v1/flux-2-pro-preview",
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["api_key_configured"] is True
+    assert payload["api_key_masked"].endswith("alue")
+    assert payload["restart_required"] is True
+    assert payload["submit_url"] == "https://api.bfl.ai/v1/flux-2-pro-preview"
+    assert "bfl-real-secret-value" not in response.text
+
+    api_text = api_env.read_text(encoding="utf-8")
+    worker_text = worker_env.read_text(encoding="utf-8")
+    for text in (api_text, worker_text):
+        assert "AI_PROVIDER_DEFAULT=bfl" in text
+        assert "AI_PROVIDER_CALLS_ENABLED=true" in text
+        assert "AI_PROVIDER_MODEL=flux-2-pro-preview" in text
+        assert "V2_HOSTED_PROVIDER_ROLLOUT_ENABLED=true" in text
+        assert "AI_PROVIDER_BFL_API_KEY=bfl-real-secret-value" in text
+        assert "AI_HOSTED_DAILY_CALL_LIMIT=5" in text
+        assert "AI_HOSTED_RATE_LIMIT_PER_MINUTE=1" in text
+        assert "AI_MAX_ESTIMATED_COST_PER_JOB=0.2500" in text
+    assert "AI_PROVIDER_BFL_BASE_URL=https://api.bfl.ai" in worker_text
+    assert "AI_PROVIDER_BFL_SUBMIT_PATH=/v1/flux-2-pro-preview" in worker_text
+    assert "AI_PROVIDER_BFL_RESULT_PATH=/v1/get_result" in worker_text
+
+
+
+def test_operations_openai_settings_update_writes_local_env_files_without_returning_secret(
+    tmp_path: Path,
+) -> None:
+    api_env = tmp_path / "api.env"
+    worker_env = tmp_path / "worker.env"
+    api_env.write_text("AI_PROVIDER_OPENAI_API_KEY=\n", encoding="utf-8")
+    worker_env.write_text("AI_PROVIDER_OPENAI_API_KEY=\n", encoding="utf-8")
+    client, app = create_operations_client(tmp_path)
+    app.state.openai_settings_env_paths = {"api": api_env, "worker": worker_env}
+
+    response = client.post(
+        "/operations/openai-settings",
+        json={
+            "api_key": "sk-openai-real-secret",
+            "base_url": "https://api.openai.com/v1",
+            "calls_enabled": True,
+            "daily_call_limit": 6,
+            "default_provider": "openai",
+            "image_model": "gpt-image-2",
+            "image_path": "/images/generations",
+            "max_estimated_cost_per_job": "0.9000",
+            "parser_enabled": True,
+            "rate_limit_per_minute": 2,
+            "responses_path": "/responses",
+            "rollout_enabled": True,
+            "text_model": "gpt-5.5",
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["api_key_configured"] is True
+    assert payload["api_key_masked"].endswith("cret")
+    assert payload["image_url"] == "https://api.openai.com/v1/images/generations"
+    assert payload["restart_required"] is True
+    assert "sk-openai-real-secret" not in response.text
+
+    api_text = api_env.read_text(encoding="utf-8")
+    worker_text = worker_env.read_text(encoding="utf-8")
+    for text in (api_text, worker_text):
+        assert "AI_PROVIDER_DEFAULT=openai" in text
+        assert "AI_PROVIDER_CALLS_ENABLED=true" in text
+        assert "AI_PROVIDER_OPENAI_IMAGE_MODEL=gpt-image-2" in text
+        assert "AI_PROVIDER_OPENAI_API_KEY=sk-openai-real-secret" in text
+        assert "AI_PROVIDER_OPENAI_BASE_URL=https://api.openai.com/v1" in text
+        assert "V2_HOSTED_PROVIDER_ROLLOUT_ENABLED=true" in text
+        assert "AI_HOSTED_DAILY_CALL_LIMIT=6" in text
+        assert "AI_HOSTED_RATE_LIMIT_PER_MINUTE=2" in text
+        assert "AI_MAX_ESTIMATED_COST_PER_JOB=0.9000" in text
+    assert "AI_PROVIDER_OPENAI_IMAGE_PATH=/images/generations" in worker_text
+    assert "AI_PROVIDER_OPENAI_TEXT_MODEL=gpt-5.5" in api_text
+    assert "AI_PROVIDER_OPENAI_RESPONSES_PATH=/responses" in api_text
+    assert "AI_BRIEF_PARSER_PROVIDER=openai" in api_text
+def test_operations_bfl_settings_get_masks_existing_secret(tmp_path: Path) -> None:
+    api_env = tmp_path / "api.env"
+    worker_env = tmp_path / "worker.env"
+    api_env.write_text("AI_PROVIDER_BFL_API_KEY=bfl-existing-secret\n", encoding="utf-8")
+    worker_env.write_text(
+        "AI_PROVIDER_DEFAULT=bfl\n"
+        "AI_PROVIDER_CALLS_ENABLED=true\n"
+        "AI_PROVIDER_MODEL=flux-2-pro-preview\n"
+        "AI_PROVIDER_BFL_BASE_URL=https://api.bfl.ai\n"
+        "AI_PROVIDER_BFL_SUBMIT_PATH=/v1/flux-2-pro-preview\n"
+        "AI_PROVIDER_BFL_RESULT_PATH=/v1/get_result\n"
+        "V2_HOSTED_PROVIDER_ROLLOUT_ENABLED=true\n"
+        "AI_HOSTED_DAILY_CALL_LIMIT=3\n"
+        "AI_HOSTED_RATE_LIMIT_PER_MINUTE=1\n"
+        "AI_MAX_ESTIMATED_COST_PER_JOB=0.2500\n"
+        "AI_PROVIDER_BFL_API_KEY=bfl-existing-secret\n",
+        encoding="utf-8",
+    )
+    client, app = create_operations_client(tmp_path)
+    app.state.bfl_settings_env_paths = {"api": api_env, "worker": worker_env}
+
+    response = client.get("/operations/bfl-settings")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["api_key_configured"] is True
+    assert payload["api_key_masked"] == "********cret"
+    assert payload["default_provider"] == "bfl"
+    assert payload["calls_enabled"] is True
+    assert payload["rollout_enabled"] is True
+    assert payload["submit_url"] == "https://api.bfl.ai/v1/flux-2-pro-preview"
+    assert "bfl-existing-secret" not in response.text
+
+

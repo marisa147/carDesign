@@ -4,6 +4,7 @@ import asyncio
 from pathlib import Path
 from typing import Any
 
+import pytest
 from caragent_core.models import metadata
 from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncEngine
@@ -70,6 +71,58 @@ def test_workspace_message_and_brief_routes_persist_across_clients(tmp_path: Pat
     assert briefs.json()[0]["payload"] == {"vehicle": "GT86", "palette": ["pink", "white"]}
 
 
+def test_create_workspace_derives_owner_from_request_user(tmp_path: Path) -> None:
+    client, _app = create_workspace_client(tmp_path)
+
+    response = client.post(
+        "/workspaces",
+        headers={"X-CarAgent-User": "alice"},
+        json={"owner_id": "mallory", "title": "Owned by request"},
+    )
+
+    assert response.status_code == 201
+    assert response.json()["owner_id"] == "alice"
+
+
+@pytest.mark.parametrize(
+    ("method", "path_suffix", "json_payload"),
+    [
+        ("get", "", None),
+        ("get", "/messages", None),
+        ("post", "/messages", {"content": "cross owner write", "role": "user"}),
+        ("get", "/briefs", None),
+        ("post", "/briefs", {"payload": {"vehicle": "GT86"}, "title": "blocked"}),
+    ],
+)
+def test_workspace_routes_reject_cross_owner_access(
+    tmp_path: Path,
+    method: str,
+    path_suffix: str,
+    json_payload: dict[str, object] | None,
+) -> None:
+    client, _app = create_workspace_client(tmp_path)
+    workspace_id = client.post(
+        "/workspaces",
+        headers={"X-CarAgent-User": "alice"},
+        json={"title": "Private workspace"},
+    ).json()["id"]
+
+    path = f"/workspaces/{workspace_id}{path_suffix}"
+    if method == "get":
+        response = client.get(path, headers={"X-CarAgent-User": "bob"})
+    else:
+        response = client.post(
+            path,
+            headers={"X-CarAgent-User": "bob"},
+            json=json_payload,
+        )
+    allowed = client.get(
+        f"/workspaces/{workspace_id}",
+        headers={"X-CarAgent-User": "alice"},
+    )
+
+    assert response.status_code == 403
+    assert allowed.status_code == 200
 def test_missing_workspace_returns_404(tmp_path: Path) -> None:
     client, _app = create_workspace_client(tmp_path)
 

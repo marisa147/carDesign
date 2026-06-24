@@ -19,6 +19,7 @@ ENV_KEYS = (
     "RUNTIME_MODE",
     "AI_PROVIDER_DEFAULT",
     "AI_PROVIDER_MODEL",
+    "AI_PROVIDER_OPENAI_IMAGE_MODEL",
     "AI_PROVIDER_CALLS_ENABLED",
     "AI_PROVIDER_OPENAI_API_KEY",
     "AI_PROVIDER_FAL_API_KEY",
@@ -178,7 +179,7 @@ def test_settings_expose_browser_safe_provider_capabilities(
 
     assert hasattr(settings, "provider_capability_map")
     capabilities = settings.provider_capability_map()
-    assert set(capabilities) == {"local-deterministic", "bfl"}
+    assert set(capabilities) == {"local-deterministic", "bfl", "openai"}
 
     local = capabilities["local-deterministic"]
     assert local["provider"] == "local-deterministic"
@@ -237,8 +238,59 @@ def test_settings_expose_browser_safe_provider_capabilities(
         "max_estimated_cost_per_job": "0.2500",
         "rate_limit_per_minute": 2,
     }
+
+    openai = capabilities["openai"]
+    assert openai["provider"] == "openai"
+    assert openai["display_name"] == "OpenAI GPT Image"
+    assert openai["credential_required"] is True
+    assert openai["credential_configured"] is False
+    assert openai["enabled"] is False
+    assert openai["default_model"] == "gpt-image-2"
+    assert openai["supports"]["generation"] is True
+    assert openai["supports"]["reference_image_inputs"] is False
+    assert openai["supports"]["references"] is False
+    assert "OpenAI credential is missing" in openai["blocked_reasons"]
+    assert "api_key" not in json.dumps(openai, sort_keys=True).lower()
     assert "bfl-secret" not in json.dumps(capabilities, sort_keys=True)
 
+def test_settings_keep_bfl_and_openai_models_independent(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    clear_api_env(monkeypatch)
+    monkeypatch.setenv("AI_PROVIDER_DEFAULT", "openai")
+    monkeypatch.setenv("AI_PROVIDER_MODEL", "flux-2-pro")
+    monkeypatch.setenv("AI_PROVIDER_OPENAI_IMAGE_MODEL", "gpt-image-1")
+    monkeypatch.setenv("AI_PROVIDER_CALLS_ENABLED", "true")
+    monkeypatch.setenv("AI_PROVIDER_BFL_API_KEY", "bfl-secret")
+    monkeypatch.setenv("AI_PROVIDER_OPENAI_API_KEY", "openai-secret")
+    monkeypatch.setenv("V2_HOSTED_PROVIDER_ROLLOUT_ENABLED", "true")
+    monkeypatch.setenv("AI_HOSTED_DAILY_CALL_LIMIT", "10")
+    monkeypatch.setenv("AI_HOSTED_RATE_LIMIT_PER_MINUTE", "2")
+    monkeypatch.setenv("AI_MAX_ESTIMATED_COST_PER_JOB", "0.2500")
+
+    capabilities = ApiSettings().provider_capability_map()
+
+    assert capabilities["bfl"]["default_model"] == "flux-2-pro"
+    assert capabilities["openai"]["default_model"] == "gpt-image-1"
+
+
+def test_settings_keep_codex_relay_gpt_model_for_openai(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    clear_api_env(monkeypatch)
+    monkeypatch.setenv("AI_PROVIDER_DEFAULT", "openai")
+    monkeypatch.setenv("AI_PROVIDER_OPENAI_IMAGE_MODEL", "gpt-5.5")
+    monkeypatch.setenv("AI_PROVIDER_CALLS_ENABLED", "true")
+    monkeypatch.setenv("AI_PROVIDER_OPENAI_API_KEY", "openai-secret")
+    monkeypatch.setenv("V2_HOSTED_PROVIDER_ROLLOUT_ENABLED", "true")
+    monkeypatch.setenv("AI_HOSTED_DAILY_CALL_LIMIT", "10")
+    monkeypatch.setenv("AI_HOSTED_RATE_LIMIT_PER_MINUTE", "2")
+    monkeypatch.setenv("AI_MAX_ESTIMATED_COST_PER_JOB", "0.2500")
+
+    openai = ApiSettings().provider_capability_map()["openai"]
+
+    assert openai["default_model"] == "gpt-5.5"
+    assert "gpt-5.5" in openai["allowed_models"]
 
 def test_settings_block_hosted_capability_without_credentials_or_guards(
     monkeypatch: pytest.MonkeyPatch,
@@ -289,3 +341,6 @@ def test_settings_repr_masks_secret_values(monkeypatch: pytest.MonkeyPatch) -> N
     assert "super-secret-fal-value" not in rendered
     assert "super-secret-bfl-value" not in rendered
     assert "**********" in rendered
+
+
+

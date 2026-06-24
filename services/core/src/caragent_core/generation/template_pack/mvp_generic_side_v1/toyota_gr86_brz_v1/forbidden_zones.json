@@ -1,0 +1,60 @@
+[
+  {
+    "id": "side-window",
+    "kind": "glass",
+    "label": "Side glass must remain clear",
+    "views": [
+      "side"
+    ],
+    "bounds": {
+      "x": 0.25,
+      "y": 0.28,
+      "width": 0.4,
+      "height": 0.16
+    }
+  },
+  {
+    "id": "front-windshield",
+    "kind": "glass",
+    "label": "Front windshield must remain clear",
+    "views": [
+      "front",
+      "top"
+    ],
+    "bounds": {
+      "x": 0.33,
+      "y": 0.28,
+      "width": 0.34,
+      "height": 0.13
+    }
+  },
+  {
+    "id": "rear-window",
+    "kind": "glass",
+    "label": "Rear window must remain clear",
+    "views": [
+      "rear",
+      "top"
+    ],
+    "bounds": {
+      "x": 0.33,
+      "y": 0.28,
+      "width": 0.34,
+      "height": 0.13
+    }
+  },
+  {
+    "id": "wheel-arches",
+    "kind": "cutout",
+    "label": "Wheel arches require installer review",
+    "views": [
+      "side"
+    ],
+    "bounds": {
+      "x": 0.15,
+      "y": 0.58,
+      "width": 0.7,
+      "height": 0.2
+    }
+  }
+]

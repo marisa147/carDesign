@@ -6,6 +6,7 @@ from datetime import datetime
 from decimal import Decimal
 from uuid import UUID
 
+from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from caragent_core.enums import (
@@ -25,6 +26,7 @@ from caragent_core.models import (
     ExportRecord,
     Feedback,
     GenerationJob,
+    JobDispatchOutbox,
     JobEvent,
     ModelRun,
     utc_now,
@@ -35,11 +37,13 @@ from caragent_core.repositories import jobs as job_repository
 from caragent_core.services import workspaces
 
 JsonObject = dict[str, object]
+CONSTRUCTION_PACKAGE_FORMAT = "construction_package_zip"
 SUPPORTED_CONCEPT_EXPORT_FORMATS = {
     "jpeg",
     "jpg",
     "png",
     ENHANCED_HANDOFF_PACKAGE_FORMAT,
+    CONSTRUCTION_PACKAGE_FORMAT,
     PRODUCTION_PREFLIGHT_FORMAT,
 }
 CONCEPT_EXPORT_DISCLAIMER = "Concept preview only, not print-ready."
@@ -61,6 +65,18 @@ class ModelRunNotFoundError(LookupError):
 class JobCreationResult:
     job: GenerationJob
     idempotent_reused: bool
+
+
+@dataclass(frozen=True)
+class JobDispatchCreationResult:
+    dispatch: JobDispatchOutbox
+    idempotent_reused: bool
+
+
+DISPATCH_PENDING = "pending"
+DISPATCH_DISPATCHED = "dispatched"
+DISPATCH_FAILED = "failed"
+DISPATCH_STATUSES = {DISPATCH_PENDING, DISPATCH_DISPATCHED, DISPATCH_FAILED}
 
 
 def _normalize_required(value: str, field_name: str) -> str:
@@ -205,6 +221,123 @@ async def get_job(session: AsyncSession, job_id: UUID) -> GenerationJob:
     return job
 
 
+async def create_job_dispatch_outbox(
+    session: AsyncSession,
+    job_id: UUID,
+    *,
+    task_name: str,
+    queue_name: str,
+    metadata: JsonObject | None = None,
+) -> JobDispatchCreationResult:
+    await get_job(session, job_id)
+    normalized_task_name = _normalize_required(task_name, "task_name")
+    normalized_queue_name = _normalize_required(queue_name, "queue_name")
+    existing = await job_repository.find_dispatch_outbox(
+        session,
+        job_id,
+        normalized_task_name,
+    )
+    if existing is not None:
+        return JobDispatchCreationResult(dispatch=existing, idempotent_reused=True)
+
+    dispatch = JobDispatchOutbox(
+        job_id=job_id,
+        metadata_json=metadata or {},
+        queue_name=normalized_queue_name,
+        status=DISPATCH_PENDING,
+        task_name=normalized_task_name,
+    )
+    session.add(dispatch)
+    await session.flush()
+    return JobDispatchCreationResult(dispatch=dispatch, idempotent_reused=False)
+
+
+async def list_ready_job_dispatches(
+    session: AsyncSession,
+    *,
+    limit: int = 100,
+) -> list[JobDispatchOutbox]:
+    if limit < 1:
+        raise JobValidationError("Dispatch limit must be positive")
+    return await job_repository.list_ready_dispatch_outbox(session, limit=limit)
+
+
+async def mark_job_dispatch_dispatched(
+    session: AsyncSession,
+    dispatch_id: UUID,
+    *,
+    task_id: str | None,
+) -> JobDispatchOutbox:
+    dispatch = await job_repository.get_dispatch_outbox(session, dispatch_id)
+    if dispatch is None:
+        raise JobValidationError(f"Job dispatch outbox not found: {dispatch_id}")
+    if dispatch.status == DISPATCH_DISPATCHED:
+        return dispatch
+    dispatch.attempts += 1
+    dispatch.dispatched_at = utc_now()
+    dispatch.last_error = None
+    dispatch.status = DISPATCH_DISPATCHED
+    dispatch.task_id = task_id
+    await session.flush()
+    return dispatch
+
+
+async def mark_job_dispatch_failed(
+    session: AsyncSession,
+    dispatch_id: UUID,
+    *,
+    error_message: str,
+    secrets: Sequence[str] = (),
+) -> JobDispatchOutbox:
+    dispatch = await job_repository.get_dispatch_outbox(session, dispatch_id)
+    if dispatch is None:
+        raise JobValidationError(f"Job dispatch outbox not found: {dispatch_id}")
+    dispatch.attempts += 1
+    dispatch.last_error = _sanitize_error(error_message, secrets=secrets)
+    dispatch.status = DISPATCH_FAILED
+    await session.flush()
+    return dispatch
+
+
+async def claim_queued_job(
+    session: AsyncSession,
+    job_id: UUID,
+    *,
+    message: str,
+    source: str,
+    metadata: JsonObject | None = None,
+) -> GenerationJob | None:
+    result = await session.execute(
+        update(GenerationJob)
+        .where(
+            GenerationJob.id == job_id,
+            GenerationJob.status == JobStatus.QUEUED.value,
+        )
+        .values(
+            latest_error=None,
+            state_version=GenerationJob.state_version + 1,
+            status=JobStatus.RUNNING.value,
+            updated_at=utc_now(),
+        ),
+    )
+    if int(getattr(result, "rowcount", 0)) != 1:
+        return None
+
+    job = await get_job(session, job_id)
+    await session.refresh(job)
+    await append_event(
+        session,
+        job_id,
+        event_type=JobEventType.STATUS.value,
+        status=JobStatus.RUNNING.value,
+        message=message,
+        metadata=metadata,
+        source=source,
+    )
+    await session.flush()
+    return job
+
+
 async def list_workspace_jobs(session: AsyncSession, workspace_id: UUID) -> list[GenerationJob]:
     await workspaces.get_workspace(session, workspace_id)
     return await job_repository.list_workspace_jobs(session, workspace_id)
@@ -271,6 +404,7 @@ async def transition_job_status(
     normalized_status = _validate_choice(status, {item.value for item in JobStatus}, "status")
     job.status = normalized_status
     job.latest_error = _sanitize_error(latest_error, secrets=secrets)
+    job.state_version += 1
     event_metadata = _sanitize_event_metadata(metadata, secrets=secrets)
     if event_metadata is not None and normalized_status in {
         JobStatus.CANCELED.value,
@@ -578,8 +712,11 @@ async def record_export(
     export_completed_at = completed_at
     if normalized_status == ExportStatus.SUCCEEDED.value and export_completed_at is None:
         export_completed_at = utc_now()
+    provided_manifest = manifest or {}
+    default_source_artifact_id = str(artifact.id) if artifact is not None else None
+    default_source_object_key = artifact.object_key if artifact is not None else None
     export_manifest: JsonObject = {
-        **(manifest or {}),
+        **provided_manifest,
         "brief_id": str(version.brief_id) if version.brief_id is not None else None,
         "concept_label": normalized_label,
         "disclaimer": CONCEPT_EXPORT_DISCLAIMER,
@@ -589,8 +726,14 @@ async def record_export(
             str(version.parent_version_id) if version.parent_version_id is not None else None
         ),
         **_reference_trace_from_parameters(version.parameters),
-        "source_artifact_id": str(artifact.id) if artifact is not None else None,
-        "source_artifact_object_key": artifact.object_key if artifact is not None else None,
+        "source_artifact_id": provided_manifest.get(
+            "source_artifact_id",
+            default_source_artifact_id,
+        ),
+        "source_artifact_object_key": provided_manifest.get(
+            "source_artifact_object_key",
+            default_source_object_key,
+        ),
         "version_id": str(version_id),
         "workspace_id": str(workspace_id),
     }

@@ -4,26 +4,28 @@
 
 痛车设计生成 Agent 是一个面向痛车设计需求的 AI Web 工作台。v3.0 已经交付一个可本地运行、可验证的概念设计与审阅工作流：用户可以通过 GPT 风格对话描述车型、角色、风格、颜色、文案和参考素材，系统将需求解析为结构化参数，经异步 worker 生成 2D 概念图，并在 Web 工作台中展示、局部编辑、参考引导、轻量 3D 预览、反馈、导出增强概念交付包、运行概念级生产 readiness preflight、选择可信模板并查看运营状态。
 
-v4.0 从 `C:/Users/25858/Downloads/carAgent_CODE_REVIEW.md` 出发，聚焦真实生成闭环和一致性加固：明确生成入口、真实 artifact 图片展示、统一对象存储、队列/Worker 短事务可靠性、3D 截图真实性、字段清空、模板 mask 合成、Agent 解析边界和上线加固。产品边界仍然是概念设计与审阅工作流，不承诺生产级印刷交付、verified UV mapping、商业订单流、托管模型生产可用性、auth/billing 或 marketplace。
+v4.0 已经补齐真实生成闭环和可靠性层：明确生成入口、真实 artifact 图片展示、统一对象存储、队列/Worker 短事务可靠性、3D 截图真实性、字段清空、模板 mask 合成、Agent 解析边界和上线加固。v5.0 聚焦用户在 GPT/预览调试中暴露出的产品质量问题：从抽象 generic car preview 进入第一个深度真实车型工作流，以 GR86/BRZ 准施工级模板、智能需求追问、分区设计、GPT 分区生成和 SVG/PDF/PNG 施工包为核心。
 
 ## Core Value
 
 用户能用自然语言快速得到一套可预览、可迭代、可导出的高质量痛车设计方案。
 
-## Current Milestone: v4.0 Real Generation Closure And Reliability
+## Current Milestone: v5.0 GR86/BRZ Construction Package Customization
 
-**Source:** `C:/Users/25858/Downloads/carAgent_CODE_REVIEW.md`
+**Source:** User-confirmed requirement-completion conversation on 2026-06-23 after GPT provider, chat, and preview-quality debugging.
 
-**Goal:** Make the shipped concept workflow behave like a reliable product loop: explicit generation, shared storage, real image display, committed job progress, truthful preview capture, and safer production boundaries.
+**Goal:** Move from generic concept-car previews toward a first quasi-construction customization workflow around a maintained Toyota GR86/Subaru BRZ template package, smart requirement Q&A, section-first design, GPT-assisted section generation, and SVG/PDF/PNG handoff packages.
 
 **Target features:**
 
-- Workbench generation button, job polling, artifact content URL, and real 2D image preview.
-- Shared API/Worker object storage factory with local and S3-compatible modes.
-- Transactional job dispatch outbox, conditional worker claim, and short worker units of work.
-- Real 3D canvas screenshot capture and clearable brief/reference fields.
-- Strict brief parser boundary and template-mask compositor for local generation fidelity.
-- Workspace ownership, upload/download hardening, atomic hosted quota, and traceable operations telemetry.
+- Truthful side/front/rear/top view behavior that never shows fake unavailable views.
+- Maintained GR86/BRZ real-vehicle template package with four views, sections, safe/forbidden zones, scale, dimensions, export config, and authorization metadata.
+- Template management page for package import, validation, authorization status, and version history. ✓
+- Smart chat-to-construction-brief flow with new/clear/save/discard conversation controls and GPT design supplementation. ✓
+- Section-first workspace for wrap scope, view mapping, flat panels, overlays, and local edits. ✓
+- GPT sectioned generation pipeline with per-section regeneration and durable template/provider trace. ✓
+- SVG/PDF/PNG quasi-construction package export with layered output, manifest, scale, safety, bleed, and warning evidence. ✓
+
 ## Completed Milestone: v3.0 Template Library And Production Readiness
 
 **Source:** `C:/Users/25858/Downloads/MVP_FINAL.md`
@@ -43,7 +45,7 @@ v4.0 从 `C:/Users/25858/Downloads/carAgent_CODE_REVIEW.md` 出发，聚焦真�
 
 **Shipped:** v1.0 MVP on 2026-06-18, v2.0 V2 MVP on 2026-06-19, and v3.0 Template Library And Production Readiness on 2026-06-20.
 
-**Current milestone:** v4.0 Real Generation Closure And Reliability is active.
+**Current milestone:** v5.0 GR86/BRZ Construction Package Customization is implementation-complete through Phase 33 and ready for milestone verification/archive.
 
 ## Current State
 
@@ -56,6 +58,11 @@ v4.0 从 `C:/Users/25858/Downloads/carAgent_CODE_REVIEW.md` 出发，聚焦真�
 - Local Docker smoke path for PostgreSQL, Redis, MinIO, API, worker, web, and worker queue generation.
 - V2 evidence for hosted-provider runbooks, targeted edit lineage, reference rights/source snapshots, lightweight 3D screenshots, enhanced handoff packages, release docs, and Browser UAT.
 - V3 template governance, internal-original MVP template pack, template catalog API, thumbnail serving, Workbench template selection with source/license/readiness visibility, template-aware generation/preview/editing traceability, concept-only production readiness preflight with enhanced handoff template evidence, V3 release validation, Docker/local smoke, Browser UAT, docs, release notes, and milestone audit.
+- V5 template management with installed package inspection, zip package validation, structured authorization display, source class visibility, and OpenAPI/contracts coverage.
+- V5 smart requirement completion with missing-field Q&A, GPT supplementation cue, clear/new conversation controls, save/archive controls, and construction-order brief grouping.
+- V5 section-first workspace with template detail loading, GR86/BRZ construction sections, view mapping, flat panel dimensions, and targeted-edit section coupling.
+- V5 sectioned generation planning with overall design direction, per-section prompts, section regeneration metadata, and durable worker trace.
+- V5 construction package export with immutable ZIP artifact, layered SVG, PDF, source PNG, manifest source trace, warnings, and Web `施工包` controls.
 
 **Codebase scale at v3.0 close:** about 35,525 source-plus-test-and-doc lines across `apps/`, `packages/`, `services/`, `scripts/`, `infra/`, `docs/`, and `README.md`, excluding generated contracts and dependency folders.
 
@@ -88,12 +95,13 @@ v4.0 从 `C:/Users/25858/Downloads/carAgent_CODE_REVIEW.md` 出发，聚焦真�
 
 ### Active
 
-- [ ] User can explicitly generate a first 2D concept from the active workbench brief and see the real generated image in the 2D preview — v4.0 Phase 21 (GENC)
-- [ ] API and Worker use one shared object storage factory and stable artifact content route — v4.0 Phase 22 (STOR)
-- [ ] Generation jobs cannot be dispatched before commit, and Worker progress is visible through short committed transactions — v4.0 Phase 23 (RELY)
-- [ ] 3D screenshot capture stores real canvas bytes and parameter edits can clear optional fields — v4.0 Phase 24 (PREV)
-- [ ] Brief parsing and template composition are separated into strict parser and deterministic compositor boundaries — v4.0 Phase 25 (AGNT)
-- [ ] Workspace authorization, upload/download safety, hosted quota atomicity, and observability are hardened — v4.0 Phase 26 (HARD)
+- ✓ User can switch side/front/rear/top controls without seeing fake unavailable views — v5.0 Phase 27 (VIEW)
+- ✓ User can select and validate a maintained Toyota GR86/Subaru BRZ quasi-construction template package — v5.0 Phase 28 (TPLG)
+- ✓ User can manage, import, validate, and inspect authorization metadata for template packages — v5.0 Phase 29 (TMPL)
+- ✓ User can complete requirements through smart Q&A, GPT supplementation, and a right-side construction brief with draft controls — v5.0 Phase 30 (BRIF)
+- ✓ User can design by practical vehicle sections and see section-to-view/flat-panel mapping — v5.0 Phase 31 (SECT)
+- ✓ GPT mode can create and regenerate section-level design outputs with durable template/provider trace — v5.0 Phase 32 (GPTD)
+- ✓ User can export a layered SVG/PDF/PNG quasi-construction package with scale, safety, bleed, manifest, and warnings — v5.0 Phase 33 (PACK)
 
 ### Out of Scope
 - 完整报价、下单和支付系统 -- v1.0 已验证设计生成闭环，商业交易能力继续后置。
@@ -129,7 +137,7 @@ Shipped v1.0 experience:
 
 ## Constraints
 
-- **V3 scope discipline**: v3.0 follows `MVP_FINAL.md` by strengthening template governance and production-readiness visibility, while keeping print-ready export, verified UV, real vehicle template commercialization, and ordering workflows out of scope.
+- **V5 scope discipline**: v5.0 goes deep on one GR86/BRZ quasi-construction template and SVG/PDF/PNG handoff; PSD/AI, installer-certified print readiness, broad marketplace, payments, and automated copyright verification remain out of scope.
 - **Frontend stack**: Continue with Next.js, React, TypeScript, Tailwind CSS, shadcn/ui patterns, TanStack Query, Zustand, and lucide-react unless a future plan justifies a change.
 - **Backend stack**: Continue with Python, FastAPI, Pydantic, SQLAlchemy/Alembic, Celery, Redis, PostgreSQL, and object storage boundaries.
 - **Provider boundary**: Workers call provider adapters. Hosted provider names, model names, pricing, and safety behavior must remain config-driven and re-verified before production use.
@@ -159,7 +167,8 @@ Shipped v1.0 experience:
 | PreviewSpec remains the template-aware review contract | Generation, 2D overlays, targeted edits, reference traces, and 3D fallback need one durable selected-version source of truth | ✓ Good — Phase 18 carries selected-template context through local provider, worker records, Workbench preview, and canonical/legacy 3D compatibility |
 | Preflight explains missing production evidence | Concept handoff should tell users what is absent before production instead of pretending generic concepts are print-ready | ✓ Good — Phase 19 adds durable concept-only preflight and template validation evidence while keeping PSD/AI/PDF exports blocked |
 | Release evidence stays provider-off by default | V3 release hardening should prove local template/preflight behavior without accidental cost or hosted-provider claims | ✓ Good — Phase 20 passed aggregate validation, Docker/local smoke, Browser UAT, docs, and audit without hosted calls |
-| v4 prioritizes real product closure over new feature breadth | Code review found gaps in the existing loop: hidden generation entry, disconnected storage, object-key-only preview, long transactions, queue race, and fake 3D screenshots | — Pending — v4.0 started from `carAgent_CODE_REVIEW.md` |
+| v4 prioritizes real product closure over new feature breadth | Code review found gaps in the existing loop: hidden generation entry, disconnected storage, object-key-only preview, long transactions, queue race, and fake 3D screenshots | ✓ Good — v4.0 closed the real generation loop, storage, worker reliability, preview correctness, parser/compositor boundary, and hardening work |
+| v5 starts with one deep GR86/BRZ template | User feedback showed generic side-view previews and fake view tabs are not credible enough for customization; one maintained real-vehicle package is safer than many shallow templates | ✓ Good — v5.0 implemented GR86/BRZ sections, smart Q&A, GPT section planning, and quasi-construction package export |
 
 ## Evolution
 
@@ -181,4 +190,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state.
 
 ---
-*Last updated: 2026-06-22 after v4.0 milestone initialization*
+*Last updated: 2026-06-23 after Phase 33 implementation*

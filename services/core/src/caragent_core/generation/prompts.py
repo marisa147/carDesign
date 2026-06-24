@@ -6,6 +6,7 @@ from typing import Any
 from pydantic import BaseModel, Field, field_validator
 
 from caragent_core.generation.briefs import GenerationBriefPayload
+from caragent_core.generation.templates import resolve_vehicle_template
 from caragent_core.references import ReferenceUsagePlan, plan_reference_usage
 
 DEFAULT_PROVIDER = "local-deterministic"
@@ -57,7 +58,8 @@ def build_prompt_plan(
         reference_usage=brief.reference_usage,
     )
     input_artifact_ids = list(reference_plan.included_reference_asset_ids)
-    prompt_text = _build_prompt_text(brief, reference_plan)
+    section_design_plan = _build_section_design_plan(brief)
+    prompt_text = _build_prompt_text(brief, reference_plan, section_design_plan)
 
     prompt_payload: JsonObject = {
         "brief": {
@@ -89,6 +91,7 @@ def build_prompt_plan(
             "view": brief.view,
         },
         "preview_spec": _build_preview_spec(brief, input_artifact_ids),
+        "section_design_plan": section_design_plan,
         "warnings": list(brief.warnings),
     }
 
@@ -107,6 +110,7 @@ def build_prompt_plan(
 def _build_prompt_text(
     brief: GenerationBriefPayload,
     reference_plan: ReferenceUsagePlan,
+    section_design_plan: JsonObject,
 ) -> str:
     character_focus = brief.character_focus or "designer-selected character placement"
     color_harmony = brief.color_harmony or "balanced with selected palette"
@@ -124,6 +128,7 @@ def _build_prompt_text(
     )
     reference_roles = _build_reference_role_prompt_text(reference_plan)
     warnings = _join_values(brief.warnings, fallback="no template warnings")
+    section_count = len(_json_list(section_design_plan.get("sections")))
 
     return "\n".join(
         [
@@ -152,9 +157,76 @@ def _build_prompt_text(
             f"Reference asset ids: {references}.",
             f"Reference roles: {reference_roles}.",
             f"Template/view notes: {warnings}.",
+            (
+                "Sectioned design plan: "
+                f"{section_count} template sections with overall direction "
+                f"{section_design_plan.get('overall_direction', 'not planned')}."
+            ),
             "Output is a concept preview only, not an installer-ready production wrap.",
         ],
     )
+
+
+
+
+def _build_section_design_plan(brief: GenerationBriefPayload) -> JsonObject:
+    resolution = resolve_vehicle_template(
+        vehicle_template_id=brief.vehicle_template_id,
+        view=brief.view,
+    )
+    sections = [_section_prompt_payload(brief, section) for section in resolution.sections]
+    return {
+        "overall_direction": _overall_direction(brief),
+        "regeneration": {"target_section_id": None, "mode": "full_design"},
+        "schema_version": 1,
+        "sections": sections,
+        "template": {
+            "id": resolution.template_id,
+            "label": resolution.template_label,
+            "view": resolution.view,
+        },
+    }
+
+
+def _section_prompt_payload(brief: GenerationBriefPayload, section: JsonObject) -> JsonObject:
+    section_id = str(section.get("id", ""))
+    label = str(section.get("label", section_id or "section"))
+    views = [str(view) for view in _json_list(section.get("views"))]
+    raw_bounds = section.get("bounds")
+    raw_real_size = section.get("real_size_mm")
+    bounds = dict(raw_bounds) if isinstance(raw_bounds, dict) else {}
+    real_size = dict(raw_real_size) if isinstance(raw_real_size, dict) else {}
+    prompt = " ".join(
+        [
+            f"Design the {label} section for {brief.vehicle_template_label}.",
+            f"Theme: {brief.character_theme}.",
+            f"Style: {brief.style}.",
+            f"Palette: {_join_values(brief.palette, fallback='designer-selected palette')}.",
+            f"Coverage intent: {brief.coverage}.",
+            f"Keep artwork inside section {section_id} and avoid forbidden glass/light zones.",
+        ],
+    )
+    return {
+        "bounds": bounds,
+        "id": section_id,
+        "label": label,
+        "prompt": prompt,
+        "real_size_mm": real_size,
+        "views": views,
+    }
+
+
+def _overall_direction(brief: GenerationBriefPayload) -> str:
+    palette = _join_values(brief.palette, fallback="designer-selected palette")
+    text = _join_values(brief.text, fallback="no fixed text")
+    return (
+        f"{brief.character_theme} in {brief.style}; palette {palette}; "
+        f"coverage {brief.coverage}; text {text}."
+    )
+
+
+def _json_list(value: object) -> list[object]:
+    return value if isinstance(value, list) else []
 
 
 def _join_values(values: list[str], *, fallback: str) -> str:

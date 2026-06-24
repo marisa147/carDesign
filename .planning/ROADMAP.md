@@ -5,89 +5,109 @@
 - ✅ **v1.0 MVP** — Phases 1-7 shipped on 2026-06-18. Archive: `.planning/milestones/v1.0-ROADMAP.md`.
 - ✅ **v2.0 V2 MVP** — Phases 8-14 shipped on 2026-06-19. Archive: `.planning/milestones/v2.0-ROADMAP.md`.
 - ✅ **v3.0 Template Library And Production Readiness** — Phases 15-20 shipped on 2026-06-20. Archive: `.planning/milestones/v3.0-ROADMAP.md`.
-- ◆ **v4.0 Real Generation Closure And Reliability** — Phases 21-26 active from 2026-06-22.
+- ✅ **v4.0 Real Generation Closure And Reliability** — Phases 21-26 implemented on 2026-06-22; archive-ready.
+- ✅ **v5.0 GR86/BRZ Construction Package Customization** — Phases 27-33 implemented on 2026-06-23; archive-ready.
 
 ## Current Planning State
 
-v4.0 is initialized from `C:/Users/25858/Downloads/carAgent_CODE_REVIEW.md` and focuses on making the existing concept workflow reliable and truthful before adding more product breadth.
+v5.0 is initialized from the user-confirmed requirement-completion discussion after the GPT/provider and preview-quality fixes. It focuses on replacing generic abstract car output with a first deep real-vehicle customization workflow: GR86/BRZ maintained template package, section-first design, smart Q&A, GPT-assisted design supplementation, template import validation, and SVG/PDF/PNG quasi-construction package export.
 
-**Next up:** Phase 21 implementation: real generation entrypoint and 2D artifact image preview.
+**Next up:** v5.0 milestone verification/audit and archive preparation.
 
 ## Active Phase Plan
 
 | Phase | Name | Goal | Requirements | Success Criteria |
 |-------|------|------|--------------|------------------|
-| 21 | Real Generation Entry And Artifact Preview | Users can generate from the active brief and see the real produced image. | GENC-01..04 | Generate button submits a job; active jobs poll; artifact content URL exists; 2D preview renders real image plus overlays. |
-| 22 | Shared Object Storage | API and Worker share one storage contract and settings. | STOR-01..04 | API/Worker use factory; local metadata preserved; content route enforces workspace; storage contract tests pass. |
-| 23 | Dispatch And Worker Reliability | Job dispatch and execution state become race-safe and visible. | RELY-01..05 | Outbox records dispatch; enqueue happens after commit; worker claim is conditional; progress commits during provider calls. |
-| 24 | Preview And Parameter Correctness | Preview captures and brief patches stop reporting false success. | PREV-01..03 | 3D capture uses real canvas bytes; API validates magic/dimensions; UI can clear strings/lists/references. |
-| 25 | Parser Boundary And Template Compositor | Agent understanding and image composition have reliable ownership boundaries. | AGNT-01..03 | BriefParser protocol exists; deterministic fallback remains; local generation uses template masks and compositor pixel tests. |
-| 26 | Security And Operations Hardening | Workspace access, inputs, quotas, and telemetry are safe enough for the next product layer. | HARD-01..04 | Ownership checks derive server user; upload/download validation hardened; hosted quota reserves atomically; trace IDs and queue metrics visible. |
+| 27 | View Truthfulness And Current Preview Repair | Stop side/front/rear/top controls from implying fake unavailable views. | VIEW-01..02 | Complete: view controls reflect template capabilities; unavailable views show `模板未提供该视图`; generated previews no longer claim nonexistent multi-view support. |
+| 28 | GR86/BRZ Template Package Schema | Create the first deep real-vehicle template contract and maintained GR86/BRZ package. | TPLG-01..04 | Complete: package has four distinct views, sections, safe/forbidden zones, real dimensions, scale, manifest, export config, and validator coverage. |
+| 29 | Template Management And Authorization | Let users inspect/import validated template packages and see authorization status. | TMPL-01..04 | Complete: template management page lists package details, validates SVG/PNG/JSON imports, and displays structured authorization/version metadata. |
+| 30 | Construction Brief And Smart Q&A | Turn chat into a requirement-completion workflow instead of one-shot classification. | BRIF-01..06 | Complete: assistant asks missing core fields, surfaces GPT supplementation, and writes a right-side construction-order brief with clear/save/discard/new controls. |
+| 31 | Section-First Design Workspace | Make vehicle sections the main customization surface. | SECT-01..03 | Complete: section list drives scope; selected section maps to views and flat panels; targeted edits are constrained to selected sections. |
+| 32 | GPT Sectioned Generation Pipeline | Convert completed briefs into section-level GPT design plans and regenerable outputs. | GPTD-01..04 | Complete: GPT/provider prompt plan creates overall direction, splits prompts by section, supports section regeneration metadata, and records section/template/provider trace. |
+| 33 | SVG/PDF/PNG Construction Package Export | Export a quasi-construction handoff package from the sectioned template design. | PACK-01..03 | Complete: package contains layered SVG, PDF, PNG/source preview, manifest, source trace, template evidence, and clear warnings. |
 
 ## Phase Details
 
-### Phase 21: Real Generation Entry And Artifact Preview
+### Phase 27: View Truthfulness And Current Preview Repair
 
-Goal: Close the user-visible generation loop in the workbench.
-
-Success criteria:
-1. Workbench shows an explicit `生成概念` action near saved brief parameters.
-2. The action saves the current brief, submits `submitGenerationJob`, and stores the returned job in query/cache state.
-3. Queued/running jobs poll job, events, artifacts, and versions every 1-2 seconds until terminal.
-4. `ArtifactResponse.content_url` points to a workspace-scoped API content route.
-5. 2D preview renders `<img>` using `content_url`, with PreviewSpec overlays remaining available.
-
-### Phase 22: Shared Object Storage
-
-Goal: Remove the API/Worker storage split and make artifact reads deterministic.
+Goal: Make the existing workbench honest before building deeper template features.
 
 Success criteria:
-1. Storage settings are shared or mirrored by API and Worker without hardcoded `.cache/object-storage` or `.caragent-generated` roots.
-2. Local file storage writes sidecar metadata or equivalent content-type preservation.
-3. Storage protocol supports `put_object`, `get_object`, `head_object`, and `delete_object`.
-4. Artifact content streaming works for generated images and rejects wrong-workspace access.
+1. Side/front/rear/top buttons read available views from the selected template/version.
+2. Selecting an unavailable view shows `模板未提供该视图` instead of reusing the side-view composition.
+3. Preview metadata exposes available/missing views so UI and export warnings can agree.
+4. Regression tests cover templates with side-only assets and templates with multiple views.
 
-### Phase 23: Dispatch And Worker Reliability
+### Phase 28: GR86/BRZ Template Package Schema
 
-Goal: Remove commit/enqueue races and long transaction behavior.
-
-Success criteria:
-1. `job_dispatch_outbox` exists with pending/dispatched/failed metadata.
-2. Generation, iteration, and retry routes write job plus outbox in one transaction.
-3. A dispatcher sends Celery tasks after commit and marks outbox dispatched idempotently.
-4. Worker claims queued jobs with a conditional update and state version.
-5. Worker commits running, progress, failure, success, model run, artifact, and version records in short units of work.
-
-### Phase 24: Preview And Parameter Correctness
-
-Goal: Fix two small but high-trust workflow lies.
+Goal: Establish a quasi-construction template contract around one real vehicle.
 
 Success criteria:
-1. The 3D viewer exposes real canvas capture to the panel.
-2. Screenshot upload payload dimensions match decoded image dimensions server-side.
-3. Parameter patch construction treats empty strings and empty arrays as intentional changes.
-4. Clearing all reference assignments persists empty `reference_asset_ids` and `reference_usage`.
+1. The template schema supports required view files, section ids, safe zones, forbidden zones, real-unit dimensions, scale, export config, and authorization metadata.
+2. A maintained GR86/BRZ package exists with distinct side/front/rear/top assets and manifest versioning.
+3. Validation rejects missing structural, construction, delivery, or authorization fields with actionable messages.
+4. Tests prove real proportions and section geometry are loaded without relying on generic abstract silhouettes.
 
-### Phase 25: Parser Boundary And Template Compositor
+### Phase 29: Template Management And Authorization
 
-Goal: Make the system more like an Agent without letting model output own durable state.
+Status: Complete.
 
-Success criteria:
-1. `BriefParser` and `BriefDraft` exist in core generation contracts.
-2. Deterministic fallback parser preserves current brief behavior.
-3. LLM parser is feature-flagged and returns strict structured output only.
-4. Template compositor loads package base/masks/panel lines and produces a generated PNG.
-5. Pixel tests prove windows, wheels, and handles are protected by masks.
-
-### Phase 26: Security And Operations Hardening
-
-Goal: Prepare the reliable loop for real users and future production upgrades.
+Goal: Make template provenance visible and importable through product UI.
 
 Success criteria:
-1. Workspace resources enforce ownership through server-derived user identity.
-2. Upload and provider-download validators check bytes, type, dimensions, and URL safety.
-3. Hosted provider quota/rate checks are atomic and record reserve/settle evidence.
-4. Logs/events/status include request/job/model-run trace identifiers and queue timing metrics.
+1. A template management page lists installed template packages and validation state.
+2. Users can upload/import SVG/PNG/JSON template packages for validation.
+3. Authorization status shows source, authorization file reference, scope, expiration, commercial-use flag, reviewer, and version history.
+4. Import errors identify missing assets, invalid JSON/SVG structure, unsupported dimensions, and missing authorization fields.
+
+### Phase 30: Construction Brief And Smart Q&A
+
+Status: Complete.
+
+Goal: Make the assistant start a customization process with the user instead of only categorizing a prompt.
+
+Success criteria:
+1. The chat flow asks missing core fields one by one: vehicle template, character/theme, main color, wrap range, and text/logo.
+2. The GPT parser may propose/supplement style, composition, palette, and section ideas when the user asks it to.
+3. The right-side brief groups fields by 车型, 范围, 设计, 素材, 导出, and 风险.
+4. Missing construction/auth/delivery details show warnings but do not block the first generation path.
+5. Users can clear the chat, create a new conversation, save a draft, and discard unsaved changes.
+
+### Phase 31: Section-First Design Workspace
+
+Status: Complete.
+
+Goal: Put vehicle sections at the center of customization and review.
+
+Success criteria:
+1. Users select wrap scope from practical sections including doors, rear quarter, front fender, hood, roof, trunk, front/rear bumper, and side skirt.
+2. Selecting a section highlights its related side/front/rear/top position and flat/unfolded panel where the template provides it.
+3. PreviewSpec overlays and local edits are clipped or validated against selected section geometry.
+4. Section state persists through brief save, generation job submission, version history, and export metadata.
+
+### Phase 32: GPT Sectioned Generation Pipeline
+
+Status: Complete.
+
+Goal: Use GPT for design direction and section decomposition while keeping durable state typed and traceable.
+
+Success criteria:
+1. GPT mode generates an overall design direction from the construction brief and template package context.
+2. The system derives section-level prompts/constraints from the direction and selected wrap sections.
+3. A user can regenerate one section while keeping other sections unchanged.
+4. Model runs, artifacts, and versions record prompt, model, section ids, template version, and provider trace.
+
+### Phase 33: SVG/PDF/PNG Construction Package Export
+
+Status: Complete.
+
+Goal: Produce a credible quasi-construction package without claiming final print-shop certification.
+
+Success criteria:
+1. Exported package includes layered SVG, PDF, PNG, manifest, template version, scale, safe-zone, forbidden-zone, and warning evidence.
+2. SVG layer names are stable for base/body/window/wheel/handle/panel lines and artwork sections.
+3. PDF and PNG outputs preserve section boundaries, bleed/safety margins, and readable concept-vs-construction warnings.
+4. Tests validate package contents and at least one GR86/BRZ sectioned export fixture.
 
 ## Progress
 
@@ -96,16 +116,19 @@ Success criteria:
 | v1.0 MVP | 1-7 | 42/42 | Complete | 2026-06-18 |
 | v2.0 V2 MVP | 8-14 | 34/34 | Complete | 2026-06-19 |
 | v3.0 Template Library And Production Readiness | 15-20 | 31/31 | Complete | 2026-06-20 |
-| v4.0 Real Generation Closure And Reliability | 21-26 | 0/23 | Active | — |
+| v4.0 Real Generation Closure And Reliability | 21-26 | 23/23 | Complete | 2026-06-22 |
+| v5.0 GR86/BRZ Construction Package Customization | 27-33 | 26/26 | Complete | 2026-06-23 |
 
 ## Deferred Future Directions
 
-- Full print-ready PSD/AI/PDF handoff with verified scale, bleed, color profile, DPI, and installer notes.
-- Verified vehicle-specific UV mapping and broad licensed template library coverage.
+- Print-shop-ready PSD/AI handoff with verified color profile, installer notes, and production sign-off.
+- Verified production UV mapped 3D vehicle shells and broad licensed vehicle-template catalog coverage.
 - Marketplace, template store, public gallery, payment, quoting, ordering, installer network, and collaboration workflows.
-- Fully automated copyright/licensing verification.
-- Fully consistent multi-view generation across side/front/rear/hood with guaranteed physical alignment.
+- Fully automated copyright/licensing verification for character, logo, and third-party reference assets.
+- User-calibrated arbitrary vehicle photo templates after the maintained-package workflow is stable.
 - Hosted provider production rollout claims after current model quality, pricing, moderation, account status, quota behavior, and commercial terms are re-verified.
 
 ---
-*Last updated: 2026-06-22 after v4.0 roadmap initialization*
+*Last updated: 2026-06-23 after Phase 33 implementation*
+
+

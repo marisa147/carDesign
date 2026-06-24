@@ -10,6 +10,7 @@ from caragent_core.models import (
     Artifact,
     Asset,
     GenerationJob,
+    JobDispatchOutbox,
     metadata,
 )
 
@@ -39,8 +40,24 @@ def test_metadata_contains_all_phase_2_ledger_tables() -> None:
         "model_runs",
         "feedback",
         "exports",
+        "job_dispatch_outbox",
     }
 
+
+def test_phase_23_job_dispatch_outbox_and_state_version_are_modeled() -> None:
+    assert "state_version" in GenerationJob.__table__.c
+    assert GenerationJob.__table__.c.state_version.nullable is False
+    assert "job_dispatch_outbox" in metadata.tables
+    assert {column.name for column in JobDispatchOutbox.__table__.c} >= {
+        "attempts",
+        "dispatched_at",
+        "job_id",
+        "last_error",
+        "queue_name",
+        "status",
+        "task_id",
+        "task_name",
+    }
 
 def test_generation_jobs_have_workspace_scoped_idempotency_constraint() -> None:
     constraints = [

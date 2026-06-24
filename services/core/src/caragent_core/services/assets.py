@@ -43,6 +43,7 @@ async def create_asset(
     try:
         validate_upload(
             byte_size=len(byte_content),
+            content=byte_content,
             content_type=content_type,
             filename=filename,
         )

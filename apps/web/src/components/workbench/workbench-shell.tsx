@@ -1,3 +1,5 @@
+import Link from "next/link";
+import { Settings } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { Badge } from "@/components/ui/badge";
@@ -35,6 +37,20 @@ export function WorkbenchShell({
           </p>
         </div>
         <div className="flex min-w-0 flex-wrap items-center justify-end gap-2 text-xs">
+          <Link
+            className="inline-flex h-8 items-center justify-center gap-1 rounded-md border border-border bg-card px-3 font-semibold text-foreground hover:bg-muted"
+            href="/settings/bfl"
+          >
+            <Settings aria-hidden="true" className="h-3.5 w-3.5" />
+            BFL 设置
+          </Link>
+          <Link
+            className="inline-flex h-8 items-center justify-center gap-1 rounded-md border border-border bg-card px-3 font-semibold text-foreground hover:bg-muted"
+            href="/settings/gpt"
+          >
+            <Settings aria-hidden="true" className="h-3.5 w-3.5" />
+            GPT 设置
+          </Link>
           <Badge variant="muted">local</Badge>
           <Badge variant="default">API 合约已生成</Badge>
           <span className="truncate text-secondary-foreground">

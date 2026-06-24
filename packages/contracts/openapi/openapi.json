@@ -48,6 +48,17 @@
             ],
             "title": "Content Type"
           },
+          "content_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content Url"
+          },
           "created_at": {
             "format": "date-time",
             "title": "Created At",
@@ -340,6 +351,209 @@
         "title": "AssetRightsUpdateRequest",
         "type": "object"
       },
+      "BflSettingsResponse": {
+        "properties": {
+          "api_key_configured": {
+            "title": "Api Key Configured",
+            "type": "boolean"
+          },
+          "api_key_masked": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Api Key Masked"
+          },
+          "base_url": {
+            "title": "Base Url",
+            "type": "string"
+          },
+          "calls_enabled": {
+            "title": "Calls Enabled",
+            "type": "boolean"
+          },
+          "daily_call_limit": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Daily Call Limit"
+          },
+          "default_provider": {
+            "title": "Default Provider",
+            "type": "string"
+          },
+          "max_estimated_cost_per_job": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Estimated Cost Per Job"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "rate_limit_per_minute": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rate Limit Per Minute"
+          },
+          "restart_required": {
+            "title": "Restart Required",
+            "type": "boolean"
+          },
+          "result_path": {
+            "title": "Result Path",
+            "type": "string"
+          },
+          "rollout_enabled": {
+            "title": "Rollout Enabled",
+            "type": "boolean"
+          },
+          "submit_path": {
+            "title": "Submit Path",
+            "type": "string"
+          },
+          "submit_url": {
+            "title": "Submit Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "api_key_configured",
+          "api_key_masked",
+          "base_url",
+          "calls_enabled",
+          "daily_call_limit",
+          "default_provider",
+          "max_estimated_cost_per_job",
+          "model",
+          "rate_limit_per_minute",
+          "restart_required",
+          "result_path",
+          "rollout_enabled",
+          "submit_path",
+          "submit_url"
+        ],
+        "title": "BflSettingsResponse",
+        "type": "object"
+      },
+      "BflSettingsUpdateRequest": {
+        "properties": {
+          "api_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Api Key"
+          },
+          "base_url": {
+            "default": "https://api.bfl.ai",
+            "maxLength": 512,
+            "title": "Base Url",
+            "type": "string"
+          },
+          "calls_enabled": {
+            "default": false,
+            "title": "Calls Enabled",
+            "type": "boolean"
+          },
+          "daily_call_limit": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Daily Call Limit"
+          },
+          "default_provider": {
+            "default": "disabled",
+            "maxLength": 80,
+            "title": "Default Provider",
+            "type": "string"
+          },
+          "max_estimated_cost_per_job": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Estimated Cost Per Job"
+          },
+          "model": {
+            "default": "flux-2-pro-preview",
+            "maxLength": 120,
+            "title": "Model",
+            "type": "string"
+          },
+          "rate_limit_per_minute": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rate Limit Per Minute"
+          },
+          "result_path": {
+            "default": "/v1/get_result",
+            "maxLength": 255,
+            "title": "Result Path",
+            "type": "string"
+          },
+          "rollout_enabled": {
+            "default": false,
+            "title": "Rollout Enabled",
+            "type": "boolean"
+          },
+          "submit_path": {
+            "default": "/v1/flux-2-pro-preview",
+            "maxLength": 255,
+            "title": "Submit Path",
+            "type": "string"
+          }
+        },
+        "title": "BflSettingsUpdateRequest",
+        "type": "object"
+      },
       "Body_upload_asset_workspaces__workspace_id__assets_post": {
         "properties": {
           "file": {
@@ -357,6 +571,21 @@
           "file"
         ],
         "title": "Body_upload_asset_workspaces__workspace_id__assets_post",
+        "type": "object"
+      },
+      "Body_validate_template_package_templates_validate_package_post": {
+        "properties": {
+          "package": {
+            "contentMediaType": "application/octet-stream",
+            "description": "Template package zip containing JSON and PNG/SVG assets",
+            "title": "Package",
+            "type": "string"
+          }
+        },
+        "required": [
+          "package"
+        ],
+        "title": "Body_validate_template_package_templates_validate_package_post",
         "type": "object"
       },
       "DependencyHealth": {
@@ -1544,6 +1773,19 @@
             ],
             "title": "Reference Usage"
           },
+          "status": {
+            "anyOf": [
+              {
+                "maxLength": 32,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
           "style": {
             "anyOf": [
               {
@@ -2717,6 +2959,230 @@
         "title": "ModelRunResponse",
         "type": "object"
       },
+      "OpenAISettingsResponse": {
+        "properties": {
+          "api_key_configured": {
+            "title": "Api Key Configured",
+            "type": "boolean"
+          },
+          "api_key_masked": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Api Key Masked"
+          },
+          "base_url": {
+            "title": "Base Url",
+            "type": "string"
+          },
+          "calls_enabled": {
+            "title": "Calls Enabled",
+            "type": "boolean"
+          },
+          "daily_call_limit": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Daily Call Limit"
+          },
+          "default_provider": {
+            "title": "Default Provider",
+            "type": "string"
+          },
+          "image_model": {
+            "title": "Image Model",
+            "type": "string"
+          },
+          "image_path": {
+            "title": "Image Path",
+            "type": "string"
+          },
+          "image_url": {
+            "title": "Image Url",
+            "type": "string"
+          },
+          "max_estimated_cost_per_job": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Estimated Cost Per Job"
+          },
+          "parser_enabled": {
+            "title": "Parser Enabled",
+            "type": "boolean"
+          },
+          "rate_limit_per_minute": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rate Limit Per Minute"
+          },
+          "responses_path": {
+            "title": "Responses Path",
+            "type": "string"
+          },
+          "restart_required": {
+            "title": "Restart Required",
+            "type": "boolean"
+          },
+          "rollout_enabled": {
+            "title": "Rollout Enabled",
+            "type": "boolean"
+          },
+          "text_model": {
+            "title": "Text Model",
+            "type": "string"
+          }
+        },
+        "required": [
+          "api_key_configured",
+          "api_key_masked",
+          "base_url",
+          "calls_enabled",
+          "daily_call_limit",
+          "default_provider",
+          "image_model",
+          "image_path",
+          "image_url",
+          "max_estimated_cost_per_job",
+          "parser_enabled",
+          "rate_limit_per_minute",
+          "responses_path",
+          "restart_required",
+          "rollout_enabled",
+          "text_model"
+        ],
+        "title": "OpenAISettingsResponse",
+        "type": "object"
+      },
+      "OpenAISettingsUpdateRequest": {
+        "properties": {
+          "api_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Api Key"
+          },
+          "base_url": {
+            "default": "https://api.openai.com/v1",
+            "maxLength": 512,
+            "title": "Base Url",
+            "type": "string"
+          },
+          "calls_enabled": {
+            "default": false,
+            "title": "Calls Enabled",
+            "type": "boolean"
+          },
+          "daily_call_limit": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Daily Call Limit"
+          },
+          "default_provider": {
+            "default": "disabled",
+            "maxLength": 80,
+            "title": "Default Provider",
+            "type": "string"
+          },
+          "image_model": {
+            "default": "gpt-image-2",
+            "maxLength": 120,
+            "title": "Image Model",
+            "type": "string"
+          },
+          "image_path": {
+            "default": "/images/generations",
+            "maxLength": 255,
+            "title": "Image Path",
+            "type": "string"
+          },
+          "max_estimated_cost_per_job": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Estimated Cost Per Job"
+          },
+          "parser_enabled": {
+            "default": false,
+            "title": "Parser Enabled",
+            "type": "boolean"
+          },
+          "rate_limit_per_minute": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rate Limit Per Minute"
+          },
+          "responses_path": {
+            "default": "/responses",
+            "maxLength": 255,
+            "title": "Responses Path",
+            "type": "string"
+          },
+          "rollout_enabled": {
+            "default": false,
+            "title": "Rollout Enabled",
+            "type": "boolean"
+          },
+          "text_model": {
+            "default": "gpt-5.5",
+            "maxLength": 120,
+            "title": "Text Model",
+            "type": "string"
+          }
+        },
+        "title": "OpenAISettingsUpdateRequest",
+        "type": "object"
+      },
       "OperationsProviderStatusResponse": {
         "properties": {
           "api_version": {
@@ -3401,6 +3867,10 @@
             ],
             "title": "Max Estimated Cost Per Job"
           },
+          "openai_key_configured": {
+            "title": "Openai Key Configured",
+            "type": "boolean"
+          },
           "supported_providers": {
             "items": {
               "type": "string"
@@ -3412,6 +3882,7 @@
         "required": [
           "active_mode",
           "bfl_key_configured",
+          "openai_key_configured",
           "calls_enabled",
           "default_provider",
           "hosted_provider_configured",
@@ -3742,6 +4213,18 @@
             "title": "Asset Slots",
             "type": "object"
           },
+          "authorization": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Authorization"
+          },
           "canvas_height": {
             "title": "Canvas Height",
             "type": "integer"
@@ -3749,6 +4232,38 @@
           "canvas_width": {
             "title": "Canvas Width",
             "type": "integer"
+          },
+          "dimensions": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dimensions"
+          },
+          "export_config": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Export Config"
+          },
+          "forbidden_zones": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Forbidden Zones",
+            "type": "array"
           },
           "id": {
             "title": "Id",
@@ -3776,6 +4291,26 @@
             "title": "Safe Zones",
             "type": "array"
           },
+          "scale": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scale"
+          },
+          "sections": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Sections",
+            "type": "array"
+          },
           "source": {
             "$ref": "#/components/schemas/TemplateSourceMetadata"
           },
@@ -3793,6 +4328,16 @@
           "view": {
             "title": "View",
             "type": "string"
+          },
+          "view_assets": {
+            "additionalProperties": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            "title": "View Assets",
+            "type": "object"
           }
         },
         "required": [
@@ -3810,6 +4355,113 @@
           "safe_zones"
         ],
         "title": "TemplateDetailResponse",
+        "type": "object"
+      },
+      "TemplatePackageValidationIssue": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Path"
+          },
+          "severity": {
+            "pattern": "^(error|warning)$",
+            "title": "Severity",
+            "type": "string"
+          }
+        },
+        "required": [
+          "severity",
+          "code",
+          "message"
+        ],
+        "title": "TemplatePackageValidationIssue",
+        "type": "object"
+      },
+      "TemplatePackageValidationResponse": {
+        "properties": {
+          "accepted": {
+            "title": "Accepted",
+            "type": "boolean"
+          },
+          "authorization": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Authorization"
+          },
+          "files_checked": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Files Checked",
+            "type": "array"
+          },
+          "issues": {
+            "items": {
+              "$ref": "#/components/schemas/TemplatePackageValidationIssue"
+            },
+            "title": "Issues",
+            "type": "array"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "source_class": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Class"
+          },
+          "template_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Template Id"
+          }
+        },
+        "required": [
+          "accepted"
+        ],
+        "title": "TemplatePackageValidationResponse",
         "type": "object"
       },
       "TemplateReadinessReport": {
@@ -4228,6 +4880,22 @@
               "title": "Asset Id",
               "type": "string"
             }
+          },
+          {
+            "in": "header",
+            "name": "X-CarAgent-User",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Caragent-User"
+            }
           }
         ],
         "responses": {
@@ -4270,6 +4938,22 @@
               "format": "uuid",
               "title": "Asset Id",
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CarAgent-User",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Caragent-User"
             }
           }
         ],
@@ -4323,6 +5007,22 @@
               "format": "uuid",
               "title": "Brief Id",
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CarAgent-User",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Caragent-User"
             }
           }
         ],
@@ -4398,6 +5098,22 @@
               "title": "Job Id",
               "type": "string"
             }
+          },
+          {
+            "in": "header",
+            "name": "X-CarAgent-User",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Caragent-User"
+            }
           }
         ],
         "responses": {
@@ -4440,6 +5156,22 @@
               "format": "uuid",
               "title": "Job Id",
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CarAgent-User",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Caragent-User"
             }
           }
         ],
@@ -4494,6 +5226,22 @@
               "title": "Job Id",
               "type": "string"
             }
+          },
+          {
+            "in": "header",
+            "name": "X-CarAgent-User",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Caragent-User"
+            }
           }
         ],
         "responses": {
@@ -4540,6 +5288,22 @@
               "format": "uuid",
               "title": "Job Id",
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CarAgent-User",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Caragent-User"
             }
           }
         ],
@@ -4588,6 +5352,22 @@
               "title": "Job Id",
               "type": "string"
             }
+          },
+          {
+            "in": "header",
+            "name": "X-CarAgent-User",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Caragent-User"
+            }
           }
         ],
         "requestBody": {
@@ -4625,6 +5405,126 @@
         "summary": "Retry Generation Job",
         "tags": [
           "generation"
+        ]
+      }
+    },
+    "/operations/bfl-settings": {
+      "get": {
+        "operationId": "get_bfl_settings_operations_bfl_settings_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BflSettingsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Bfl Settings",
+        "tags": [
+          "operations"
+        ]
+      },
+      "post": {
+        "operationId": "update_bfl_settings_operations_bfl_settings_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BflSettingsUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BflSettingsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Bfl Settings",
+        "tags": [
+          "operations"
+        ]
+      }
+    },
+    "/operations/openai-settings": {
+      "get": {
+        "operationId": "get_openai_settings_operations_openai_settings_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenAISettingsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Openai Settings",
+        "tags": [
+          "operations"
+        ]
+      },
+      "post": {
+        "operationId": "update_openai_settings_operations_openai_settings_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenAISettingsUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenAISettingsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Openai Settings",
+        "tags": [
+          "operations"
         ]
       }
     },
@@ -4719,6 +5619,47 @@
         ]
       }
     },
+    "/templates/validate-package": {
+      "post": {
+        "operationId": "validate_template_package_templates_validate_package_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_validate_template_package_templates_validate_package_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TemplatePackageValidationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Validate Template Package",
+        "tags": [
+          "templates"
+        ]
+      }
+    },
     "/templates/{template_id}": {
       "get": {
         "operationId": "get_template_templates__template_id__get",
@@ -4799,6 +5740,24 @@
     "/workspaces": {
       "post": {
         "operationId": "create_workspace_workspaces_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-CarAgent-User",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Caragent-User"
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -4850,6 +5809,22 @@
               "title": "Workspace Id",
               "type": "string"
             }
+          },
+          {
+            "in": "header",
+            "name": "X-CarAgent-User",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Caragent-User"
+            }
           }
         ],
         "responses": {
@@ -4893,6 +5868,22 @@
               "title": "Workspace Id",
               "type": "string"
             }
+          },
+          {
+            "in": "header",
+            "name": "X-CarAgent-User",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Caragent-User"
+            }
           }
         ],
         "responses": {
@@ -4927,6 +5918,88 @@
         ]
       }
     },
+    "/workspaces/{workspace_id}/artifacts/{artifact_id}/content": {
+      "get": {
+        "operationId": "get_artifact_content_workspaces__workspace_id__artifacts__artifact_id__content_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "artifact_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Artifact Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CarAgent-User",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Caragent-User"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              },
+              "image/png": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              },
+              "image/webp": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Artifact binary content."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Artifact Content",
+        "tags": [
+          "jobs"
+        ]
+      }
+    },
     "/workspaces/{workspace_id}/assets": {
       "get": {
         "operationId": "list_assets_workspaces__workspace_id__assets_get",
@@ -4939,6 +6012,22 @@
               "format": "uuid",
               "title": "Workspace Id",
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CarAgent-User",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Caragent-User"
             }
           }
         ],
@@ -4984,6 +6073,22 @@
               "format": "uuid",
               "title": "Workspace Id",
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CarAgent-User",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Caragent-User"
             }
           }
         ],
@@ -5038,6 +6143,22 @@
               "title": "Workspace Id",
               "type": "string"
             }
+          },
+          {
+            "in": "header",
+            "name": "X-CarAgent-User",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Caragent-User"
+            }
           }
         ],
         "responses": {
@@ -5082,6 +6203,22 @@
               "format": "uuid",
               "title": "Workspace Id",
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CarAgent-User",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Caragent-User"
             }
           }
         ],
@@ -5136,6 +6273,22 @@
               "title": "Workspace Id",
               "type": "string"
             }
+          },
+          {
+            "in": "header",
+            "name": "X-CarAgent-User",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Caragent-User"
+            }
           }
         ],
         "responses": {
@@ -5183,6 +6336,22 @@
               "title": "Workspace Id",
               "type": "string"
             }
+          },
+          {
+            "in": "header",
+            "name": "X-CarAgent-User",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Caragent-User"
+            }
           }
         ],
         "responses": {
@@ -5229,6 +6398,22 @@
               "format": "uuid",
               "title": "Workspace Id",
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CarAgent-User",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Caragent-User"
             }
           }
         ],
@@ -5283,6 +6468,22 @@
               "title": "Workspace Id",
               "type": "string"
             }
+          },
+          {
+            "in": "header",
+            "name": "X-CarAgent-User",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Caragent-User"
+            }
           }
         ],
         "requestBody": {
@@ -5336,6 +6537,22 @@
               "title": "Workspace Id",
               "type": "string"
             }
+          },
+          {
+            "in": "header",
+            "name": "X-CarAgent-User",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Caragent-User"
+            }
           }
         ],
         "responses": {
@@ -5380,6 +6597,22 @@
               "format": "uuid",
               "title": "Workspace Id",
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CarAgent-User",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Caragent-User"
             }
           }
         ],
@@ -5434,6 +6667,22 @@
               "title": "Workspace Id",
               "type": "string"
             }
+          },
+          {
+            "in": "header",
+            "name": "X-CarAgent-User",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Caragent-User"
+            }
           }
         ],
         "responses": {
@@ -5478,6 +6727,22 @@
               "format": "uuid",
               "title": "Workspace Id",
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CarAgent-User",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Caragent-User"
             }
           }
         ],
@@ -5531,6 +6796,22 @@
               "format": "uuid",
               "title": "Workspace Id",
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CarAgent-User",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Caragent-User"
             }
           }
         ],
@@ -5588,6 +6869,22 @@
               "format": "uuid",
               "title": "Version Id",
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CarAgent-User",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Caragent-User"
             }
           }
         ],
@@ -5652,6 +6949,22 @@
               "title": "Version Id",
               "type": "string"
             }
+          },
+          {
+            "in": "header",
+            "name": "X-CarAgent-User",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Caragent-User"
+            }
           }
         ],
         "requestBody": {
@@ -5714,6 +7027,22 @@
               "format": "uuid",
               "title": "Version Id",
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CarAgent-User",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Caragent-User"
             }
           }
         ],
@@ -5778,6 +7107,22 @@
               "title": "Version Id",
               "type": "string"
             }
+          },
+          {
+            "in": "header",
+            "name": "X-CarAgent-User",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Caragent-User"
+            }
           }
         ],
         "requestBody": {
@@ -5840,6 +7185,22 @@
               "format": "uuid",
               "title": "Version Id",
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CarAgent-User",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Caragent-User"
             }
           }
         ],

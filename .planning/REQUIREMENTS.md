@@ -1,106 +1,124 @@
-# Requirements: 痛车设计生成 Agent v4
+# Requirements: 痛车设计生成 Agent v5
 
-**Defined:** 2026-06-22
+**Defined:** 2026-06-23
 **Core Value:** 用户能用自然语言快速得到一套可预览、可迭代、可导出的高质量痛车设计方案。
 
-## v4 Requirements
+## v5 Requirements
 
-### Generation Closure
+### Template Truthfulness
 
-- [ ] **GENC-01**: User can explicitly generate a first 2D concept from the active workbench brief without using a hidden or separate proof page.
-- [ ] **GENC-02**: User can see queued, running, succeeded, failed, and canceled job state refresh automatically while a generation job is active.
-- [ ] **GENC-03**: User can view the actual generated image in the 2D preview panel, with PreviewSpec overlays still available above it.
-- [ ] **GENC-04**: User can resume an existing workspace and still see the latest generated image through a stable artifact content URL.
+- [x] **VIEW-01**: User can switch side/front/rear/top preview controls without seeing fake views; unavailable views show a clear `模板未提供该视图` state.
+- [x] **VIEW-02**: User can see which views a selected template package actually provides before generating or reviewing a design.
 
-### Object Storage
+### GR86/BRZ Vehicle Template
 
-- [ ] **STOR-01**: API and Worker use one shared object storage factory and compatible settings for local and S3-compatible modes.
-- [ ] **STOR-02**: Local file storage preserves object content type and metadata needed for later reads.
-- [ ] **STOR-03**: API can stream an artifact only after validating the artifact belongs to the requested workspace.
-- [ ] **STOR-04**: Storage contract tests prove API uploads and Worker outputs can be read back through the same object key.
+- [x] **TPLG-01**: User can select a maintained Toyota GR86/Subaru BRZ template package as the first deep real-vehicle template.
+- [x] **TPLG-02**: The GR86/BRZ package contains distinct side, front, rear, and top view assets with real proportions, version metadata, and package manifest.
+- [x] **TPLG-03**: The GR86/BRZ package defines body sections, safe zones, forbidden zones, scale, and real-unit dimensions needed for quasi-construction use.
+- [x] **TPLG-04**: Template validation rejects packages missing required views, sections, dimensions, export config, or authorization metadata.
 
-### Queue And Worker Reliability
+### Template Management And Authorization
 
-- [ ] **RELY-01**: Generation, iteration, and retry job creation cannot enqueue a Celery task before the job transaction is committed.
-- [ ] **RELY-02**: A durable dispatch outbox records pending job delivery and supports idempotent resend.
-- [ ] **RELY-03**: Worker claims queued jobs with a conditional state transition so duplicate workers cannot both run the same job.
-- [ ] **RELY-04**: Worker commits running/progress/failure/success state in short units of work instead of one long transaction around provider calls.
-- [ ] **RELY-05**: API-visible job events reflect worker progress while provider calls are still in flight.
+- [x] **TMPL-01**: User can open a template management page and inspect installed template package details.
+- [x] **TMPL-02**: User can import a template package containing SVG/PNG/JSON assets and see validation results.
+- [x] **TMPL-03**: User can review structured authorization status including source, authorization file reference, scope, expiration, commercial-use flag, reviewer, and version history.
+- [x] **TMPL-04**: User can distinguish maintained internal templates, user-provided templates, and third-party authorized templates without relying on hidden metadata.
 
-### Preview And Editing Correctness
+### Construction Brief And Smart Q&A
 
-- [ ] **PREV-01**: 3D preview screenshot capture uploads real WebGL canvas bytes instead of a hardcoded 1x1 PNG.
-- [ ] **PREV-02**: API rejects 3D screenshot uploads when MIME, magic bytes, or actual image dimensions do not match the request.
-- [ ] **PREV-03**: User can clear optional brief strings, lists, and reference assignments from the parameter panel.
+- [x] **BRIF-01**: User can start a customization conversation where the assistant asks missing core fields one by one.
+- [x] **BRIF-02**: User can allow GPT to supplement reasonable design details instead of only classifying the input.
+- [x] **BRIF-03**: User can review and edit a right-side construction-order brief grouped by 车型, 范围, 设计, 素材, 导出, and 风险.
+- [x] **BRIF-04**: The system treats vehicle template, character/theme, main color, wrap range, and text/logo as required core fields for generation readiness.
+- [x] **BRIF-05**: Construction, authorization, and delivery-risk fields show warnings when incomplete but do not block the first v5 generation flow.
+- [x] **BRIF-06**: User can create a new conversation, clear the current conversation, save a draft, and discard a draft without losing saved workspace state.
 
-### Agent And Template Fidelity
+### Section-First Design Workspace
 
-- [ ] **AGNT-01**: Natural-language brief parsing has a strict `BriefParser` boundary with deterministic fallback and no direct database writes by LLM output.
-- [ ] **AGNT-02**: Local concept generation uses template package base and masks for body, window, wheel, handle, and panel lines.
-- [ ] **AGNT-03**: Template compositor output prevents decorative layers from covering windows, wheels, and handles unless an explicit future production workflow allows it.
+- [x] **SECT-01**: User can choose wrap scope by vehicle sections such as doors, rear quarter, front fender, hood, roof, trunk, bumpers, and side skirt.
+- [x] **SECT-02**: User can select a section and see its related side/front/rear/top position plus flat/unfolded construction panel where available.
+- [x] **SECT-03**: Preview overlays and local edits are constrained to selected template sections instead of floating over a generic car silhouette.
 
-### Hardening And Observability
+### GPT Sectioned Generation
 
-- [ ] **HARD-01**: Workspace-owned resources require server-derived ownership checks instead of trusting client supplied owner/requester fields.
-- [ ] **HARD-02**: Upload and provider-download paths validate stream size, MIME, magic bytes, image dimensions, and unsafe URLs.
-- [ ] **HARD-03**: Hosted provider quota and rate limit checks reserve and settle usage atomically.
-- [ ] **HARD-04**: Logs and status records include request/job/model-run trace identifiers and queue age or running duration.
+- [x] **GPTD-01**: GPT mode can produce an overall design direction from the completed brief and template context.
+- [x] **GPTD-02**: The system can split the design direction into section-level prompts and constraints tied to GR86/BRZ template sections.
+- [x] **GPTD-03**: User can regenerate an individual section while preserving the remaining section plan and template trace.
+- [x] **GPTD-04**: GPT-generated artwork outputs are recorded with prompt, model, section ids, template version, and provider trace.
+
+### Construction Package Export
+
+- [x] **PACK-01**: User can export a quasi-construction package containing layered SVG, PDF, PNG, manifest, template version, scale, safe-zone, forbidden-zone, and warning evidence.
+- [x] **PACK-02**: SVG output uses stable layer naming for base/body/window/wheel/handle/panel lines and artwork sections.
+- [x] **PACK-03**: PDF and PNG exports preserve visible section boundaries, bleed/safety margins, and concept-vs-construction warnings.
 
 ## Future Requirements
 
-### Production Delivery
+### Production And Commerce
 
-- **PROD-01**: User can export print-ready PSD/AI/PDF-style handoff with verified scale, bleed, color profile, DPI, and installer notes.
-- **PROD-02**: User can preview verified vehicle-specific UV mapped wraps.
+- **PROD-01**: User can export print-shop-ready PSD/AI files with verified color profile, installer notes, and production sign-off.
+- **PROD-02**: User can use verified UV mapped 3D vehicle shells for production wraps.
 - **PROD-03**: User can order, quote, pay, or route a design to an installer network.
 
 ### Marketplace And Licensing
 
-- **MRKT-01**: User can browse or purchase licensed vehicle templates in a marketplace.
-- **MRKT-02**: System can automatically verify commercial character and brand licensing evidence.
+- **MRKT-01**: User can browse, purchase, and update a broad licensed vehicle-template marketplace.
+- **MRKT-02**: System can automatically verify commercial character, anime, brand, and logo licensing evidence.
+
+### Broad Vehicle Coverage
+
+- **VEHC-01**: System ships many real-vehicle templates beyond GR86/BRZ with the same depth and validation.
+- **VEHC-02**: User can calibrate arbitrary uploaded vehicle photos into reusable production templates.
 
 ## Out of Scope
 
 | Feature | Reason |
 |---------|--------|
-| Print-ready production export | v4 fixes concept workflow reliability and real artifact display; production wrap evidence remains missing. |
-| Verified UV/true 3D vehicle mapping | The 3D preview remains concept-only until real vehicle shells and UV validation exist. |
-| Marketplace, order, quote, payment, installer workflows | Commercial workflow is downstream of trustworthy generation, storage, auth, and production evidence. |
-| Hosted provider production readiness claims | Provider quality, pricing, moderation, account access, quota behavior, and commercial terms remain unstable and must be re-verified separately. |
+| PSD/AI export in v5 | v5 first standardizes SVG/PDF/PNG package structure; native design-tool files need separate QA and library choices. |
+| Print-shop production guarantee | v5 targets quasi-construction evidence, not installer-certified output or legal production approval. |
+| Broad real-car catalog | The first milestone goes deep on GR86/BRZ so sectioning, validation, and exports become trustworthy before scaling. |
+| Marketplace/order/payment/installer flow | Commercial workflow depends on reliable templates, authorization metadata, and export package quality first. |
+| Automated copyright verification for character/logo uploads | v5 reminds users about responsibility but does not require full authorization documents for every reference asset. |
 
 ## Traceability
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| GENC-01 | Phase 21 | Pending |
-| GENC-02 | Phase 21 | Pending |
-| GENC-03 | Phase 21 | Pending |
-| GENC-04 | Phase 21 | Pending |
-| STOR-01 | Phase 22 | Pending |
-| STOR-02 | Phase 22 | Pending |
-| STOR-03 | Phase 22 | Pending |
-| STOR-04 | Phase 22 | Pending |
-| RELY-01 | Phase 23 | Pending |
-| RELY-02 | Phase 23 | Pending |
-| RELY-03 | Phase 23 | Pending |
-| RELY-04 | Phase 23 | Pending |
-| RELY-05 | Phase 23 | Pending |
-| PREV-01 | Phase 24 | Pending |
-| PREV-02 | Phase 24 | Pending |
-| PREV-03 | Phase 24 | Pending |
-| AGNT-01 | Phase 25 | Pending |
-| AGNT-02 | Phase 25 | Pending |
-| AGNT-03 | Phase 25 | Pending |
-| HARD-01 | Phase 26 | Pending |
-| HARD-02 | Phase 26 | Pending |
-| HARD-03 | Phase 26 | Pending |
-| HARD-04 | Phase 26 | Pending |
+| VIEW-01 | Phase 27 | Complete |
+| VIEW-02 | Phase 27 | Complete |
+| TPLG-01 | Phase 28 | Complete |
+| TPLG-02 | Phase 28 | Complete |
+| TPLG-03 | Phase 28 | Complete |
+| TPLG-04 | Phase 28 | Complete |
+| TMPL-01 | Phase 29 | Complete |
+| TMPL-02 | Phase 29 | Complete |
+| TMPL-03 | Phase 29 | Complete |
+| TMPL-04 | Phase 29 | Complete |
+| BRIF-01 | Phase 30 | Complete |
+| BRIF-02 | Phase 30 | Complete |
+| BRIF-03 | Phase 30 | Complete |
+| BRIF-04 | Phase 30 | Complete |
+| BRIF-05 | Phase 30 | Complete |
+| BRIF-06 | Phase 30 | Complete |
+| SECT-01 | Phase 31 | Complete |
+| SECT-02 | Phase 31 | Complete |
+| SECT-03 | Phase 31 | Complete |
+| GPTD-01 | Phase 32 | Complete |
+| GPTD-02 | Phase 32 | Complete |
+| GPTD-03 | Phase 32 | Complete |
+| GPTD-04 | Phase 32 | Complete |
+| PACK-01 | Phase 33 | Complete |
+| PACK-02 | Phase 33 | Complete |
+| PACK-03 | Phase 33 | Complete |
 
 **Coverage:**
-- v4 requirements: 23 total
-- Mapped to phases: 23
+- v5 requirements: 26 total
+- Complete: 26
+- Mapped to phases: 26
 - Unmapped: 0
 
 ---
-*Requirements defined: 2026-06-22*
-*Last updated: 2026-06-22 after v4 milestone initialization*
+*Requirements defined: 2026-06-23*
+*Last updated: 2026-06-23 after Phase 33 implementation*
+
+

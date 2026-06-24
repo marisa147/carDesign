@@ -19,11 +19,10 @@ interface Preview3DPanelProps {
   version: DesignVersionResponse;
 }
 
-const scaffoldScreenshotBase64 =
-  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=";
 
 export function Preview3DPanel({ artifact, version }: Preview3DPanelProps) {
   const [captureStatus, setCaptureStatus] = useState<string | null>(null);
+  const [captureCanvas, setCaptureCanvas] = useState<HTMLCanvasElement | null>(null);
   const captureStatusTimerRef = useRef<number | null>(null);
   const {
     preview3DCamera,
@@ -78,6 +77,7 @@ export function Preview3DPanel({ artifact, version }: Preview3DPanelProps) {
           <Preview3DViewer
             camera={preview3DCamera}
             compatibility={compatibility}
+            onCanvasReady={setCaptureCanvas}
             surfaceLabel={previewSurfaceLabel}
           />
           <div
@@ -133,16 +133,21 @@ export function Preview3DPanel({ artifact, version }: Preview3DPanelProps) {
               重置相机
             </Button>
             <Button
+              disabled={!captureCanvas}
               onClick={async () => {
+                if (!captureCanvas) {
+                  return;
+                }
                 showCaptureStatus("正在保存 3D 预览截图。");
                 try {
+                  const screenshot = await captureCanvasScreenshot(captureCanvas);
                   await createPreview3DScreenshot(version.workspace_id, version.id, {
-                    content_type: "image/png",
+                    content_type: screenshot.contentType,
                     filename: "preview-3d-screenshot.png",
-                    height: 720,
-                    image_base64: scaffoldScreenshotBase64,
+                    height: screenshot.height,
+                    image_base64: screenshot.imageBase64,
                     preview_3d: compatibility.preview3dSpec,
-                    width: 1280,
+                    width: screenshot.width,
                   });
                   showCaptureStatus("3D 预览截图已保存。", { autoClear: true });
                 } catch {
@@ -200,4 +205,50 @@ export function Preview3DPanel({ artifact, version }: Preview3DPanelProps) {
       ) : null}
     </section>
   );
+}
+
+export async function captureCanvasScreenshot(canvas: HTMLCanvasElement): Promise<{
+  contentType: "image/png";
+  height: number;
+  imageBase64: string;
+  width: number;
+}> {
+  const blob = await new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob((nextBlob) => {
+      if (!nextBlob) {
+        reject(new Error("Canvas screenshot capture failed."));
+        return;
+      }
+      resolve(nextBlob);
+    }, "image/png");
+  });
+  const dataUrl = await blobToDataUrl(blob);
+  const imageBase64 = dataUrl.split(",")[1];
+  if (!imageBase64) {
+    throw new Error("Canvas screenshot did not produce base64 data.");
+  }
+
+  return {
+    contentType: "image/png",
+    height: canvas.height,
+    imageBase64,
+    width: canvas.width,
+  };
+}
+
+function blobToDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.addEventListener("load", () => {
+      if (typeof reader.result === "string") {
+        resolve(reader.result);
+        return;
+      }
+      reject(new Error("Canvas screenshot could not be read."));
+    });
+    reader.addEventListener("error", () => {
+      reject(reader.error ?? new Error("Canvas screenshot could not be read."));
+    });
+    reader.readAsDataURL(blob);
+  });
 }

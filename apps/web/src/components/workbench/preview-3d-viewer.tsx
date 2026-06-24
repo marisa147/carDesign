@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import type { Group, PerspectiveCamera, WebGLRenderer } from "three";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
@@ -10,18 +10,25 @@ import type { Preview3DCamera } from "@/lib/workbench/store";
 interface Preview3DViewerProps {
   camera: Preview3DCamera;
   compatibility: Preview3DCompatibilityResult;
+  onCanvasReady?: (canvas: HTMLCanvasElement | null) => void;
   surfaceLabel: string;
 }
 
 type ViewerStatus = "loading" | "ready" | "fallback";
 
-export function Preview3DViewer({ camera, compatibility, surfaceLabel }: Preview3DViewerProps) {
+export function Preview3DViewer({
+  camera,
+  compatibility,
+  onCanvasReady,
+  surfaceLabel,
+}: Preview3DViewerProps) {
   const mountRef = useRef<HTMLDivElement | null>(null);
   const [status, setStatus] = useState<ViewerStatus>("loading");
 
   useEffect(() => {
     const mount = mountRef.current;
     if (!mount || compatibility.status !== "compatible") {
+      onCanvasReady?.(null);
       const fallbackTimer = window.setTimeout(() => {
         setStatus("fallback");
       }, 0);
@@ -34,6 +41,7 @@ export function Preview3DViewer({ camera, compatibility, surfaceLabel }: Preview
     const webglContext =
       probeCanvas.getContext("webgl") ?? probeCanvas.getContext("experimental-webgl");
     if (!webglContext) {
+      onCanvasReady?.(null);
       const fallbackTimer = window.setTimeout(() => {
         setStatus("fallback");
       }, 0);
@@ -64,6 +72,7 @@ export function Preview3DViewer({ camera, compatibility, surfaceLabel }: Preview
       renderer.domElement.style.height = "100%";
       renderer.domElement.style.width = "100%";
       mountRef.current.appendChild(renderer.domElement);
+      onCanvasReady?.(renderer.domElement);
 
       sceneCamera = new THREE.PerspectiveCamera(42, 2, 0.1, 100);
       shellGroup = new THREE.Group();
@@ -152,6 +161,7 @@ export function Preview3DViewer({ camera, compatibility, surfaceLabel }: Preview
         for (const material of decalMaterials) {
           material.dispose();
         }
+        onCanvasReady?.(null);
         renderer?.dispose();
         renderer?.domElement.remove();
       };
@@ -163,7 +173,13 @@ export function Preview3DViewer({ camera, compatibility, surfaceLabel }: Preview
       disposed = true;
       cleanupScene();
     };
-  }, [camera.rotationY, camera.zoom, compatibility.materialPlan.safeZones, compatibility.status]);
+  }, [
+    camera.rotationY,
+    camera.zoom,
+    compatibility.materialPlan.safeZones,
+    compatibility.status,
+    onCanvasReady,
+  ]);
 
   return (
     <div

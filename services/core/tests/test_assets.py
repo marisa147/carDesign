@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 from collections.abc import AsyncIterator
 from uuid import UUID
 
@@ -12,6 +13,10 @@ from caragent_core.models import metadata
 from caragent_core.services import assets, workspaces
 from caragent_core.storage import MAX_UPLOAD_BYTES, InMemoryObjectStorage, build_object_key
 
+ASSET_PNG_BYTES = base64.b64decode(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+ip9s"
+    "AAAAASUVORK5CYII="
+)
 
 @pytest.fixture
 async def session_factory() -> AsyncIterator[async_sessionmaker[AsyncSession]]:
@@ -56,14 +61,14 @@ async def test_create_asset_validates_and_stores_metadata(
             session,
             storage,
             workspace.id,
-            byte_content=b"\x89PNG\r\n\x1a\nimage-bytes",
+            byte_content=ASSET_PNG_BYTES,
             content_type="image/png",
             filename="reference.png",
             kind=AssetKind.REFERENCE.value,
         )
 
     assert asset.object_key in storage.objects
-    assert asset.byte_size == 19
+    assert asset.byte_size == len(ASSET_PNG_BYTES)
     assert asset.checksum_sha256 is not None
     assert asset.rights_status == RightsStatus.MISSING.value
 
@@ -118,7 +123,7 @@ async def test_rights_metadata_controls_asset_usability(
             session,
             storage,
             workspace.id,
-            byte_content=b"\x89PNG\r\n\x1a\nimage-bytes",
+            byte_content=ASSET_PNG_BYTES,
             content_type="image/png",
             filename="reference.png",
             kind=AssetKind.REFERENCE.value,

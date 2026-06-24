@@ -5,6 +5,7 @@ from uuid import UUID
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from caragent_core.enums import DesignBriefStatus
 from caragent_core.models import DesignBrief, Message, Workspace
 
 
@@ -32,7 +33,10 @@ async def list_messages(session: AsyncSession, workspace_id: UUID) -> list[Messa
 async def list_design_briefs(session: AsyncSession, workspace_id: UUID) -> list[DesignBrief]:
     result = await session.scalars(
         select(DesignBrief)
-        .where(DesignBrief.workspace_id == workspace_id)
+        .where(
+            DesignBrief.workspace_id == workspace_id,
+            DesignBrief.status != DesignBriefStatus.ARCHIVED.value,
+        )
         .order_by(DesignBrief.created_at.asc()),
     )
     return list(result)

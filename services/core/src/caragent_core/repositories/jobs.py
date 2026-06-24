@@ -12,6 +12,7 @@ from caragent_core.models import (
     ExportRecord,
     Feedback,
     GenerationJob,
+    JobDispatchOutbox,
     JobEvent,
     ModelRun,
 )
@@ -36,6 +37,42 @@ async def find_job_by_idempotency_key(
         ),
     )
 
+
+async def get_dispatch_outbox(
+    session: AsyncSession,
+    dispatch_id: UUID,
+) -> JobDispatchOutbox | None:
+    return cast(JobDispatchOutbox | None, await session.get(JobDispatchOutbox, dispatch_id))
+
+
+async def find_dispatch_outbox(
+    session: AsyncSession,
+    job_id: UUID,
+    task_name: str,
+) -> JobDispatchOutbox | None:
+    return cast(
+        JobDispatchOutbox | None,
+        await session.scalar(
+            select(JobDispatchOutbox).where(
+                JobDispatchOutbox.job_id == job_id,
+                JobDispatchOutbox.task_name == task_name,
+            ),
+        ),
+    )
+
+
+async def list_ready_dispatch_outbox(
+    session: AsyncSession,
+    *,
+    limit: int = 100,
+) -> list[JobDispatchOutbox]:
+    result = await session.scalars(
+        select(JobDispatchOutbox)
+        .where(JobDispatchOutbox.status.in_(["pending", "failed"]))
+        .order_by(JobDispatchOutbox.created_at.asc())
+        .limit(limit),
+    )
+    return list(result)
 
 async def list_workspace_jobs(session: AsyncSession, workspace_id: UUID) -> list[GenerationJob]:
     result = await session.scalars(

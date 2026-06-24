@@ -150,6 +150,7 @@ export interface ArtifactResponse {
   byte_size: number | null;
   checksum_sha256: string | null;
   content_type: string | null;
+  content_url?: string | null;
   created_at: string;
   height: number | null;
   id: string;
@@ -188,6 +189,54 @@ export interface AssetRightsUpdateRequest {
   rights_status: string;
   source_label?: string | null;
   source_url?: string | null;
+}
+
+export interface BflSettingsResponse {
+  api_key_configured: boolean;
+  api_key_masked?: string | null;
+  base_url: string;
+  calls_enabled: boolean;
+  daily_call_limit?: number | null;
+  default_provider: string;
+  max_estimated_cost_per_job?: string | null;
+  model: string;
+  rate_limit_per_minute?: number | null;
+  restart_required: boolean;
+  result_path: string;
+  rollout_enabled: boolean;
+  submit_path: string;
+  submit_url: string;
+}
+
+export interface BflSettingsUpdateRequest {
+  api_key?: string | null;
+  /**
+     * @minLength 1
+     * @maxLength 512
+     */
+  base_url?: string;
+  calls_enabled?: boolean;
+  daily_call_limit?: number | null;
+  /** @pattern ^(bfl|disabled)$ */
+  default_provider?: string;
+  max_estimated_cost_per_job?: number | string | null;
+  /**
+     * @minLength 1
+     * @maxLength 128
+     */
+  model?: string;
+  rate_limit_per_minute?: number | null;
+  /**
+     * @minLength 1
+     * @maxLength 256
+     */
+  result_path?: string;
+  rollout_enabled?: boolean;
+  /**
+     * @minLength 1
+     * @maxLength 256
+     */
+  submit_path?: string;
 }
 
 export interface BodyUploadAssetWorkspacesWorkspaceIdAssetsPost {
@@ -555,6 +604,7 @@ export interface GenerationBriefUpdateRequest {
   racing_cues?: string[] | null;
   reference_asset_ids?: string[] | null;
   reference_usage?: ReferenceAssignment[] | null;
+  status?: string | null;
   style?: string | null;
   supporting_graphics?: string[] | null;
   text?: string[] | null;
@@ -782,6 +832,62 @@ export interface ModelRunResponse {
   updated_at: string;
 }
 
+export interface OpenAISettingsResponse {
+  api_key_configured: boolean;
+  api_key_masked?: string | null;
+  base_url: string;
+  calls_enabled: boolean;
+  daily_call_limit?: number | null;
+  default_provider: string;
+  image_model: string;
+  image_path: string;
+  image_url: string;
+  max_estimated_cost_per_job?: string | null;
+  parser_enabled: boolean;
+  rate_limit_per_minute?: number | null;
+  responses_path: string;
+  restart_required: boolean;
+  rollout_enabled: boolean;
+  text_model: string;
+}
+
+export interface OpenAISettingsUpdateRequest {
+  api_key?: string | null;
+  /**
+     * @minLength 1
+     * @maxLength 512
+     */
+  base_url?: string;
+  calls_enabled?: boolean;
+  daily_call_limit?: number | null;
+  /** @pattern ^(openai|disabled)$ */
+  default_provider?: string;
+  /**
+     * @minLength 1
+     * @maxLength 128
+     */
+  image_model?: string;
+  /**
+     * @minLength 1
+     * @maxLength 256
+     */
+  image_path?: string;
+  max_estimated_cost_per_job?: number | string | null;
+  parser_enabled?: boolean;
+  rate_limit_per_minute?: number | null;
+  /**
+     * @minLength 1
+     * @maxLength 256
+     */
+  responses_path?: string;
+  rollout_enabled?: boolean;
+  /**
+     * @minLength 1
+     * @maxLength 128
+     */
+  text_model?: string;
+}
+
 export type ProviderOperationsSummaryCapabilitiesItem = { [key: string]: unknown };
 
 export type ProviderOperationsSummaryGuardState = { [key: string]: unknown };
@@ -799,6 +905,7 @@ export interface ProviderOperationsSummary {
   hosted_quota_guard_enabled: boolean;
   hosted_rate_limit_per_minute?: number | null;
   max_estimated_cost_per_job?: string | null;
+  openai_key_configured?: boolean;
   supported_providers: string[];
 }
 
@@ -976,21 +1083,60 @@ export interface TemplateCatalogItemResponse {
 export type TemplateDetailResponseAssetSlots = {[key: string]: string | null};
 
 export type TemplateDetailResponseSafeZonesItem = { [key: string]: unknown };
+export type TemplateDetailResponseViewAssets = {[key: string]: {[key: string]: string}};
+
+export type TemplateDetailResponseSectionsItem = { [key: string]: unknown };
+
+export type TemplateDetailResponseForbiddenZonesItem = { [key: string]: unknown };
+
+export type TemplateDetailResponseDimensions = { [key: string]: unknown };
+
+export type TemplateDetailResponseScale = { [key: string]: unknown };
+
+export type TemplateDetailResponseExportConfig = { [key: string]: unknown };
+
+export type TemplateDetailResponseAuthorization = { [key: string]: unknown };
+
+export interface TemplatePackageValidationIssue {
+  code: string;
+  message: string;
+  path?: string | null;
+  severity: 'error' | 'warning';
+}
+
+export type TemplatePackageValidationResponseAuthorization = { [key: string]: unknown };
+
+export interface TemplatePackageValidationResponse {
+  accepted: boolean;
+  authorization?: TemplatePackageValidationResponseAuthorization | null;
+  files_checked?: string[];
+  issues?: TemplatePackageValidationIssue[];
+  label?: string | null;
+  source_class?: string | null;
+  template_id?: string | null;
+}
 
 export interface TemplateDetailResponse {
   aliases?: string[];
   asset_slots: TemplateDetailResponseAssetSlots;
+  authorization?: TemplateDetailResponseAuthorization | null;
   canvas_height: number;
   canvas_width: number;
+  dimensions?: TemplateDetailResponseDimensions | null;
+  export_config?: TemplateDetailResponseExportConfig | null;
+  forbidden_zones?: TemplateDetailResponseForbiddenZonesItem[];
   id: string;
   label: string;
   readiness: TemplateReadinessReport;
   safe_zone_summary: TemplateSafeZoneSummaryResponse[];
   safe_zones: TemplateDetailResponseSafeZonesItem[];
+  scale?: TemplateDetailResponseScale | null;
+  sections?: TemplateDetailResponseSectionsItem[];
   source: TemplateSourceMetadata;
   supported_views: string[];
   thumbnail_url: string;
   view: string;
+  view_assets?: TemplateDetailResponseViewAssets;
 }
 
 export interface WorkspaceCreateRequest {
@@ -2024,6 +2170,436 @@ export const useRetryGenerationJobJobsJobIdRetryPost = <TError = HTTPValidationE
     }
 
 /**
+ * @summary Get Bfl Settings
+ */
+export type getBflSettingsOperationsBflSettingsGetResponse200 = {
+  data: BflSettingsResponse
+  status: 200
+}
+
+export type getBflSettingsOperationsBflSettingsGetResponseSuccess = (getBflSettingsOperationsBflSettingsGetResponse200) & {
+  headers: Headers;
+};
+;
+
+export type getBflSettingsOperationsBflSettingsGetResponse = (getBflSettingsOperationsBflSettingsGetResponseSuccess)
+
+export const getGetBflSettingsOperationsBflSettingsGetUrl = () => {
+
+
+
+
+  return `/operations/bfl-settings`
+}
+
+export const getBflSettingsOperationsBflSettingsGet = async ( options?: RequestInit): Promise<getBflSettingsOperationsBflSettingsGetResponse> => {
+
+  const res = await fetch(getGetBflSettingsOperationsBflSettingsGetUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+)
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: getBflSettingsOperationsBflSettingsGetResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as getBflSettingsOperationsBflSettingsGetResponse
+}
+
+
+
+
+
+export const getGetBflSettingsOperationsBflSettingsGetQueryKey = () => {
+    return [
+    `/operations/bfl-settings`
+    ] as const;
+    }
+
+
+export const getGetBflSettingsOperationsBflSettingsGetQueryOptions = <TData = Awaited<ReturnType<typeof getBflSettingsOperationsBflSettingsGet>>, TError = unknown>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getBflSettingsOperationsBflSettingsGet>>, TError, TData>>, fetch?: RequestInit}
+) => {
+
+const {query: queryOptions, fetch: fetchOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetBflSettingsOperationsBflSettingsGetQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getBflSettingsOperationsBflSettingsGet>>> = ({ signal }) => getBflSettingsOperationsBflSettingsGet({ ...(signal ? { signal } : {}), ...fetchOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getBflSettingsOperationsBflSettingsGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetBflSettingsOperationsBflSettingsGetQueryResult = NonNullable<Awaited<ReturnType<typeof getBflSettingsOperationsBflSettingsGet>>>
+export type GetBflSettingsOperationsBflSettingsGetQueryError = unknown
+
+
+export function useGetBflSettingsOperationsBflSettingsGet<TData = Awaited<ReturnType<typeof getBflSettingsOperationsBflSettingsGet>>, TError = unknown>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getBflSettingsOperationsBflSettingsGet>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getBflSettingsOperationsBflSettingsGet>>,
+          TError,
+          Awaited<ReturnType<typeof getBflSettingsOperationsBflSettingsGet>>
+        > , 'initialData'
+      >, fetch?: RequestInit}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetBflSettingsOperationsBflSettingsGet<TData = Awaited<ReturnType<typeof getBflSettingsOperationsBflSettingsGet>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getBflSettingsOperationsBflSettingsGet>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getBflSettingsOperationsBflSettingsGet>>,
+          TError,
+          Awaited<ReturnType<typeof getBflSettingsOperationsBflSettingsGet>>
+        > , 'initialData'
+      >, fetch?: RequestInit}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetBflSettingsOperationsBflSettingsGet<TData = Awaited<ReturnType<typeof getBflSettingsOperationsBflSettingsGet>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getBflSettingsOperationsBflSettingsGet>>, TError, TData>>, fetch?: RequestInit}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Get Bfl Settings
+ */
+
+export function useGetBflSettingsOperationsBflSettingsGet<TData = Awaited<ReturnType<typeof getBflSettingsOperationsBflSettingsGet>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getBflSettingsOperationsBflSettingsGet>>, TError, TData>>, fetch?: RequestInit}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetBflSettingsOperationsBflSettingsGetQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+/**
+ * @summary Update Bfl Settings
+ */
+export type updateBflSettingsOperationsBflSettingsPostResponse200 = {
+  data: BflSettingsResponse
+  status: 200
+}
+
+export type updateBflSettingsOperationsBflSettingsPostResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+
+export type updateBflSettingsOperationsBflSettingsPostResponseSuccess = (updateBflSettingsOperationsBflSettingsPostResponse200) & {
+  headers: Headers;
+};
+export type updateBflSettingsOperationsBflSettingsPostResponseError = (updateBflSettingsOperationsBflSettingsPostResponse422) & {
+  headers: Headers;
+};
+
+export type updateBflSettingsOperationsBflSettingsPostResponse = (updateBflSettingsOperationsBflSettingsPostResponseSuccess | updateBflSettingsOperationsBflSettingsPostResponseError)
+
+export const getUpdateBflSettingsOperationsBflSettingsPostUrl = () => {
+
+
+
+
+  return `/operations/bfl-settings`
+}
+
+export const updateBflSettingsOperationsBflSettingsPost = async (bflSettingsUpdateRequest: BflSettingsUpdateRequest, options?: RequestInit): Promise<updateBflSettingsOperationsBflSettingsPostResponse> => {
+
+  const res = await fetch(getUpdateBflSettingsOperationsBflSettingsPostUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      bflSettingsUpdateRequest,)
+  }
+)
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: updateBflSettingsOperationsBflSettingsPostResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as updateBflSettingsOperationsBflSettingsPostResponse
+}
+
+
+
+
+export const getUpdateBflSettingsOperationsBflSettingsPostMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateBflSettingsOperationsBflSettingsPost>>, TError,{data: BflSettingsUpdateRequest}, TContext>, fetch?: RequestInit}
+): UseMutationOptions<Awaited<ReturnType<typeof updateBflSettingsOperationsBflSettingsPost>>, TError,{data: BflSettingsUpdateRequest}, TContext> => {
+
+const mutationKey = ['updateBflSettingsOperationsBflSettingsPost'];
+const {mutation: mutationOptions, fetch: fetchOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, fetch: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateBflSettingsOperationsBflSettingsPost>>, {data: BflSettingsUpdateRequest}> = (props) => {
+          const {data} = props ?? {};
+
+          return  updateBflSettingsOperationsBflSettingsPost(data,fetchOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateBflSettingsOperationsBflSettingsPostMutationResult = NonNullable<Awaited<ReturnType<typeof updateBflSettingsOperationsBflSettingsPost>>>
+    export type UpdateBflSettingsOperationsBflSettingsPostMutationBody = BflSettingsUpdateRequest
+    export type UpdateBflSettingsOperationsBflSettingsPostMutationError = HTTPValidationError
+
+    /**
+ * @summary Update Bfl Settings
+ */
+export const useUpdateBflSettingsOperationsBflSettingsPost = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateBflSettingsOperationsBflSettingsPost>>, TError,{data: BflSettingsUpdateRequest}, TContext>, fetch?: RequestInit}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof updateBflSettingsOperationsBflSettingsPost>>,
+        TError,
+        {data: BflSettingsUpdateRequest},
+        TContext
+      > => {
+      return useMutation(getUpdateBflSettingsOperationsBflSettingsPostMutationOptions(options), queryClient);
+    }
+
+/**
+ * @summary Get Openai Settings
+ */
+export type getOpenaiSettingsOperationsOpenaiSettingsGetResponse200 = {
+  data: OpenAISettingsResponse
+  status: 200
+}
+
+export type getOpenaiSettingsOperationsOpenaiSettingsGetResponseSuccess = (getOpenaiSettingsOperationsOpenaiSettingsGetResponse200) & {
+  headers: Headers;
+};
+;
+
+export type getOpenaiSettingsOperationsOpenaiSettingsGetResponse = (getOpenaiSettingsOperationsOpenaiSettingsGetResponseSuccess)
+
+export const getGetOpenaiSettingsOperationsOpenaiSettingsGetUrl = () => {
+
+
+
+
+  return `/operations/openai-settings`
+}
+
+export const getOpenaiSettingsOperationsOpenaiSettingsGet = async ( options?: RequestInit): Promise<getOpenaiSettingsOperationsOpenaiSettingsGetResponse> => {
+
+  const res = await fetch(getGetOpenaiSettingsOperationsOpenaiSettingsGetUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+)
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: getOpenaiSettingsOperationsOpenaiSettingsGetResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as getOpenaiSettingsOperationsOpenaiSettingsGetResponse
+}
+
+
+
+
+
+export const getGetOpenaiSettingsOperationsOpenaiSettingsGetQueryKey = () => {
+    return [
+    `/operations/openai-settings`
+    ] as const;
+    }
+
+
+export const getGetOpenaiSettingsOperationsOpenaiSettingsGetQueryOptions = <TData = Awaited<ReturnType<typeof getOpenaiSettingsOperationsOpenaiSettingsGet>>, TError = unknown>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getOpenaiSettingsOperationsOpenaiSettingsGet>>, TError, TData>>, fetch?: RequestInit}
+) => {
+
+const {query: queryOptions, fetch: fetchOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetOpenaiSettingsOperationsOpenaiSettingsGetQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getOpenaiSettingsOperationsOpenaiSettingsGet>>> = ({ signal }) => getOpenaiSettingsOperationsOpenaiSettingsGet({ ...(signal ? { signal } : {}), ...fetchOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getOpenaiSettingsOperationsOpenaiSettingsGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetOpenaiSettingsOperationsOpenaiSettingsGetQueryResult = NonNullable<Awaited<ReturnType<typeof getOpenaiSettingsOperationsOpenaiSettingsGet>>>
+export type GetOpenaiSettingsOperationsOpenaiSettingsGetQueryError = unknown
+
+
+export function useGetOpenaiSettingsOperationsOpenaiSettingsGet<TData = Awaited<ReturnType<typeof getOpenaiSettingsOperationsOpenaiSettingsGet>>, TError = unknown>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getOpenaiSettingsOperationsOpenaiSettingsGet>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getOpenaiSettingsOperationsOpenaiSettingsGet>>,
+          TError,
+          Awaited<ReturnType<typeof getOpenaiSettingsOperationsOpenaiSettingsGet>>
+        > , 'initialData'
+      >, fetch?: RequestInit}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetOpenaiSettingsOperationsOpenaiSettingsGet<TData = Awaited<ReturnType<typeof getOpenaiSettingsOperationsOpenaiSettingsGet>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getOpenaiSettingsOperationsOpenaiSettingsGet>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getOpenaiSettingsOperationsOpenaiSettingsGet>>,
+          TError,
+          Awaited<ReturnType<typeof getOpenaiSettingsOperationsOpenaiSettingsGet>>
+        > , 'initialData'
+      >, fetch?: RequestInit}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetOpenaiSettingsOperationsOpenaiSettingsGet<TData = Awaited<ReturnType<typeof getOpenaiSettingsOperationsOpenaiSettingsGet>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getOpenaiSettingsOperationsOpenaiSettingsGet>>, TError, TData>>, fetch?: RequestInit}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Get Openai Settings
+ */
+
+export function useGetOpenaiSettingsOperationsOpenaiSettingsGet<TData = Awaited<ReturnType<typeof getOpenaiSettingsOperationsOpenaiSettingsGet>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getOpenaiSettingsOperationsOpenaiSettingsGet>>, TError, TData>>, fetch?: RequestInit}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetOpenaiSettingsOperationsOpenaiSettingsGetQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+/**
+ * @summary Update Openai Settings
+ */
+export type updateOpenaiSettingsOperationsOpenaiSettingsPostResponse200 = {
+  data: OpenAISettingsResponse
+  status: 200
+}
+
+export type updateOpenaiSettingsOperationsOpenaiSettingsPostResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+
+export type updateOpenaiSettingsOperationsOpenaiSettingsPostResponseSuccess = (updateOpenaiSettingsOperationsOpenaiSettingsPostResponse200) & {
+  headers: Headers;
+};
+export type updateOpenaiSettingsOperationsOpenaiSettingsPostResponseError = (updateOpenaiSettingsOperationsOpenaiSettingsPostResponse422) & {
+  headers: Headers;
+};
+
+export type updateOpenaiSettingsOperationsOpenaiSettingsPostResponse = (updateOpenaiSettingsOperationsOpenaiSettingsPostResponseSuccess | updateOpenaiSettingsOperationsOpenaiSettingsPostResponseError)
+
+export const getUpdateOpenaiSettingsOperationsOpenaiSettingsPostUrl = () => {
+
+
+
+
+  return `/operations/openai-settings`
+}
+
+export const updateOpenaiSettingsOperationsOpenaiSettingsPost = async (openAISettingsUpdateRequest: OpenAISettingsUpdateRequest, options?: RequestInit): Promise<updateOpenaiSettingsOperationsOpenaiSettingsPostResponse> => {
+
+  const res = await fetch(getUpdateOpenaiSettingsOperationsOpenaiSettingsPostUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      openAISettingsUpdateRequest,)
+  }
+)
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: updateOpenaiSettingsOperationsOpenaiSettingsPostResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as updateOpenaiSettingsOperationsOpenaiSettingsPostResponse
+}
+
+
+
+
+export const getUpdateOpenaiSettingsOperationsOpenaiSettingsPostMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateOpenaiSettingsOperationsOpenaiSettingsPost>>, TError,{data: OpenAISettingsUpdateRequest}, TContext>, fetch?: RequestInit}
+): UseMutationOptions<Awaited<ReturnType<typeof updateOpenaiSettingsOperationsOpenaiSettingsPost>>, TError,{data: OpenAISettingsUpdateRequest}, TContext> => {
+
+const mutationKey = ['updateOpenaiSettingsOperationsOpenaiSettingsPost'];
+const {mutation: mutationOptions, fetch: fetchOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, fetch: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateOpenaiSettingsOperationsOpenaiSettingsPost>>, {data: OpenAISettingsUpdateRequest}> = (props) => {
+          const {data} = props ?? {};
+
+          return  updateOpenaiSettingsOperationsOpenaiSettingsPost(data,fetchOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateOpenaiSettingsOperationsOpenaiSettingsPostMutationResult = NonNullable<Awaited<ReturnType<typeof updateOpenaiSettingsOperationsOpenaiSettingsPost>>>
+    export type UpdateOpenaiSettingsOperationsOpenaiSettingsPostMutationBody = OpenAISettingsUpdateRequest
+    export type UpdateOpenaiSettingsOperationsOpenaiSettingsPostMutationError = HTTPValidationError
+
+    /**
+ * @summary Update Openai Settings
+ */
+export const useUpdateOpenaiSettingsOperationsOpenaiSettingsPost = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateOpenaiSettingsOperationsOpenaiSettingsPost>>, TError,{data: OpenAISettingsUpdateRequest}, TContext>, fetch?: RequestInit}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof updateOpenaiSettingsOperationsOpenaiSettingsPost>>,
+        TError,
+        {data: OpenAISettingsUpdateRequest},
+        TContext
+      > => {
+      return useMutation(getUpdateOpenaiSettingsOperationsOpenaiSettingsPostMutationOptions(options), queryClient);
+    }
+
+/**
  * @summary Provider Status
  */
 export type providerStatusOperationsProviderStatusGetResponse200 = {
@@ -2272,6 +2848,50 @@ export function useListTemplatesTemplatesGet<TData = Awaited<ReturnType<typeof l
 
 
 
+
+
+
+/**
+ * @summary Validate Template Package
+ */
+export type validateTemplatePackageTemplatesValidatePackagePostResponse200 = {
+  data: TemplatePackageValidationResponse
+  status: 200
+}
+
+export type validateTemplatePackageTemplatesValidatePackagePostResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+
+export type validateTemplatePackageTemplatesValidatePackagePostResponseSuccess = (validateTemplatePackageTemplatesValidatePackagePostResponse200) & {
+  headers: Headers;
+};
+export type validateTemplatePackageTemplatesValidatePackagePostResponseError = (validateTemplatePackageTemplatesValidatePackagePostResponse422) & {
+  headers: Headers;
+};
+
+export type validateTemplatePackageTemplatesValidatePackagePostResponse = (validateTemplatePackageTemplatesValidatePackagePostResponseSuccess | validateTemplatePackageTemplatesValidatePackagePostResponseError)
+
+export const getValidateTemplatePackageTemplatesValidatePackagePostUrl = () => {
+  return `/templates/validate-package`
+}
+
+export const validateTemplatePackageTemplatesValidatePackagePost = async (body: BodyInit, options?: RequestInit): Promise<validateTemplatePackageTemplatesValidatePackagePostResponse> => {
+
+  const res = await fetch(getValidateTemplatePackageTemplatesValidatePackagePostUrl(),
+  {
+    ...options,
+    method: 'POST',
+    body
+  }
+)
+
+  const responseBody = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: validateTemplatePackageTemplatesValidatePackagePostResponse['data'] = responseBody ? JSON.parse(responseBody) : {}
+  return { data, status: res.status, headers: res.headers } as validateTemplatePackageTemplatesValidatePackagePostResponse
+}
 
 
 
@@ -2863,6 +3483,152 @@ export function useListArtifactsWorkspacesWorkspaceIdArtifactsGet<TData = Awaite
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
   const queryOptions = getListArtifactsWorkspacesWorkspaceIdArtifactsGetQueryOptions(workspaceId,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+/**
+ * @summary Get Artifact Content
+ */
+export type getArtifactContentWorkspacesWorkspaceIdArtifactsArtifactIdContentGetResponse200ApplicationOctetStream = {
+  data: Blob
+  status: 200
+}
+
+export type getArtifactContentWorkspacesWorkspaceIdArtifactsArtifactIdContentGetResponse200ImagePng = {
+  data: Blob
+  status: 200
+}
+
+export type getArtifactContentWorkspacesWorkspaceIdArtifactsArtifactIdContentGetResponse200ImageWebp = {
+  data: Blob
+  status: 200
+}
+
+export type getArtifactContentWorkspacesWorkspaceIdArtifactsArtifactIdContentGetResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+
+export type getArtifactContentWorkspacesWorkspaceIdArtifactsArtifactIdContentGetResponseSuccess = (getArtifactContentWorkspacesWorkspaceIdArtifactsArtifactIdContentGetResponse200ApplicationOctetStream | getArtifactContentWorkspacesWorkspaceIdArtifactsArtifactIdContentGetResponse200ImagePng | getArtifactContentWorkspacesWorkspaceIdArtifactsArtifactIdContentGetResponse200ImageWebp) & {
+  headers: Headers;
+};
+export type getArtifactContentWorkspacesWorkspaceIdArtifactsArtifactIdContentGetResponseError = (getArtifactContentWorkspacesWorkspaceIdArtifactsArtifactIdContentGetResponse422) & {
+  headers: Headers;
+};
+
+export type getArtifactContentWorkspacesWorkspaceIdArtifactsArtifactIdContentGetResponse = (getArtifactContentWorkspacesWorkspaceIdArtifactsArtifactIdContentGetResponseSuccess | getArtifactContentWorkspacesWorkspaceIdArtifactsArtifactIdContentGetResponseError)
+
+export const getGetArtifactContentWorkspacesWorkspaceIdArtifactsArtifactIdContentGetUrl = (workspaceId: string,
+    artifactId: string,) => {
+
+
+
+
+  return `/workspaces/${workspaceId}/artifacts/${artifactId}/content`
+}
+
+export const getArtifactContentWorkspacesWorkspaceIdArtifactsArtifactIdContentGet = async (workspaceId: string,
+    artifactId: string, options?: RequestInit): Promise<getArtifactContentWorkspacesWorkspaceIdArtifactsArtifactIdContentGetResponse> => {
+
+  const res = await fetch(getGetArtifactContentWorkspacesWorkspaceIdArtifactsArtifactIdContentGetUrl(workspaceId,artifactId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+)
+
+  const data: getArtifactContentWorkspacesWorkspaceIdArtifactsArtifactIdContentGetResponse['data'] = [204, 205, 304].includes(res.status)
+    ? {}
+    : res.ok
+      ? await res.blob()
+      : await res.json()
+  return { data, status: res.status, headers: res.headers } as getArtifactContentWorkspacesWorkspaceIdArtifactsArtifactIdContentGetResponse
+}
+
+
+
+
+
+export const getGetArtifactContentWorkspacesWorkspaceIdArtifactsArtifactIdContentGetQueryKey = (workspaceId: string,
+    artifactId: string,) => {
+    return [
+    `/workspaces/${workspaceId}/artifacts/${artifactId}/content`
+    ] as const;
+    }
+
+
+export const getGetArtifactContentWorkspacesWorkspaceIdArtifactsArtifactIdContentGetQueryOptions = <TData = Awaited<ReturnType<typeof getArtifactContentWorkspacesWorkspaceIdArtifactsArtifactIdContentGet>>, TError = HTTPValidationError>(workspaceId: string,
+    artifactId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getArtifactContentWorkspacesWorkspaceIdArtifactsArtifactIdContentGet>>, TError, TData>>, fetch?: RequestInit}
+) => {
+
+const {query: queryOptions, fetch: fetchOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetArtifactContentWorkspacesWorkspaceIdArtifactsArtifactIdContentGetQueryKey(workspaceId,artifactId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getArtifactContentWorkspacesWorkspaceIdArtifactsArtifactIdContentGet>>> = ({ signal }) => getArtifactContentWorkspacesWorkspaceIdArtifactsArtifactIdContentGet(workspaceId,artifactId, { ...(signal ? { signal } : {}), ...fetchOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(workspaceId && artifactId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getArtifactContentWorkspacesWorkspaceIdArtifactsArtifactIdContentGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetArtifactContentWorkspacesWorkspaceIdArtifactsArtifactIdContentGetQueryResult = NonNullable<Awaited<ReturnType<typeof getArtifactContentWorkspacesWorkspaceIdArtifactsArtifactIdContentGet>>>
+export type GetArtifactContentWorkspacesWorkspaceIdArtifactsArtifactIdContentGetQueryError = HTTPValidationError
+
+
+export function useGetArtifactContentWorkspacesWorkspaceIdArtifactsArtifactIdContentGet<TData = Awaited<ReturnType<typeof getArtifactContentWorkspacesWorkspaceIdArtifactsArtifactIdContentGet>>, TError = HTTPValidationError>(
+ workspaceId: string,
+    artifactId: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getArtifactContentWorkspacesWorkspaceIdArtifactsArtifactIdContentGet>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getArtifactContentWorkspacesWorkspaceIdArtifactsArtifactIdContentGet>>,
+          TError,
+          Awaited<ReturnType<typeof getArtifactContentWorkspacesWorkspaceIdArtifactsArtifactIdContentGet>>
+        > , 'initialData'
+      >, fetch?: RequestInit}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetArtifactContentWorkspacesWorkspaceIdArtifactsArtifactIdContentGet<TData = Awaited<ReturnType<typeof getArtifactContentWorkspacesWorkspaceIdArtifactsArtifactIdContentGet>>, TError = HTTPValidationError>(
+ workspaceId: string,
+    artifactId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getArtifactContentWorkspacesWorkspaceIdArtifactsArtifactIdContentGet>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getArtifactContentWorkspacesWorkspaceIdArtifactsArtifactIdContentGet>>,
+          TError,
+          Awaited<ReturnType<typeof getArtifactContentWorkspacesWorkspaceIdArtifactsArtifactIdContentGet>>
+        > , 'initialData'
+      >, fetch?: RequestInit}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetArtifactContentWorkspacesWorkspaceIdArtifactsArtifactIdContentGet<TData = Awaited<ReturnType<typeof getArtifactContentWorkspacesWorkspaceIdArtifactsArtifactIdContentGet>>, TError = HTTPValidationError>(
+ workspaceId: string,
+    artifactId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getArtifactContentWorkspacesWorkspaceIdArtifactsArtifactIdContentGet>>, TError, TData>>, fetch?: RequestInit}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Get Artifact Content
+ */
+
+export function useGetArtifactContentWorkspacesWorkspaceIdArtifactsArtifactIdContentGet<TData = Awaited<ReturnType<typeof getArtifactContentWorkspacesWorkspaceIdArtifactsArtifactIdContentGet>>, TError = HTTPValidationError>(
+ workspaceId: string,
+    artifactId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getArtifactContentWorkspacesWorkspaceIdArtifactsArtifactIdContentGet>>, TError, TData>>, fetch?: RequestInit}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetArtifactContentWorkspacesWorkspaceIdArtifactsArtifactIdContentGetQueryOptions(workspaceId,artifactId,options)
 
   const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 
@@ -4836,3 +5602,6 @@ export const useCreateProductionReadinessPreflightWorkspacesWorkspaceIdVersionsV
       > => {
       return useMutation(getCreateProductionReadinessPreflightWorkspacesWorkspaceIdVersionsVersionIdProductionReadinessPreflightPostMutationOptions(options), queryClient);
     }
+
+
+

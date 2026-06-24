@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import type {
   ArtifactResponse,
@@ -18,6 +18,7 @@ import type {
   OperationsProviderStatusResponse,
   ReferenceRole,
   TemplateCatalogItemResponse,
+  TemplateDetailResponse,
   WorkspaceResponse,
 } from "@caragent/contracts";
 
@@ -48,9 +49,11 @@ import {
 } from "@/lib/api/assets";
 import {
   DEFAULT_REFERENCE_ROLE,
+  buildGenerationSubmissionPayload,
   createGenerationBrief,
   loadGenerationState,
   retryGenerationJob,
+  submitGenerationJob,
   updateGenerationBrief,
   type GenerationState,
   type ReferenceUsageDraft,
@@ -64,7 +67,7 @@ import {
   type ProductionReadinessPreflightReport,
 } from "@/lib/api/iteration";
 import { cancelGenerationJob, listWorkspaceJobs } from "@/lib/api/jobs";
-import { listTemplates } from "@/lib/api/templates";
+import { getTemplate, listTemplates } from "@/lib/api/templates";
 import { isV2EnhancedHandoffPackageEnabled } from "@/lib/config/public-env";
 import {
   LOCAL_PROVIDER_ID,
@@ -93,11 +96,15 @@ export function WorkbenchApp() {
   const queryClient = useQueryClient();
   const selectedVersionId = useWorkbenchStore((state) => state.selectedVersionId);
   const clearTargetedEditDraft = useWorkbenchStore((state) => state.clearTargetedEditDraft);
+  const resetWorkbenchUi = useWorkbenchStore((state) => state.resetWorkbenchUi);
   const editPromptDelta = useWorkbenchStore((state) => state.editPromptDelta);
   const editRoutePreference = useWorkbenchStore((state) => state.editRoutePreference);
   const isTargetedEditMode = useWorkbenchStore((state) => state.isTargetedEditMode);
   const selectedEditTarget = useWorkbenchStore((state) => state.selectedEditTarget);
   const selectedTemplateId = useWorkbenchStore((state) => state.selectedTemplateId);
+  const setSelectedEditTarget = useWorkbenchStore((state) => state.setSelectedEditTarget);
+  const setSelectedView = useWorkbenchStore((state) => state.setSelectedView);
+  const setTargetedEditMode = useWorkbenchStore((state) => state.setTargetedEditMode);
   const setEditPromptDelta = useWorkbenchStore((state) => state.setEditPromptDelta);
   const setSelectedTemplateId = useWorkbenchStore((state) => state.setSelectedTemplateId);
   const [draft, setDraft] = useState("");
@@ -107,14 +114,19 @@ export function WorkbenchApp() {
   const [assets, setAssets] = useState<AssetResponse[]>([]);
   const [jobs, setJobs] = useState<GenerationJobResponse[]>([]);
   const [templates, setTemplates] = useState<TemplateCatalogItemResponse[]>([]);
+  const [selectedTemplateDetail, setSelectedTemplateDetail] =
+    useState<TemplateDetailResponse | null>(null);
   const [generationState, setGenerationState] = useState<GenerationState | null>(null);
   const [operationsStatus, setOperationsStatus] =
     useState<OperationsProviderStatusResponse | null>(null);
+  const hasLoadedProviderStatus = useRef(false);
   const [selectedProviderId, setSelectedProviderId] = useState(LOCAL_PROVIDER_ID);
   const [referenceAssignments, setReferenceAssignments] = useState<ReferenceUsageDraft[]>([]);
   const [isCancelingGeneration, setIsCancelingGeneration] = useState(false);
   const [isLoadingGeneration, setIsLoadingGeneration] = useState(false);
   const [isRetryingGeneration, setIsRetryingGeneration] = useState(false);
+  const [isGeneratingConcept, setIsGeneratingConcept] = useState(false);
+  const [generationSubmitError, setGenerationSubmitError] = useState<string | null>(null);
   const [isLoadingSession, setIsLoadingSession] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [chatError, setChatError] = useState<string | null>(null);
@@ -189,8 +201,9 @@ export function WorkbenchApp() {
           return;
         }
 
+        const activeBriefs = nextBriefs.filter(isActiveBrief);
         const nextBrief = selectResumeBrief(
-          nextBriefs,
+          activeBriefs,
           readStoredId(WORKBENCH_BRIEF_ID_KEY),
         );
         setWorkspace(nextWorkspace);
@@ -213,7 +226,7 @@ export function WorkbenchApp() {
         );
         queryClient.setQueryData(
           workbenchQueryKeys.briefs(nextWorkspace.id),
-          nextBriefs,
+          activeBriefs,
         );
         queryClient.setQueryData(
           workbenchQueryKeys.assets(nextWorkspace.id),
@@ -245,6 +258,32 @@ export function WorkbenchApp() {
     };
   }, [queryClient, setSelectedTemplateId]);
 
+
+  useEffect(() => {
+    const templateId = readBriefTemplateId(currentBrief) ?? selectedTemplateId;
+    if (!templateId) {
+      setSelectedTemplateDetail(null);
+      return;
+    }
+
+    let isCancelled = false;
+    getTemplate(templateId)
+      .then((detail) => {
+        if (!isCancelled) {
+          setSelectedTemplateDetail(detail);
+        }
+      })
+      .catch(() => {
+        if (!isCancelled) {
+          setSelectedTemplateDetail(null);
+        }
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [currentBrief, selectedTemplateId]);
+
   useEffect(() => {
     let isCancelled = false;
 
@@ -266,6 +305,84 @@ export function WorkbenchApp() {
       isCancelled = true;
     };
   }, [queryClient]);
+
+  useEffect(() => {
+    if (!currentBrief || hasLoadedProviderStatus.current) {
+      return;
+    }
+
+    hasLoadedProviderStatus.current = true;
+    let isCancelled = false;
+
+    getProviderStatus()
+      .then((nextOperationsStatus) => {
+        if (isCancelled) {
+          return;
+        }
+        setOperationsStatus(nextOperationsStatus);
+        setSelectedProviderId(normalizeProviderStatus(nextOperationsStatus).activeProviderId);
+      })
+      .catch(() => {
+        if (!isCancelled) {
+          setOperationsStatus(null);
+          setSelectedProviderId(LOCAL_PROVIDER_ID);
+        }
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [currentBrief]);
+
+  const handleClearConversation = () => {
+    setMessages([]);
+    setDraft("");
+    setChatError(null);
+    if (workspace) {
+      queryClient.setQueryData(workbenchQueryKeys.messages(workspace.id), []);
+    }
+  };
+
+  const handleNewConversation = () => {
+    setWorkspace(null);
+    setMessages([]);
+    setCurrentBrief(null);
+    setAssets([]);
+    setJobs([]);
+    setGenerationState(null);
+    setOperationsStatus(null);
+    hasLoadedProviderStatus.current = false;
+    setSelectedProviderId(LOCAL_PROVIDER_ID);
+    setReferenceAssignments([]);
+    setIsCancelingGeneration(false);
+    setIsLoadingGeneration(false);
+    setIsRetryingGeneration(false);
+    setIsGeneratingConcept(false);
+    setGenerationSubmitError(null);
+    setIsSubmitting(false);
+    setChatError(null);
+    setIterationDraft("");
+    setIterationError(null);
+    setIterationNotice(null);
+    setIsSubmittingIteration(false);
+    setFeedbackApprovalState("none");
+    setFeedbackComment("");
+    setFeedbackError(null);
+    setFeedbackNotice(null);
+    setFeedbackRating(null);
+    setIsSubmittingFeedback(false);
+    setExportError(null);
+    setExportNotice(null);
+    setPreflightError(null);
+    setPreflightNotice(null);
+    setPreflightReport(null);
+    setIsSubmittingExport(false);
+    setIsSubmittingPreflight(false);
+    setDraft("");
+    resetWorkbenchUi();
+    writeStoredId(WORKBENCH_WORKSPACE_ID_KEY, null);
+    writeStoredId(WORKBENCH_BRIEF_ID_KEY, null);
+  };
 
   const handleChatSubmit = async () => {
     const prompt = draft.trim();
@@ -338,6 +455,46 @@ export function WorkbenchApp() {
     return nextBrief;
   };
 
+  const handleNewConcept = () => {
+    setCurrentBrief(null);
+    setReferenceAssignments([]);
+    setGenerationState(null);
+    setGenerationSubmitError(null);
+    setIterationNotice(null);
+    setIterationError(null);
+    setFeedbackNotice(null);
+    setFeedbackError(null);
+    setDraft("");
+    writeStoredId(WORKBENCH_BRIEF_ID_KEY, null);
+  };
+
+  const handleArchiveCurrentBrief = async () => {
+    if (!currentBrief) {
+      throw new Error("No active generation brief is available.");
+    }
+
+    const archivedBrief = await updateGenerationBrief(currentBrief.id, {
+      status: "archived",
+    });
+    const existingBriefs =
+      queryClient.getQueryData<WorkbenchBrief[]>(
+        workbenchQueryKeys.briefs(archivedBrief.workspace_id),
+      ) ?? [currentBrief];
+    const activeBriefs = upsertBrief(existingBriefs, archivedBrief).filter(isActiveBrief);
+    const nextBrief = selectResumeBrief(activeBriefs, null);
+
+    setCurrentBrief(nextBrief);
+    setReferenceAssignments(readBriefReferenceAssignments(nextBrief));
+    setSelectedTemplateId(readBriefTemplateId(nextBrief) ?? DEFAULT_WORKBENCH_TEMPLATE_ID);
+    setGenerationState(null);
+    setGenerationSubmitError(null);
+    writeStoredId(WORKBENCH_BRIEF_ID_KEY, nextBrief?.id ?? null);
+    queryClient.setQueryData(
+      workbenchQueryKeys.briefs(archivedBrief.workspace_id),
+      activeBriefs,
+    );
+  };
+
   const handleTemplateChange = async (templateId: string) => {
     setSelectedTemplateId(templateId);
     if (!currentBrief) {
@@ -358,6 +515,26 @@ export function WorkbenchApp() {
     );
   };
 
+
+  const handleSectionSelect = (section: TemplateSectionSelection) => {
+    setTargetedEditMode(true);
+    setSelectedView(section.view);
+    setSelectedEditTarget({
+      id: section.id,
+      label: section.label,
+      region: {
+        height: section.bounds.height,
+        type: "rectangle",
+        unit: "normalized",
+        width: section.bounds.width,
+        x: section.bounds.x,
+        y: section.bounds.y,
+      },
+      type: "safe_zone",
+      zoneId: section.id,
+    });
+  };
+
   const handleAssetUpload = async ({ file, kind }: { file: File; kind: string }) => {
     if (!workspace) {
       throw new Error("No active workspace is available.");
@@ -373,7 +550,7 @@ export function WorkbenchApp() {
     return nextAsset;
   };
 
-  const refreshGenerationState = async () => {
+  const refreshGenerationState = useCallback(async () => {
     if (!workspace) {
       return;
     }
@@ -400,8 +577,70 @@ export function WorkbenchApp() {
     } finally {
       setIsLoadingGeneration(false);
     }
-  };
+  }, [queryClient, workspace]);
 
+  const activePollingJob = generationState?.job ?? selectLatestJob(jobs);
+  const activePollingJobId = activePollingJob?.id;
+  const activePollingJobStatus = activePollingJob?.status;
+
+  useEffect(() => {
+    if (!workspace || !activePollingJobId || !activePollingJobStatus || !isInFlightJobStatus(activePollingJobStatus)) {
+      return;
+    }
+
+    const intervalId = window.setInterval(() => {
+      void refreshGenerationState();
+    }, 1500);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [activePollingJobId, activePollingJobStatus, refreshGenerationState, workspace]);
+
+  const handleGenerateConcept = async () => {
+    if (!workspace || !currentBrief || isGeneratingConcept) {
+      return;
+    }
+
+    setIsGeneratingConcept(true);
+    setGenerationSubmitError(null);
+    try {
+      const submission = await submitGenerationJob(
+        workspace.id,
+        buildGenerationSubmissionPayload(
+          {
+            brief_id: currentBrief.id,
+            idempotency_key: createGenerationIdempotencyKey(),
+            requested_by: "web-workbench",
+          },
+          selectedProviderOption,
+        ),
+      );
+      setJobs((existing) => {
+        const nextJobs = upsertJob(existing, submission.job);
+        queryClient.setQueryData(workbenchQueryKeys.jobs(workspace.id), nextJobs);
+        return nextJobs;
+      });
+      setGenerationState((existing) =>
+        existing
+          ? { ...existing, events: [], job: submission.job }
+          : {
+              artifacts,
+              events: [],
+              exports,
+              feedback,
+              job: submission.job,
+              versions,
+            },
+      );
+      await refreshGenerationState();
+    } catch (error) {
+      setGenerationSubmitError("生成任务提交失败，请检查 API 与 Worker 后重试。");
+      throw error;
+    } finally {
+      setIsGeneratingConcept(false);
+    }
+  };
   const cancelCurrentGeneration = async () => {
     if (!generationState) {
       return;
@@ -690,6 +929,8 @@ export function WorkbenchApp() {
           isSubmitting={isSubmitting}
           messages={messages}
           onDraftChange={setDraft}
+          onClearConversation={handleClearConversation}
+          onNewConversation={handleNewConversation}
           onSubmit={handleChatSubmit}
         />
       }
@@ -774,18 +1015,23 @@ export function WorkbenchApp() {
         <ParameterPanel
           assets={assets}
           currentBrief={currentBrief}
+          generationError={generationSubmitError}
+          isGenerating={isGeneratingConcept}
           isLoading={isLoadingSession}
-          key={`${currentBrief?.id ?? "empty-brief"}:${referenceAssignmentSignature(
-            referenceAssignments,
-          )}`}
+          key={currentBrief?.id ?? "empty-brief"}
+          onArchive={handleArchiveCurrentBrief}
+          onGenerate={handleGenerateConcept}
+          onNewConcept={handleNewConcept}
           onSave={handleParameterSave}
           onTemplateChange={handleTemplateChange}
           onProviderChange={setSelectedProviderId}
+          onSectionSelect={handleSectionSelect}
           providerStatus={providerStatus}
           referenceAssignments={referenceAssignments}
           selectedReferenceAssetIds={selectedReferenceAssetIds}
           selectedTemplateId={readBriefTemplateId(currentBrief) ?? selectedTemplateId}
           selectedProviderId={selectedProviderOption?.id ?? LOCAL_PROVIDER_ID}
+          templateDetail={selectedTemplateDetail}
           templates={templates}
         />
       }
@@ -840,17 +1086,22 @@ function writeStoredId(key: string, value: string | null) {
   window.localStorage.removeItem(key);
 }
 
+function isActiveBrief(brief: WorkbenchBrief): boolean {
+  return brief.status !== "archived";
+}
+
 function selectResumeBrief(
-  briefs: DesignBriefResponse[],
+  briefs: WorkbenchBrief[],
   storedBriefId: string | null,
 ): WorkbenchBrief | null {
-  if (briefs.length === 0) {
+  const activeBriefs = briefs.filter(isActiveBrief);
+  if (activeBriefs.length === 0) {
     return null;
   }
 
   return (
-    briefs.find((brief) => brief.id === storedBriefId) ??
-    [...briefs].sort((left, right) => right.updated_at.localeCompare(left.updated_at))[0] ??
+    activeBriefs.find((brief) => brief.id === storedBriefId) ??
+    [...activeBriefs].sort((left, right) => right.updated_at.localeCompare(left.updated_at))[0] ??
     null
   );
 }
@@ -887,6 +1138,17 @@ function upsertExport(existing: ExportResponse[], nextExport: ExportResponse): E
   return [nextExport, ...existing.filter((entry) => entry.id !== nextExport.id)];
 }
 
+function createGenerationIdempotencyKey(): string {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return `generation-${crypto.randomUUID()}`;
+  }
+  return `generation-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function isInFlightJobStatus(status: string | null | undefined): boolean {
+  return status === "queued" || status === "running";
+}
+
 function selectLatestJob(jobs: GenerationJobResponse[]): GenerationJobResponse | null {
   if (jobs.length === 0) {
     return null;
@@ -916,6 +1178,19 @@ function selectArtifactForVersion(
         artifact.version_id === selectedVersion.id && artifact.kind === "generated_image",
     ) ?? null
   );
+}
+
+
+interface TemplateSectionSelection {
+  bounds: {
+    height: number;
+    width: number;
+    x: number;
+    y: number;
+  };
+  id: string;
+  label: string;
+  view: "front" | "rear" | "side" | "top";
 }
 
 type TargetedEditIntentBuildResult =
@@ -1006,13 +1281,6 @@ function readBriefReferenceAssignments(brief: WorkbenchBrief | null): ReferenceU
 function readBriefTemplateId(brief: WorkbenchBrief | null): string | null {
   const value = brief?.payload.vehicle_template_id;
   return typeof value === "string" && value.trim().length > 0 ? value : null;
-}
-
-function referenceAssignmentSignature(assignments: ReferenceUsageDraft[]): string {
-  return assignments
-    .map((assignment) => `${assignment.assetId}:${assignment.role}:${assignment.enabled}`)
-    .sort()
-    .join(",");
 }
 
 const referenceTraceKeys = [

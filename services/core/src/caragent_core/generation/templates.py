@@ -7,7 +7,7 @@ from importlib.resources import files
 from importlib.resources.abc import Traversable
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 SUPPORTED_TEMPLATE_ID = "generic-side-coupe"
 SUPPORTED_TEMPLATE_LABEL = "Generic side-view coupe"
@@ -19,6 +19,7 @@ MVP_SEDAN_TEMPLATE_ID = "generic_sedan_side_v1"
 MVP_HATCHBACK_TEMPLATE_ID = "generic_hatchback_side_v1"
 MVP_SUV_TEMPLATE_ID = "generic_suv_side_v1"
 MVP_VAN_TEMPLATE_ID = "generic_van_side_v1"
+GR86_BRZ_TEMPLATE_ID = "toyota_gr86_brz_v1"
 DEFAULT_TEMPLATE_ID = MVP_COUPE_TEMPLATE_ID
 MVP_TEMPLATE_IDS: tuple[str, ...] = (
     MVP_COUPE_TEMPLATE_ID,
@@ -27,9 +28,18 @@ MVP_TEMPLATE_IDS: tuple[str, ...] = (
     MVP_SUV_TEMPLATE_ID,
     MVP_VAN_TEMPLATE_ID,
 )
+MAINTAINED_TEMPLATE_IDS: tuple[str, ...] = (GR86_BRZ_TEMPLATE_ID,)
+ALL_TEMPLATE_IDS: tuple[str, ...] = MVP_TEMPLATE_IDS + MAINTAINED_TEMPLATE_IDS
 MVP_TEMPLATE_PACK_PACKAGE = "caragent_core.generation.template_pack.mvp_generic_side_v1"
 
 SafeZone = dict[str, Any]
+TemplateSection = dict[str, Any]
+TemplateForbiddenZone = dict[str, Any]
+TemplateDimensions = dict[str, Any]
+TemplateScale = dict[str, Any]
+TemplateExportConfig = dict[str, Any]
+TemplateAuthorization = dict[str, Any]
+TemplateViewAssets = dict[str, dict[str, str]]
 TemplateSourceType = Literal[
     "internal_original",
     "licensed_template",
@@ -239,6 +249,14 @@ class VehicleTemplateRecord(BaseModel):
     safe_zones: list[SafeZone] = Field(default_factory=list)
     aliases: tuple[str, ...] = ()
     asset_slots: dict[TemplateAssetSlot, str | None] = Field(default_factory=dict)
+    supported_views: tuple[str, ...] = ()
+    view_assets: TemplateViewAssets = Field(default_factory=dict)
+    sections: list[TemplateSection] = Field(default_factory=list)
+    forbidden_zones: list[TemplateForbiddenZone] = Field(default_factory=list)
+    dimensions: TemplateDimensions | None = None
+    scale: TemplateScale | None = None
+    export_config: TemplateExportConfig | None = None
+    authorization: TemplateAuthorization | None = None
 
     @field_validator("id", "label", "view", mode="before")
     @classmethod
@@ -247,14 +265,24 @@ class VehicleTemplateRecord(BaseModel):
             return value.strip()
         return value
 
-    @field_validator("aliases", mode="before")
+    @field_validator("aliases", "supported_views", mode="before")
     @classmethod
-    def normalize_aliases(cls, value: object) -> object:
+    def normalize_string_tuple(cls, value: object) -> object:
         if value is None:
             return ()
         if isinstance(value, list | tuple):
-            return tuple(item.strip() for item in value if isinstance(item, str) and item.strip())
+            return tuple(
+                item.strip().lower()
+                for item in value
+                if isinstance(item, str) and item.strip()
+            )
         return value
+
+    @model_validator(mode="after")
+    def default_supported_views(self) -> VehicleTemplateRecord:
+        if self.supported_views:
+            return self
+        return self.model_copy(update={"supported_views": (self.view,)})
 
 
 class TemplateAuditItem(BaseModel):
@@ -263,6 +291,7 @@ class TemplateAuditItem(BaseModel):
     id: str
     label: str
     view: str
+    supported_views: list[str] = Field(default_factory=list)
     aliases: list[str] = Field(default_factory=list)
     source_type: TemplateSourceType
     license_status: TemplateLicenseStatus
@@ -283,6 +312,13 @@ class TemplateResolution:
     canvas_height: int
     warnings: list[str]
     safe_zones: list[SafeZone]
+    supported_views: list[str]
+    sections: list[TemplateSection]
+    forbidden_zones: list[TemplateForbiddenZone]
+    dimensions: TemplateDimensions | None
+    scale: TemplateScale | None
+    export_config: TemplateExportConfig | None
+    authorization: TemplateAuthorization | None
     template_source: TemplateSourceMetadata
     template_readiness: TemplateReadinessReport
 
@@ -432,6 +468,7 @@ def audit_template_record(record: VehicleTemplateRecord) -> TemplateAuditItem:
     readiness = evaluate_template_readiness(record)
     return TemplateAuditItem(
         aliases=list(record.aliases),
+        supported_views=list(record.supported_views),
         blocking_reasons=list(readiness.blocking_reasons),
         catalog_eligible=readiness.catalog_eligible,
         distribution_allowed=record.source.distribution_allowed,
@@ -469,14 +506,21 @@ def template_asset_resource(template_id: str, slot: TemplateAssetSlot) -> Traver
 
 
 def load_mvp_template_records() -> tuple[VehicleTemplateRecord, ...]:
-    return tuple(_load_mvp_template_record(template_id) for template_id in MVP_TEMPLATE_IDS)
+    return tuple(_load_template_record(template_id) for template_id in ALL_TEMPLATE_IDS)
 
 
-def _load_mvp_template_record(template_id: str) -> VehicleTemplateRecord:
+def _load_template_record(template_id: str) -> VehicleTemplateRecord:
     template_root = template_pack_root().joinpath(template_id)
     metadata = _read_json_object(template_root.joinpath("template.json"))
     safe_zones = _read_json_list(template_root.joinpath("safe_zones.json"))
-    return VehicleTemplateRecord.model_validate({**metadata, "safe_zones": safe_zones})
+    payload: dict[str, object] = {**metadata, "safe_zones": safe_zones}
+    sections_resource = template_root.joinpath("sections.json")
+    forbidden_resource = template_root.joinpath("forbidden_zones.json")
+    if sections_resource.is_file():
+        payload["sections"] = _read_json_list(sections_resource)
+    if forbidden_resource.is_file():
+        payload["forbidden_zones"] = _read_json_list(forbidden_resource)
+    return VehicleTemplateRecord.model_validate(payload)
 
 
 def _read_json_object(resource: Traversable) -> dict[str, object]:
@@ -515,20 +559,28 @@ def resolve_vehicle_template(
         )
         record = template_registry.default_record()
 
-    if requested_view != record.view:
+    resolved_view = requested_view if requested_view in record.supported_views else record.view
+    if requested_view != resolved_view:
         warnings.append(
-            f"Unsupported view '{requested_view}' normalized to '{record.view}'.",
+            f"Unsupported view '{requested_view}' normalized to '{resolved_view}'.",
         )
 
     return TemplateResolution(
         canvas_height=record.canvas_height,
         canvas_width=record.canvas_width,
         safe_zones=[dict(zone) for zone in record.safe_zones],
+        supported_views=list(record.supported_views),
+        sections=[dict(section) for section in record.sections],
+        forbidden_zones=[dict(zone) for zone in record.forbidden_zones],
+        dimensions=dict(record.dimensions) if record.dimensions is not None else None,
+        scale=dict(record.scale) if record.scale is not None else None,
+        export_config=dict(record.export_config) if record.export_config is not None else None,
+        authorization=dict(record.authorization) if record.authorization is not None else None,
         template_id=record.id,
         template_label=record.label,
         template_readiness=evaluate_template_readiness(record),
         template_source=record.source,
-        view=record.view,
+        view=resolved_view,
         warnings=warnings,
     )
 

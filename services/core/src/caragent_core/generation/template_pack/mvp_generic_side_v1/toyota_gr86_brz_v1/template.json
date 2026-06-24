@@ -1,0 +1,86 @@
+{
+  "id": "toyota_gr86_brz_v1",
+  "label": "Toyota GR86 / Subaru BRZ maintained template v1",
+  "view": "side",
+  "supported_views": [
+    "side",
+    "front",
+    "rear",
+    "top"
+  ],
+  "aliases": [
+    "gr86_brz_v1",
+    "toyota_gr86_v1",
+    "subaru_brz_v1"
+  ],
+  "canvas_width": 1536,
+  "canvas_height": 768,
+  "thumbnail_width": 384,
+  "thumbnail_height": 192,
+  "source": {
+    "schema_version": 1,
+    "source_type": "internal_original",
+    "license_status": "approved",
+    "license_evidence": "internal-maintained-gr86-brz-v1",
+    "rights_notes": "Internally generated GR86/BRZ proportion template for product development; not OEM artwork.",
+    "allowed_usage_scope": "caragent_quasi_construction_template_development",
+    "distribution_allowed": true,
+    "audit_timestamp": "2026-06-23T00:00:00Z"
+  },
+  "asset_slots": {
+    "base": "base.png",
+    "body_mask": "body_mask.png",
+    "window_mask": "window_mask.png",
+    "wheel_mask": "wheel_mask.png",
+    "handle_mask": "handle_mask.png",
+    "panel_lines": "panel_lines.png",
+    "safe_zones": "safe_zones.json",
+    "metadata": "template.json",
+    "thumbnail": "thumbnail.png"
+  },
+  "view_assets": {
+    "side": {
+      "base": "side.png"
+    },
+    "front": {
+      "base": "front.png"
+    },
+    "rear": {
+      "base": "rear.png"
+    },
+    "top": {
+      "base": "top.png"
+    }
+  },
+  "dimensions": {
+    "unit": "mm",
+    "overall_length": 4265,
+    "overall_width": 1775,
+    "overall_height": 1310,
+    "wheelbase": 2575
+  },
+  "scale": {
+    "unit": "mm_per_canvas_px",
+    "side_x": 3.33,
+    "side_y": 2.2,
+    "notes": "Quasi-construction planning scale; not installer-certified."
+  },
+  "export_config": {
+    "formats": [
+      "svg",
+      "pdf",
+      "png"
+    ],
+    "bleed_mm": 30,
+    "safe_margin_mm": 25,
+    "layer_prefix": "gr86_brz_v1"
+  },
+  "authorization": {
+    "source": "internal_generated",
+    "commercial_use": false,
+    "scope": "product_development_demo",
+    "expires_at": null,
+    "reviewer": "caragent",
+    "version": "v1"
+  }
+}

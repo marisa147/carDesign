@@ -10,15 +10,21 @@ from caragent_core.generation import (
     MVP_TEMPLATE_IDS,
     SUPPORTED_TEMPLATE_ID,
     SUPPORTED_VIEW,
+    BriefDraft,
+    BriefParserInput,
+    DeterministicBriefParser,
     GenerationBriefPayload,
+    StructuredBriefParser,
     TemplateRegistry,
     TemplateSourceMetadata,
     VehicleTemplateRecord,
     audit_vehicle_templates,
     create_generation_brief,
+    create_generation_brief_from_draft,
     list_vehicle_templates,
     register_vehicle_template,
     resolve_vehicle_template,
+    select_brief_parser,
     template_source_policy_table,
 )
 
@@ -86,6 +92,23 @@ def test_create_generation_brief_defaults_missing_optional_fields() -> None:
     assert brief.warnings == []
 
 
+
+def test_create_generation_brief_normalizes_string_list_fields_from_parser() -> None:
+    draft = BriefDraft(
+        character_theme="Hatsune Miku racing theme",
+        original_request="白色双门跑车，初音未来主题，车门写 MIKU RACING。",
+        palette="白色车身，青绿色线条",
+        racing_cues="赛车线条",
+        supporting_graphics="青绿色速度线、音符装饰",
+        text="MIKU RACING",
+    )
+
+    brief = create_generation_brief_from_draft(draft)
+
+    assert brief.palette == ["白色车身", "青绿色线条"]
+    assert brief.racing_cues == ["赛车线条"]
+    assert brief.supporting_graphics == ["青绿色速度线", "音符装饰"]
+    assert brief.text == ["MIKU RACING"]
 def test_empty_original_request_is_rejected() -> None:
     with pytest.raises(ValueError, match="original_request"):
         create_generation_brief(original_request="   ")
@@ -304,3 +327,57 @@ def _template_record(
         source=source,
         view="side",
     )
+
+
+def test_deterministic_brief_parser_returns_strict_draft_and_payload() -> None:
+    parser_input = BriefParserInput(
+        character_theme="Sakura heroine",
+        coverage="full side coverage",
+        original_request="White coupe with Sakura heroine and MOON DRIVE text.",
+        palette=["white", "pink"],
+        style="clean racing itasha",
+        text=["MOON DRIVE"],
+        vehicle_template_id=MVP_COUPE_TEMPLATE_ID,
+    )
+
+    draft = DeterministicBriefParser().parse(parser_input)
+    payload = create_generation_brief_from_draft(draft)
+
+    assert isinstance(draft, BriefDraft)
+    assert draft.original_request == parser_input.original_request
+    assert draft.character_theme == "Sakura heroine"
+    assert draft.palette == ["white", "pink"]
+    assert payload.vehicle_template_id == MVP_COUPE_TEMPLATE_ID
+    assert payload.character_theme == "Sakura heroine"
+    assert payload.text == ["MOON DRIVE"]
+
+
+def test_select_brief_parser_keeps_llm_parser_behind_feature_flag() -> None:
+    class RecordingParser:
+        calls = 0
+
+        def parse(self, parser_input: BriefParserInput) -> BriefDraft:
+            self.calls += 1
+            return BriefDraft(original_request=parser_input.original_request, style="llm style")
+
+    llm_parser = RecordingParser()
+    parser = select_brief_parser(llm_enabled=False, llm_parser=llm_parser)
+
+    draft = parser.parse(BriefParserInput(original_request="Black hatchback with neon decals."))
+
+    assert isinstance(parser, DeterministicBriefParser)
+    assert llm_parser.calls == 0
+    assert draft.style is None
+
+
+def test_structured_brief_parser_rejects_extra_llm_fields() -> None:
+    parser = StructuredBriefParser(
+        lambda parser_input: {
+            "extra_database_write": "nope",
+            "original_request": parser_input.original_request,
+            "style": "structured style",
+        },
+    )
+
+    with pytest.raises(ValueError, match="extra_database_write"):
+        parser.parse(BriefParserInput(original_request="Silver sedan with star graphics."))

@@ -24,6 +24,14 @@ class WorkerSettings(BaseSettings):
     runtime_mode: RuntimeMode = Field(default="local", validation_alias="RUNTIME_MODE")
     database_url: str | None = Field(default=None, validation_alias="DATABASE_URL")
     redis_url: str = Field(default="redis://localhost:6379/0", validation_alias="REDIS_URL")
+    object_storage_backend: Literal["file", "s3"] | None = Field(
+        default=None,
+        validation_alias="OBJECT_STORAGE_BACKEND",
+    )
+    object_storage_local_root: str = Field(
+        default=".runtime/object-storage",
+        validation_alias="OBJECT_STORAGE_LOCAL_ROOT",
+    )
     ai_provider_default: str = Field(default="disabled", validation_alias="AI_PROVIDER_DEFAULT")
     ai_provider_model: str = Field(
         default="local-concept-v1",
@@ -34,7 +42,7 @@ class WorkerSettings(BaseSettings):
         validation_alias="AI_PROVIDER_CALLS_ENABLED",
     )
     ai_generation_timeout_seconds: float = Field(
-        default=30.0,
+        default=90.0,
         gt=0,
         validation_alias="AI_GENERATION_TIMEOUT_SECONDS",
     )
@@ -102,6 +110,18 @@ class WorkerSettings(BaseSettings):
         default=None,
         validation_alias="AI_PROVIDER_OPENAI_API_KEY",
     )
+    ai_provider_openai_base_url: str = Field(
+        default="https://api.openai.com/v1",
+        validation_alias="AI_PROVIDER_OPENAI_BASE_URL",
+    )
+    ai_provider_openai_image_model: str = Field(
+        default="gpt-image-2",
+        validation_alias="AI_PROVIDER_OPENAI_IMAGE_MODEL",
+    )
+    ai_provider_openai_image_path: str = Field(
+        default="/images/generations",
+        validation_alias="AI_PROVIDER_OPENAI_IMAGE_PATH",
+    )
     ai_provider_fal_api_key: SecretStr | None = Field(
         default=None,
         validation_alias="AI_PROVIDER_FAL_API_KEY",
@@ -159,7 +179,12 @@ class WorkerSettings(BaseSettings):
                 self.ai_provider_bfl_api_key
                 and self.ai_provider_bfl_api_key.get_secret_value()
             ),
-            default_model=self.ai_provider_model,
+            openai_key_configured=bool(
+                self.ai_provider_openai_api_key
+                and self.ai_provider_openai_api_key.get_secret_value()
+            ),
+            bfl_default_model=self.ai_provider_model,
+            openai_default_model=self.ai_provider_openai_image_model,
             default_provider=self.ai_provider_default,
             hosted_daily_call_limit=self.ai_hosted_daily_call_limit,
             hosted_rate_limit_per_minute=self.ai_hosted_rate_limit_per_minute,

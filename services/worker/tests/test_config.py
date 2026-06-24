@@ -11,7 +11,9 @@ ENV_KEYS = (
     "REDIS_URL",
     "AI_PROVIDER_DEFAULT",
     "AI_PROVIDER_MODEL",
+    "AI_PROVIDER_OPENAI_IMAGE_MODEL",
     "AI_PROVIDER_CALLS_ENABLED",
+    "AI_GENERATION_TIMEOUT_SECONDS",
     "AI_GENERATION_MAX_ATTEMPTS",
     "AI_PROVIDER_FALLBACK_ENABLED",
     "AI_PROVIDER_FALLBACK_NAME",
@@ -36,6 +38,16 @@ ENV_KEYS = (
 def clear_worker_env(monkeypatch: pytest.MonkeyPatch) -> None:
     for key in ENV_KEYS:
         monkeypatch.delenv(key, raising=False)
+
+
+def test_worker_settings_default_generation_timeout_allows_gpt_relay_latency(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    clear_worker_env(monkeypatch)
+
+    settings = WorkerSettings(_env_file=None)
+
+    assert settings.ai_generation_timeout_seconds == 90.0
 
 
 def test_worker_settings_parse_runtime_redis_and_provider_keys(
@@ -206,7 +218,7 @@ def test_worker_settings_expose_safe_provider_capabilities(
 
     assert hasattr(settings, "provider_capability_map")
     capabilities = settings.provider_capability_map()
-    assert set(capabilities) == {"local-deterministic", "bfl"}
+    assert set(capabilities) == {"local-deterministic", "bfl", "openai"}
     assert capabilities["local-deterministic"]["enabled"] is True
     assert capabilities["local-deterministic"]["credential_required"] is False
     assert capabilities["local-deterministic"]["mask_input"]["accepted"] is False
@@ -227,6 +239,11 @@ def test_worker_settings_expose_safe_provider_capabilities(
         "max_estimated_cost_per_job": "0.2500",
         "rate_limit_per_minute": 2,
     }
+    assert capabilities["openai"]["enabled"] is False
+    assert capabilities["openai"]["credential_configured"] is False
+    assert capabilities["openai"]["default_model"] == "gpt-image-2"
+    assert "OpenAI credential is missing" in capabilities["openai"]["blocked_reasons"]
+    assert "api_key" not in json.dumps(capabilities["openai"], sort_keys=True).lower()
     assert "bfl-secret" not in json.dumps(capabilities, sort_keys=True)
 
 
@@ -261,6 +278,25 @@ def test_reference_guidance_flag_does_not_enable_hosted_reference_inputs(
         "inspiration",
     ]
 
+def test_worker_settings_keep_bfl_and_openai_models_independent(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    clear_worker_env(monkeypatch)
+    monkeypatch.setenv("AI_PROVIDER_DEFAULT", "openai")
+    monkeypatch.setenv("AI_PROVIDER_MODEL", "flux-2-flex")
+    monkeypatch.setenv("AI_PROVIDER_OPENAI_IMAGE_MODEL", "gpt-image-1-mini")
+    monkeypatch.setenv("AI_PROVIDER_CALLS_ENABLED", "true")
+    monkeypatch.setenv("AI_PROVIDER_BFL_API_KEY", "bfl-secret")
+    monkeypatch.setenv("AI_PROVIDER_OPENAI_API_KEY", "openai-secret")
+    monkeypatch.setenv("V2_HOSTED_PROVIDER_ROLLOUT_ENABLED", "true")
+    monkeypatch.setenv("AI_HOSTED_DAILY_CALL_LIMIT", "10")
+    monkeypatch.setenv("AI_HOSTED_RATE_LIMIT_PER_MINUTE", "2")
+    monkeypatch.setenv("AI_MAX_ESTIMATED_COST_PER_JOB", "0.2500")
+
+    capabilities = WorkerSettings().provider_capability_map()
+
+    assert capabilities["bfl"]["default_model"] == "flux-2-flex"
+    assert capabilities["openai"]["default_model"] == "gpt-image-1-mini"
 
 def test_worker_settings_block_hosted_capability_without_secrets_or_guards() -> None:
     settings = WorkerSettings(ai_provider_default="bfl")

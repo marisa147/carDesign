@@ -1,13 +1,15 @@
 from __future__ import annotations
 
-from typing import Annotated
 from uuid import UUID
 
 from caragent_core.services import workspaces
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import APIRouter, HTTPException, status
 
-from caragent_api.dependencies import get_db_session
+from caragent_api.dependencies import (
+    CurrentUserDependency,
+    OwnedWorkspaceDependency,
+    SessionDependency,
+)
 from caragent_api.schemas import (
     DesignBriefCreateRequest,
     DesignBriefResponse,
@@ -18,8 +20,6 @@ from caragent_api.schemas import (
 )
 
 router = APIRouter(tags=["workspaces"])
-
-SessionDependency = Annotated[AsyncSession, Depends(get_db_session)]
 
 
 def workspace_not_found(error: Exception) -> HTTPException:
@@ -41,21 +41,18 @@ def workspace_validation_failed(error: Exception) -> HTTPException:
 async def create_workspace(
     payload: WorkspaceCreateRequest,
     session: SessionDependency,
+    current_user: CurrentUserDependency,
 ) -> WorkspaceResponse:
     workspace = await workspaces.create_workspace(
         session,
-        owner_id=payload.owner_id,
+        owner_id=current_user.id,
         title=payload.title,
     )
     return WorkspaceResponse.model_validate(workspace)
 
 
 @router.get("/workspaces/{workspace_id}", response_model=WorkspaceResponse)
-async def get_workspace(workspace_id: UUID, session: SessionDependency) -> WorkspaceResponse:
-    try:
-        workspace = await workspaces.get_workspace(session, workspace_id)
-    except workspaces.WorkspaceNotFoundError as error:
-        raise workspace_not_found(error) from error
+async def get_workspace(workspace: OwnedWorkspaceDependency) -> WorkspaceResponse:
     return WorkspaceResponse.model_validate(workspace)
 
 
@@ -68,6 +65,7 @@ async def create_message(
     workspace_id: UUID,
     payload: MessageCreateRequest,
     session: SessionDependency,
+    _workspace: OwnedWorkspaceDependency,
 ) -> MessageResponse:
     try:
         message = await workspaces.create_message(
@@ -84,7 +82,11 @@ async def create_message(
 
 
 @router.get("/workspaces/{workspace_id}/messages", response_model=list[MessageResponse])
-async def list_messages(workspace_id: UUID, session: SessionDependency) -> list[MessageResponse]:
+async def list_messages(
+    workspace_id: UUID,
+    session: SessionDependency,
+    _workspace: OwnedWorkspaceDependency,
+) -> list[MessageResponse]:
     try:
         messages = await workspaces.list_messages(session, workspace_id)
     except workspaces.WorkspaceNotFoundError as error:
@@ -101,6 +103,7 @@ async def create_design_brief(
     workspace_id: UUID,
     payload: DesignBriefCreateRequest,
     session: SessionDependency,
+    _workspace: OwnedWorkspaceDependency,
 ) -> DesignBriefResponse:
     try:
         brief = await workspaces.create_design_brief(
@@ -121,6 +124,7 @@ async def create_design_brief(
 async def list_design_briefs(
     workspace_id: UUID,
     session: SessionDependency,
+    _workspace: OwnedWorkspaceDependency,
 ) -> list[DesignBriefResponse]:
     try:
         briefs = await workspaces.list_design_briefs(session, workspace_id)

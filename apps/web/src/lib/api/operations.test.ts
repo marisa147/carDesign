@@ -8,9 +8,13 @@ import {
 import {
   BFL_PROVIDER_ID,
   LOCAL_PROVIDER_ID,
+  getBflSettings,
+  getOpenAISettings,
   getProviderOption,
   getProviderStatus,
   normalizeProviderStatus,
+  updateBflSettings,
+  updateOpenAISettings,
 } from "@/lib/api/operations";
 
 function jsonResponse(body: unknown, status = 200): Response {
@@ -193,10 +197,174 @@ describe("operations API wrappers", () => {
     const disabledBfl = getProviderOption(disabledStatus, BFL_PROVIDER_ID);
     expect(disabledBfl?.enabled).toBe(false);
     expect(disabledBfl?.blockedReasons).toEqual(
-      expect.arrayContaining([
-        "托管调用开关关闭",
-        "BFL 凭据未配置",
-      ]),
+      expect.arrayContaining(["托管调用开关关闭", "BFL 凭据未配置"]),
+    );
+  });
+
+  it("fetches and updates BFL settings without exposing the raw key", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        jsonResponse({
+          api_key_configured: true,
+          api_key_masked: "********cret",
+          base_url: "https://api.bfl.ai",
+          calls_enabled: true,
+          daily_call_limit: 3,
+          default_provider: "bfl",
+          max_estimated_cost_per_job: "0.2500",
+          model: "flux-2-pro-preview",
+          rate_limit_per_minute: 1,
+          restart_required: false,
+          result_path: "/v1/get_result",
+          rollout_enabled: true,
+          submit_path: "/v1/flux-2-pro-preview",
+          submit_url: "https://api.bfl.ai/v1/flux-2-pro-preview",
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          api_key_configured: true,
+          api_key_masked: "********cret",
+          base_url: "https://api.bfl.ai",
+          calls_enabled: true,
+          daily_call_limit: 5,
+          default_provider: "bfl",
+          max_estimated_cost_per_job: "0.2500",
+          model: "flux-2-pro-preview",
+          rate_limit_per_minute: 1,
+          restart_required: true,
+          result_path: "/v1/get_result",
+          rollout_enabled: true,
+          submit_path: "/v1/flux-2-pro-preview",
+          submit_url: "https://api.bfl.ai/v1/flux-2-pro-preview",
+        }),
+      );
+
+    await expect(
+      getBflSettings({ apiBaseUrl: "http://api.test", fetch: fetchMock }),
+    ).resolves.toMatchObject({
+      apiKeyConfigured: true,
+      submitUrl: "https://api.bfl.ai/v1/flux-2-pro-preview",
+    });
+    await expect(
+      updateBflSettings(
+        {
+          apiKey: "bfl-real-secret",
+          baseUrl: "https://api.bfl.ai",
+          callsEnabled: true,
+          dailyCallLimit: 5,
+          defaultProvider: "bfl",
+          maxEstimatedCostPerJob: "0.2500",
+          model: "flux-2-pro-preview",
+          rateLimitPerMinute: 1,
+          resultPath: "/v1/get_result",
+          rolloutEnabled: true,
+          submitPath: "/v1/flux-2-pro-preview",
+        },
+        { apiBaseUrl: "http://api.test", fetch: fetchMock },
+      ),
+    ).resolves.toMatchObject({ restartRequired: true });
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      "http://api.test/operations/bfl-settings",
+      expect.objectContaining({ method: "GET" }),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      "http://api.test/operations/bfl-settings",
+      expect.objectContaining({
+        body: expect.stringContaining("bfl-real-secret"),
+        method: "POST",
+      }),
+    );
+  });
+
+  it("fetches and updates OpenAI GPT settings without exposing the raw key", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        jsonResponse({
+          api_key_configured: true,
+          api_key_masked: "********cret",
+          base_url: "https://api.openai.com/v1",
+          calls_enabled: true,
+          daily_call_limit: 6,
+          default_provider: "openai",
+          image_model: "gpt-image-2",
+          image_path: "/images/generations",
+          image_url: "https://api.openai.com/v1/images/generations",
+          max_estimated_cost_per_job: "0.9000",
+          parser_enabled: true,
+          rate_limit_per_minute: 2,
+          responses_path: "/responses",
+          restart_required: false,
+          rollout_enabled: true,
+          text_model: "gpt-5.5",
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          api_key_configured: true,
+          api_key_masked: "********cret",
+          base_url: "https://api.openai.com/v1",
+          calls_enabled: true,
+          daily_call_limit: 8,
+          default_provider: "openai",
+          image_model: "gpt-image-2",
+          image_path: "/images/generations",
+          image_url: "https://api.openai.com/v1/images/generations",
+          max_estimated_cost_per_job: "0.9000",
+          parser_enabled: true,
+          rate_limit_per_minute: 2,
+          responses_path: "/responses",
+          restart_required: true,
+          rollout_enabled: true,
+          text_model: "gpt-5.5",
+        }),
+      );
+
+    await expect(
+      getOpenAISettings({ apiBaseUrl: "http://api.test", fetch: fetchMock }),
+    ).resolves.toMatchObject({
+      apiKeyConfigured: true,
+      imageUrl: "https://api.openai.com/v1/images/generations",
+      parserEnabled: true,
+    });
+    await expect(
+      updateOpenAISettings(
+        {
+          apiKey: "sk-openai-real-secret",
+          baseUrl: "https://api.openai.com/v1",
+          callsEnabled: true,
+          dailyCallLimit: 8,
+          defaultProvider: "openai",
+          imageModel: "gpt-image-2",
+          imagePath: "/images/generations",
+          maxEstimatedCostPerJob: "0.9000",
+          parserEnabled: true,
+          rateLimitPerMinute: 2,
+          responsesPath: "/responses",
+          rolloutEnabled: true,
+          textModel: "gpt-5.5",
+        },
+        { apiBaseUrl: "http://api.test", fetch: fetchMock },
+      ),
+    ).resolves.toMatchObject({ restartRequired: true });
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      "http://api.test/operations/openai-settings",
+      expect.objectContaining({ method: "GET" }),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      "http://api.test/operations/openai-settings",
+      expect.objectContaining({
+        body: expect.stringContaining("sk-openai-real-secret"),
+        method: "POST",
+      }),
     );
   });
 });

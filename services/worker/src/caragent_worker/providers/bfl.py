@@ -4,6 +4,7 @@ import asyncio
 from dataclasses import dataclass
 from decimal import Decimal
 from typing import Any
+from urllib.parse import urlparse
 
 import httpx
 from pydantic import SecretStr
@@ -21,6 +22,7 @@ from caragent_worker.providers.base import (
 
 BFL_PROVIDER = "bfl"
 BFL_DEFAULT_SUBMIT_PATH = "/v1/flux-2-pro-preview"
+BFL_MAX_RESULT_IMAGE_BYTES = 20 * 1024 * 1024
 
 
 @dataclass(frozen=True, slots=True)
@@ -43,6 +45,7 @@ class BflImageProvider:
         result_path: str = "/v1/get_result",
         submit_path: str = BFL_DEFAULT_SUBMIT_PATH,
         timeout_seconds: float = 30.0,
+        allowed_result_hosts: tuple[str, ...] = (),
     ) -> None:
         api_key_value = _secret_value(api_key)
         if not api_key_value:
@@ -56,6 +59,9 @@ class BflImageProvider:
         self._result_path = result_path
         self._submit_path = submit_path
         self._timeout_seconds = timeout_seconds
+        self._allowed_result_hosts = tuple(
+            host.strip().lower() for host in allowed_result_hosts if host.strip()
+        )
 
     async def generate(self, request: ImageGenerationRequest) -> ImageGenerationResult:
         client = self._client or httpx.AsyncClient(base_url=self._base_url)
@@ -63,11 +69,13 @@ class BflImageProvider:
             submit_info = await self._submit(client, request)
             result_payload = await self._poll_until_ready(client, submit_info)
             result_url = _extract_result_url(result_payload)
+            _validate_result_url(result_url, allowed_hosts=self._allowed_result_hosts)
             image_response = await client.get(result_url, timeout=self._timeout_seconds)
             if image_response.is_error:
                 raise self._error_from_response("BFL result download failed", image_response)
 
-            width, height = png_dimensions(image_response.content)
+            content_type = _validated_result_content_type(image_response)
+            width, height = _validated_png_dimensions(image_response.content)
             result_metadata = result_payload.get("result")
             metadata: JsonObject = {
                 "cost": _json_safe_decimal(submit_info.cost),
@@ -86,7 +94,7 @@ class BflImageProvider:
 
             return ImageGenerationResult(
                 actual_cost=submit_info.cost,
-                content_type=image_response.headers.get("content-type", "image/png"),
+                content_type=content_type,
                 estimated_cost=request.estimated_cost,
                 height=height,
                 image_bytes=image_response.content,
@@ -203,6 +211,32 @@ class BflImageProvider:
             status_code=response.status_code,
         )
 
+
+def _validate_result_url(result_url: str, *, allowed_hosts: tuple[str, ...]) -> None:
+    parsed = urlparse(result_url)
+    if parsed.scheme.lower() != "https":
+        raise ImageProviderError("BFL result URL must use HTTPS")
+    hostname = (parsed.hostname or "").lower()
+    if allowed_hosts and hostname not in allowed_hosts:
+        raise ImageProviderError("BFL result URL host is not allowed")
+
+
+def _validated_result_content_type(response: httpx.Response) -> str:
+    content = response.content
+    if len(content) > BFL_MAX_RESULT_IMAGE_BYTES:
+        raise ImageProviderError("BFL result image exceeds maximum download size")
+    raw_content_type = response.headers.get("content-type", "")
+    content_type = str(raw_content_type).split(";", 1)[0].strip().lower()
+    if content_type != "image/png":
+        raise ImageProviderError("BFL result content type must be image/png")
+    return content_type
+
+
+def _validated_png_dimensions(content: bytes) -> tuple[int, int]:
+    width, height = png_dimensions(content)
+    if width <= 0 or height <= 0:
+        raise ImageProviderError("BFL result image is not a valid PNG")
+    return width, height
 
 def _secret_value(api_key: SecretStr | str | None) -> str | None:
     if isinstance(api_key, SecretStr):
