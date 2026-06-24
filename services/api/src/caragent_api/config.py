@@ -105,6 +105,10 @@ class ApiSettings(BaseSettings):
         default="deterministic",
         validation_alias="AI_BRIEF_PARSER_PROVIDER",
     )
+    ai_brief_parser_fallback_enabled: bool = Field(
+        default=True,
+        validation_alias="AI_BRIEF_PARSER_FALLBACK_ENABLED",
+    )
     ai_provider_fal_api_key: SecretStr | None = Field(
         default=None,
         validation_alias="AI_PROVIDER_FAL_API_KEY",
@@ -225,4 +229,3 @@ def get_settings() -> ApiSettings:
     """Return cached API settings for application startup."""
 
     return ApiSettings()
-
