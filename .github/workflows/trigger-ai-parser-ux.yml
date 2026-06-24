@@ -25,21 +25,37 @@ jobs:
         run: |
           from pathlib import Path
           import textwrap
+          import traceback
 
-          workflow = Path(".github/workflows/apply-ai-parser-ux.yml").read_text(encoding="utf-8")
-          marker = "      - name: Apply source changes\n"
-          start = workflow.index(marker)
-          run_marker = "        run: |\n"
-          script_start = workflow.index(run_marker, start) + len(run_marker)
-          next_step = workflow.index("\n      - uses: actions/setup-node", script_start)
-          embedded = textwrap.dedent(workflow[script_start:next_step])
-          exec(compile(embedded, "apply-ai-parser-ux.yml", "exec"), {})
+          try:
+              workflow = Path(".github/workflows/apply-ai-parser-ux.yml").read_text(encoding="utf-8")
+              marker = "      - name: Apply source changes\n"
+              start = workflow.index(marker)
+              run_marker = "        run: |\n"
+              script_start = workflow.index(run_marker, start) + len(run_marker)
+              next_step = workflow.index("\n      - uses: actions/setup-node", script_start)
+              embedded = textwrap.dedent(workflow[script_start:next_step])
+              exec(compile(embedded, "apply-ai-parser-ux.yml", "exec"), {})
+          except BaseException:
+              detail = traceback.format_exc()
+              Path("automation-error.txt").write_text(detail, encoding="utf-8")
+              print(detail)
+              raise
+
+      - name: Upload patch diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-parser-patch-error
+          path: automation-error.txt
+          retention-days: 1
 
       - name: Restore temporary workflow files
+        if: always()
         run: |
-          git checkout -- .github/workflows/apply-ai-parser-ux.yml
-          git checkout -- .github/workflows/source-snapshot.yml
-          git checkout -- .github/workflows/trigger-ai-parser-ux.yml
+          git checkout -- .github/workflows/apply-ai-parser-ux.yml || true
+          git checkout -- .github/workflows/source-snapshot.yml || true
+          git checkout -- .github/workflows/trigger-ai-parser-ux.yml || true
 
       - name: Set up Node
         uses: actions/setup-node@v4
