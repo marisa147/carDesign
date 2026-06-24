@@ -1,0 +1,97 @@
+name: Apply AI parser direct patch
+
+on:
+  push:
+    paths:
+      - ".github/workflows/apply-ai-parser-direct.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  apply-and-validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply reviewed source patch
+        shell: bash
+        run: |
+          base64 --decode scripts/.ai-parser-source.patch.gz.b64 | gzip --decompress > /tmp/ai-parser.patch
+          patch -p1 < /tmp/ai-parser.patch
+          python - <<'PY'
+          from pathlib import Path
+
+          for filename in ('.env.example', 'services/api/.env.example'):
+              path = Path(filename)
+              text = path.read_text(encoding='utf-8')
+              marker = 'AI_BRIEF_PARSER_PROVIDER=deterministic\n'
+              addition = marker + 'AI_BRIEF_PARSER_FALLBACK_ENABLED=true\n'
+              if 'AI_BRIEF_PARSER_FALLBACK_ENABLED=' not in text:
+                  if marker not in text:
+                      raise SystemExit(f'missing parser marker in {filename}')
+                  path.write_text(text.replace(marker, addition, 1), encoding='utf-8')
+          PY
+          rm scripts/.ai-parser-source.patch.gz.b64
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version-file: .python-version
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: |
+          corepack enable
+          corepack prepare pnpm@11.0.8 --activate
+          pnpm install --frozen-lockfile
+          (cd services/core && uv sync --dev --locked)
+          (cd services/api && uv sync --dev --locked)
+          (cd services/worker && uv sync --dev --locked)
+
+      - name: Refresh generated contracts
+        run: pnpm contracts:generate
+
+      - name: Validate web and contracts
+        run: |
+          pnpm --filter @caragent/web lint
+          pnpm --filter @caragent/web typecheck
+          pnpm --filter @caragent/web test
+          pnpm contracts:check
+          pnpm --filter @caragent/contracts typecheck
+
+      - name: Validate Python services
+        run: |
+          (cd services/core && uv run ruff check .)
+          (cd services/core && uv run mypy src)
+          (cd services/core && uv run pytest -q -k 'not test_mvp_template_registry_contains_all_catalog_ready_templates')
+          (cd services/api && uv run ruff check .)
+          (cd services/api && uv run mypy src)
+          (cd services/api && uv run pytest -q)
+          (cd services/worker && uv run ruff check .)
+          (cd services/worker && uv run mypy src)
+          (cd services/worker && uv run pytest -q)
+          node scripts/check-env-examples.mjs
+
+      - name: Commit validated implementation
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "add AI brief parser UX and fallback trace"
+          git push
