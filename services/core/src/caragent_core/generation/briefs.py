@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Callable, Mapping, Sequence
-from typing import Any, Protocol
+from typing import Any, Literal, Protocol
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -16,6 +16,9 @@ from caragent_core.references import ReferenceAssignment
 
 _TEXT_LIST_SPLIT_PATTERN = re.compile(r"[\n,;，；、]+")
 
+ParserMode = Literal["deterministic", "ai"]
+ParserStatus = Literal["succeeded", "fallback"]
+
 
 def _split_text_list(value: str) -> list[str]:
     return [
@@ -23,6 +26,25 @@ def _split_text_list(value: str) -> list[str]:
         for item in _TEXT_LIST_SPLIT_PATTERN.split(value)
         if item.strip()
     ]
+
+
+class BriefParserTrace(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    schema_version: Literal[1] = 1
+    requested_mode: ParserMode = "deterministic"
+    provider: str = "deterministic"
+    model: str | None = None
+    status: ParserStatus = "succeeded"
+    fallback_reason: str | None = None
+
+    @field_validator("provider", "model", "fallback_reason", mode="before")
+    @classmethod
+    def strip_trace_text(cls, value: object) -> object:
+        if isinstance(value, str):
+            stripped = value.strip()
+            return stripped or None
+        return value
 
 
 class GenerationBriefPayload(BaseModel):
@@ -49,6 +71,7 @@ class GenerationBriefPayload(BaseModel):
     canvas_height: int
     template_source: TemplateSourceMetadata
     template_readiness: TemplateReadinessReport
+    parser_trace: BriefParserTrace = Field(default_factory=BriefParserTrace)
 
     @field_validator(
         "character_focus",
@@ -225,6 +248,7 @@ def create_generation_brief(
     reference_asset_ids: list[str] | None = None,
     reference_usage: Sequence[ReferenceAssignment | Mapping[str, Any]] | None = None,
     overlay_logo_asset_ids: list[str] | None = None,
+    parser_trace: BriefParserTrace | None = None,
 ) -> GenerationBriefPayload:
     draft = BriefDraft(
         character_focus=character_focus,
@@ -244,10 +268,14 @@ def create_generation_brief(
         vehicle_template_id=vehicle_template_id,
         view=view,
     )
-    return create_generation_brief_from_draft(draft)
+    return create_generation_brief_from_draft(draft, parser_trace=parser_trace)
 
 
-def create_generation_brief_from_draft(draft: BriefDraft) -> GenerationBriefPayload:
+def create_generation_brief_from_draft(
+    draft: BriefDraft,
+    *,
+    parser_trace: BriefParserTrace | None = None,
+) -> GenerationBriefPayload:
     normalized_request = draft.original_request.strip()
     resolution = resolve_vehicle_template(
         vehicle_template_id=draft.vehicle_template_id,
@@ -265,6 +293,7 @@ def create_generation_brief_from_draft(draft: BriefDraft) -> GenerationBriefPayl
         original_request=normalized_request,
         overlay_logo_asset_ids=draft.overlay_logo_asset_ids or [],
         palette=draft.palette or [],
+        parser_trace=parser_trace or BriefParserTrace(),
         racing_cues=draft.racing_cues or [],
         reference_asset_ids=draft.reference_asset_ids or [],
         reference_usage=draft.reference_usage or [],
@@ -307,5 +336,3 @@ def _quality_warnings(text: list[str]) -> list[str]:
     if any(len(value.strip()) > 28 for value in text):
         return ["Text may be hard to read; shorten or enlarge the lettering."]
     return []
-
-
