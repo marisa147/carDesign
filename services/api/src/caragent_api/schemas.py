@@ -2,12 +2,13 @@ from __future__ import annotations
 
 from datetime import datetime
 from decimal import Decimal
-from typing import Any
+from typing import Any, Literal
 from uuid import UUID
 
 from caragent_core.editing import EditIntent
 from caragent_core.enums import MessageRole
 from caragent_core.generation import (
+    BriefParserTrace,
     GenerationBriefPayload,
     TemplateReadinessReport,
     TemplateSourceMetadata,
@@ -89,6 +90,23 @@ class GenerationBriefCreateRequest(BaseModel):
     overlay_logo_asset_ids: list[str] | None = None
     source_message_id: UUID | None = None
     title: str | None = Field(default=None, max_length=160)
+
+
+class GenerationBriefParseRequest(GenerationBriefCreateRequest):
+    parser_mode: Literal["deterministic", "ai"] = "ai"
+    allow_fallback: bool = True
+
+
+class GenerationBriefFieldChange(BaseModel):
+    field: str
+    before: Any
+    after: Any
+
+
+class GenerationBriefParseResponse(BaseModel):
+    payload: GenerationBriefPayload
+    trace: BriefParserTrace
+    changes: list[GenerationBriefFieldChange] = Field(default_factory=list)
 
 
 class GenerationBriefUpdateRequest(BaseModel):
