@@ -9,6 +9,10 @@ from caragent_core.generation import PromptPlan
 
 JsonObject = dict[str, Any]
 
+FULL_CONCEPT_IMAGE_ROUTE = "full_concept_image"
+TEMPLATE_COMPOSITED_PREVIEW_ROUTE = "template_composited_preview"
+PNG_SIGNATURE = bytes.fromhex("89504e470d0a1a0a")
+
 
 class ImageProviderError(RuntimeError):
     """Base error for normalized image-provider failures."""
@@ -95,6 +99,20 @@ class ImageProvider(Protocol):
         """Generate image bytes for a normalized request."""
 
 
+def generation_route_for_request(
+    request: ImageGenerationRequest,
+    *,
+    template_composited: bool = False,
+) -> str:
+    """Return the durable route label used for trace, QA, and export metadata."""
+
+    if request.mask_edit is not None:
+        return request.mask_edit.route_preference
+    if template_composited:
+        return TEMPLATE_COMPOSITED_PREVIEW_ROUTE
+    return FULL_CONCEPT_IMAGE_ROUTE
+
+
 def sanitize_provider_error(message: str, *, secrets: Sequence[str] = ()) -> str:
     sanitized = " ".join(message.split())
     for secret in secrets:
@@ -104,7 +122,7 @@ def sanitize_provider_error(message: str, *, secrets: Sequence[str] = ()) -> str
 
 
 def png_dimensions(image_bytes: bytes) -> tuple[int, int]:
-    if not image_bytes.startswith(b"\x89PNG\r\n\x1a\n") or len(image_bytes) < 24:
+    if not image_bytes.startswith(PNG_SIGNATURE) or len(image_bytes) < 24:
         return 0, 0
     return (
         int.from_bytes(image_bytes[16:20], "big"),
