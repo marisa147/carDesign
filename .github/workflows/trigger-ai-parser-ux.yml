@@ -81,7 +81,8 @@ jobs:
               '''
               helper_start = embedded.index("def replace(path: str, old: str, new: str) -> None:")
               helper_end = embedded.index("\ngeneration =", helper_start)
-              embedded = embedded[:helper_start] + tolerant_replace + embedded[helper_end + 1 :]
+              embedded = embedded[:helper_end] + "\n\n" + tolerant_replace + "\n" + embedded[helper_end + 1 :]
+              Path("embedded-patch.py").write_text(embedded, encoding="utf-8")
               exec(compile(embedded, "apply-ai-parser-ux.yml", "exec"), {})
           except BaseException:
               detail = traceback.format_exc()
@@ -94,7 +95,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ai-parser-patch-error
-          path: automation-error.txt
+          path: |
+            automation-error.txt
+            embedded-patch.py
           retention-days: 1
 
       - name: Restore temporary workflow files
@@ -103,6 +106,7 @@ jobs:
           git checkout -- .github/workflows/apply-ai-parser-ux.yml || true
           git checkout -- .github/workflows/source-snapshot.yml || true
           git checkout -- .github/workflows/trigger-ai-parser-ux.yml || true
+          rm -f automation-error.txt embedded-patch.py
 
       - name: Set up Node
         uses: actions/setup-node@v4
