@@ -35,13 +35,6 @@ jobs:
               script_start = workflow.index(run_marker, start) + len(run_marker)
               next_step = workflow.index("\n      - uses: actions/setup-node", script_start)
               embedded = textwrap.dedent(workflow[script_start:next_step])
-              original_replace = '''def replace(path: str, old: str, new: str) -> None:
-                  target = Path(path)
-                  text = target.read_text(encoding="utf-8")
-                  if old not in text:
-                      raise SystemExit(f"Expected block not found in {path}: {old[:120]!r}")
-                  target.write_text(text.replace(old, new, 1), encoding="utf-8")
-              '''
               tolerant_replace = '''def replace(path: str, old: str, new: str) -> None:
                   target = Path(path)
                   text = target.read_text(encoding="utf-8")
@@ -86,9 +79,9 @@ jobs:
                       new = replacement
                   target.write_text(text.replace(old, new, 1), encoding="utf-8")
               '''
-              if original_replace not in embedded:
-                  raise SystemExit("Embedded replace helper not found")
-              embedded = embedded.replace(original_replace, tolerant_replace, 1)
+              helper_start = embedded.index("def replace(path: str, old: str, new: str) -> None:")
+              helper_end = embedded.index("\ngeneration =", helper_start)
+              embedded = embedded[:helper_start] + tolerant_replace + embedded[helper_end + 1 :]
               exec(compile(embedded, "apply-ai-parser-ux.yml", "exec"), {})
           except BaseException:
               detail = traceback.format_exc()
