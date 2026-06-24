@@ -9,6 +9,7 @@ from caragent_worker.providers.base import (
     ImageGenerationRequest,
     ImageGenerationResult,
     JsonObject,
+    generation_route_for_request,
 )
 from caragent_worker.template_compositor import PillowTemplateCompositor
 
@@ -44,6 +45,10 @@ class LocalDeterministicImageProvider:
         metadata: JsonObject = {
             "concept_label": request.concept_label,
             "external_calls": False,
+            "generation_route": generation_route_for_request(
+                request,
+                template_composited=True,
+            ),
             "height": composition.height,
             "input_artifact_ids": list(request.input_artifact_ids),
             "overlay_layer_count": len(_json_list(preview_spec.get("overlay_layers"))),

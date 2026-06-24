@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import base64
 import binascii
+import ipaddress
 import json
 import re
 from io import BytesIO
 from typing import Any
+from urllib.parse import urlparse
 
 import httpx
 from PIL import Image, UnidentifiedImageError
@@ -17,12 +19,15 @@ from caragent_worker.providers.base import (
     ImageProviderConfigurationError,
     ImageProviderError,
     JsonObject,
+    generation_route_for_request,
     png_dimensions,
     sanitize_provider_error,
 )
 
 OPENAI_PROVIDER = "openai"
 OPENAI_DEFAULT_IMAGE_PATH = "/images/generations"
+OPENAI_MAX_RESULT_IMAGE_BYTES = 20 * 1024 * 1024
+OPENAI_ALLOWED_RESULT_CONTENT_TYPES = {"image/jpeg", "image/png", "image/webp"}
 CHAT_COMPLETIONS_SYSTEM_PROMPT = (
     "Generate a single pain-car concept image. Return only compact JSON with either "
     "{\"image_url\":\"https://...\"} or {\"image_base64\":\"...\"}. "
@@ -44,6 +49,7 @@ class OpenAIImageProvider:
         client: httpx.AsyncClient | None = None,
         image_path: str = OPENAI_DEFAULT_IMAGE_PATH,
         timeout_seconds: float = 30.0,
+        allowed_image_hosts: tuple[str, ...] = (),
     ) -> None:
         api_key_value = _secret_value(api_key)
         if not api_key_value:
@@ -54,6 +60,9 @@ class OpenAIImageProvider:
         self._client = client
         self._image_path = image_path
         self._timeout_seconds = timeout_seconds
+        self._allowed_image_hosts = tuple(
+            host.strip().lower() for host in allowed_image_hosts if host.strip()
+        )
 
     async def generate(self, request: ImageGenerationRequest) -> ImageGenerationResult:
         client = self._client or httpx.AsyncClient(base_url=self._base_url)
@@ -73,13 +82,21 @@ class OpenAIImageProvider:
                 raise self._error_from_response("OpenAI image generation failed", response)
 
             payload = _json_payload(response)
-            metadata: JsonObject = {"external_calls": True}
+            metadata: JsonObject = {
+                "external_calls": True,
+                "generation_route": generation_route_for_request(request),
+            }
             usage = payload.get("usage")
             if isinstance(usage, dict):
                 metadata["usage"] = usage
 
             if chat_completion_mode:
-                image_bytes = await _image_bytes_from_chat_completion(payload, client)
+                image_bytes = await _image_bytes_from_chat_completion(
+                    payload,
+                    client,
+                    allowed_hosts=self._allowed_image_hosts,
+                    timeout_seconds=self._timeout_seconds,
+                )
                 metadata["response_mode"] = "chat_completions"
             else:
                 item = _first_data_item(payload)
@@ -181,6 +198,9 @@ def _decode_b64_png(item: JsonObject) -> bytes:
 async def _image_bytes_from_chat_completion(
     payload: JsonObject,
     client: httpx.AsyncClient,
+    *,
+    allowed_hosts: tuple[str, ...],
+    timeout_seconds: float,
 ) -> bytes:
     content = _first_chat_message_content(payload)
     reference = _image_reference_from_content(content)
@@ -189,7 +209,12 @@ async def _image_bytes_from_chat_completion(
             "OpenAI chat completion response did not include an image. "
             f"content_excerpt={_content_excerpt(content)}",
         )
-    return await _bytes_from_image_reference(reference, client)
+    return await _bytes_from_image_reference(
+        reference,
+        client,
+        allowed_hosts=allowed_hosts,
+        timeout_seconds=timeout_seconds,
+    )
 
 
 def _first_chat_message_content(payload: JsonObject) -> object:
@@ -243,20 +268,90 @@ def _image_reference_from_content(content: object) -> str | None:
     return None
 
 
-async def _bytes_from_image_reference(reference: str, client: httpx.AsyncClient) -> bytes:
+async def _bytes_from_image_reference(
+    reference: str,
+    client: httpx.AsyncClient,
+    *,
+    allowed_hosts: tuple[str, ...],
+    timeout_seconds: float,
+) -> bytes:
     data_url_match = _DATA_URL_RE.fullmatch(reference.strip())
     if data_url_match:
         return _decode_png_base64(data_url_match.group(1))
     if reference.startswith(("http://", "https://")):
-        response = await client.get(reference)
+        _validate_remote_image_url(reference, allowed_hosts=allowed_hosts)
+        return await _download_remote_image(
+            reference,
+            client,
+            timeout_seconds=timeout_seconds,
+        )
+    return _decode_png_base64(reference)
+
+
+def _validate_remote_image_url(reference: str, *, allowed_hosts: tuple[str, ...]) -> None:
+    parsed = urlparse(reference)
+    if parsed.scheme.lower() != "https":
+        raise ImageProviderError("OpenAI result image URL must use HTTPS")
+    hostname = (parsed.hostname or "").strip().lower()
+    if not hostname:
+        raise ImageProviderError("OpenAI result image URL is missing a host")
+    if allowed_hosts and hostname not in allowed_hosts:
+        raise ImageProviderError("OpenAI result image URL host is not allowed")
+    if hostname == "localhost" or hostname.endswith(".localhost"):
+        raise ImageProviderError("OpenAI result image URL host is not public")
+    try:
+        address = ipaddress.ip_address(hostname)
+    except ValueError:
+        return
+    if (
+        address.is_private
+        or address.is_loopback
+        or address.is_link_local
+        or address.is_multicast
+        or address.is_reserved
+        or address.is_unspecified
+    ):
+        raise ImageProviderError("OpenAI result image URL host is not public")
+
+
+async def _download_remote_image(
+    reference: str,
+    client: httpx.AsyncClient,
+    *,
+    timeout_seconds: float,
+) -> bytes:
+    async with client.stream(
+        "GET",
+        reference,
+        follow_redirects=False,
+        timeout=timeout_seconds,
+    ) as response:
+        if response.is_redirect:
+            raise ImageProviderError("OpenAI result image download redirects are not allowed")
         if response.is_error:
             raise ImageProviderError(
                 f"OpenAI chat completion image download failed: HTTP {response.status_code}",
                 provider_status=_http_provider_status(response.status_code),
                 status_code=response.status_code,
             )
-        return bytes(response.content)
-    return _decode_png_base64(reference)
+        content_type = response.headers.get("content-type", "").split(";", 1)[0].strip().lower()
+        if content_type and content_type not in OPENAI_ALLOWED_RESULT_CONTENT_TYPES:
+            raise ImageProviderError("OpenAI result image content type is not supported")
+        content_length = response.headers.get("content-length")
+        if content_length is not None:
+            try:
+                declared_size = int(content_length)
+            except ValueError:
+                declared_size = 0
+            if declared_size > OPENAI_MAX_RESULT_IMAGE_BYTES:
+                raise ImageProviderError("OpenAI result image exceeds maximum download size")
+
+        content = bytearray()
+        async for chunk in response.aiter_bytes():
+            content.extend(chunk)
+            if len(content) > OPENAI_MAX_RESULT_IMAGE_BYTES:
+                raise ImageProviderError("OpenAI result image exceeds maximum download size")
+        return bytes(content)
 
 
 def _content_excerpt(content: object) -> str:

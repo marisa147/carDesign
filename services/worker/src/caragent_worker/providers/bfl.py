@@ -16,6 +16,7 @@ from caragent_worker.providers.base import (
     ImageProviderError,
     ImageProviderTimeoutError,
     JsonObject,
+    generation_route_for_request,
     png_dimensions,
     sanitize_provider_error,
 )
@@ -80,6 +81,7 @@ class BflImageProvider:
             metadata: JsonObject = {
                 "cost": _json_safe_decimal(submit_info.cost),
                 "external_calls": True,
+                "generation_route": generation_route_for_request(request),
                 "request_id": submit_info.request_id,
             }
             metadata.update(submit_info.metadata)
@@ -237,6 +239,7 @@ def _validated_png_dimensions(content: bytes) -> tuple[int, int]:
     if width <= 0 or height <= 0:
         raise ImageProviderError("BFL result image is not a valid PNG")
     return width, height
+
 
 def _secret_value(api_key: SecretStr | str | None) -> str | None:
     if isinstance(api_key, SecretStr):

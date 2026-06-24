@@ -4,6 +4,8 @@ import httpx
 
 from caragent_worker.config import WorkerSettings
 from caragent_worker.providers.base import (
+    FULL_CONCEPT_IMAGE_ROUTE,
+    TEMPLATE_COMPOSITED_PREVIEW_ROUTE,
     ImageGenerationRequest,
     ImageGenerationResult,
     ImageProvider,
@@ -11,6 +13,7 @@ from caragent_worker.providers.base import (
     ImageProviderError,
     ImageProviderTimeoutError,
     MaskEditRequest,
+    generation_route_for_request,
 )
 from caragent_worker.providers.bfl import BflImageProvider
 from caragent_worker.providers.local import LocalDeterministicImageProvider
@@ -18,6 +21,7 @@ from caragent_worker.providers.openai import OpenAIImageProvider
 
 __all__ = [
     "BflImageProvider",
+    "FULL_CONCEPT_IMAGE_ROUTE",
     "ImageGenerationRequest",
     "ImageGenerationResult",
     "ImageProvider",
@@ -27,6 +31,8 @@ __all__ = [
     "LocalDeterministicImageProvider",
     "MaskEditRequest",
     "OpenAIImageProvider",
+    "TEMPLATE_COMPOSITED_PREVIEW_ROUTE",
+    "generation_route_for_request",
     "select_image_provider",
 ]
 
@@ -65,6 +71,7 @@ def select_image_provider(
             client=client,
             image_path=settings.ai_provider_openai_image_path,
             timeout_seconds=settings.ai_generation_timeout_seconds,
+            allowed_image_hosts=settings.openai_allowed_image_hosts,
         )
 
     raise ImageProviderConfigurationError(f"Unsupported image provider: {selected_name}")

@@ -1,0 +1,47 @@
+name: Worker provider checks
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/worker-provider-checks.yml"
+      - "services/core/**"
+      - "services/worker/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  worker-provider-checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version-file: .python-version
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Install worker dependencies
+        working-directory: services/worker
+        run: uv sync --dev --locked
+
+      - name: Lint worker
+        working-directory: services/worker
+        run: uv run ruff check .
+
+      - name: Type-check worker
+        working-directory: services/worker
+        run: uv run mypy src
+
+      - name: Test worker
+        working-directory: services/worker
+        run: uv run pytest -q

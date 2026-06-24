@@ -122,6 +122,10 @@ class WorkerSettings(BaseSettings):
         default="/images/generations",
         validation_alias="AI_PROVIDER_OPENAI_IMAGE_PATH",
     )
+    ai_provider_openai_allowed_image_hosts: str = Field(
+        default="",
+        validation_alias="AI_PROVIDER_OPENAI_ALLOWED_IMAGE_HOSTS",
+    )
     ai_provider_fal_api_key: SecretStr | None = Field(
         default=None,
         validation_alias="AI_PROVIDER_FAL_API_KEY",
@@ -159,6 +163,14 @@ class WorkerSettings(BaseSettings):
         if self.ai_provider_fallback_enabled and fallback_name not in SUPPORTED_FALLBACK_PROVIDERS:
             raise ValueError("Unsupported AI_PROVIDER_FALLBACK_NAME")
         return self
+
+    @property
+    def openai_allowed_image_hosts(self) -> tuple[str, ...]:
+        return tuple(
+            host.strip().lower()
+            for host in self.ai_provider_openai_allowed_image_hosts.split(",")
+            if host.strip()
+        )
 
     @property
     def hosted_provider_configured(self) -> bool:
